@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "project": {
+    "name": "plants"
+  },
+  "sampling": {
+    "mode": "auto",
+    "max": 45,
+    "from": null,
+    "to": null,
+    "branch": null,
+    "uiPaths": [
+      "app"
+    ],
+    "everyN": 25,
+    "auto": {
+      "churn": 2500,
+      "minGapDays": 2
+    }
+  },
+  "capture": {
+    "viewports": {
+      "desktop": {
+        "width": 1440,
+        "height": 900
+      },
+      "mobile": {
+        "width": 390,
+        "height": 844
+      }
+    },
+    "signedOut": true,
+    "states": {
+      "enabled": true,
+      "maxClicks": 14,
+      "maxPerPage": 10,
+      "sectionChange": 0.2
+    },
+    "locale": "en-US",
+    "colorScheme": "light",
+    "include": [],
+    "exclude": []
+  },
+  "run": {
+    "concurrency": 4,
+    "basePort": 4100,
+    "keepWorktrees": false,
+    "readyPath": "/login"
+  },
+  "login": null,
+  "lineage": {
+    "pagePaths": [
+      "app"
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "project": { "name": "__NAME__" },
+  "sampling": {
+    "mode": "pilot",
+    "max": null,
+    "from": null,
+    "to": null,
+    "branch": null,
+    "uiPaths": ["."],
+    "everyN": 25,
+    "auto": { "churn": 600, "minGapDays": 1 }
+  },
+  "capture": {
+    "viewports": {
+      "desktop": { "width": 1440, "height": 900 },
+      "mobile": { "width": 390, "height": 844 }
+    },
+    "signedOut": true,
+    "states": { "enabled": true, "maxClicks": 14, "maxPerPage": 10, "sectionChange": 0.2 },
+    "locale": "en-US",
+    "colorScheme": "light",
+    "include": [],
+    "exclude": []
+  },
+  "run": { "concurrency": 3, "basePort": 4100, "keepWorktrees": false, "readyPath": "/" },
+  "forward": { "mode": "auto" },
+  "login": null,
+  "lineage": { "pagePaths": ["."] }
+}

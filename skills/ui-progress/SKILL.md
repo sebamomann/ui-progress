@@ -1,0 +1,211 @@
+---
+name: ui-progress
+description: Track and visualise how a website's UI evolved. Use when the user wants screenshots of their site across its git history, a timeline or graph of pages being added, removed, split or merged, to set up UI history tracking in a repository, to backfill it from old commits, or to capture the current state after a UI change. Also use at the end of a session that changed how a page looks or changed the set of pages, in a repository that has a .ui-progress/ folder.
+---
+
+# ui-progress
+
+Records what every page of a web app looked like at chosen commits, works out how pages
+relate over time, and builds a local viewer. Everything it produces lives in
+`.ui-progress/` inside the user's repository.
+
+The tool is the `ui-progress` command. It is on PATH while this plugin is enabled; if it
+is not found, run it as `node "${CLAUDE_PLUGIN_ROOT}/bin/ui-progress"`. Run it from the
+root of the user's repository. `ui-progress help` lists every command.
+
+The core is generic. Everything specific to one project is in that project's
+`.ui-progress/adapter.mjs`, which **you write** during setup. Read
+`${CLAUDE_PLUGIN_ROOT}/docs/ADAPTERS.md` before writing one, and look at the worked
+example in `${CLAUDE_PLUGIN_ROOT}/examples/nextjs-prisma-postgres/`.
+
+## Pick the job
+
+| The user wants | Do |
+| --- | --- |
+| To start tracking a project | [Set up](#set-up), then a pilot |
+| More history, or the full history | [Backfill](#backfill) |
+| To record what they just changed | [Capture the current state](#capture-the-current-state) |
+| To know what split, merged or was renamed | [Lineage](#lineage) |
+| To look at it | `ui-progress view` |
+| Something in the tool is broken or missing | [Findings](#findings) |
+
+## Set up
+
+1. `ui-progress doctor`. If anything is missing, run `ui-progress doctor --install`
+   (installs Playwright, Chromium and sharp into `~/.ui-progress/deps`, once per machine).
+2. Study the project before asking anything: framework and router, how it is started, the
+   database and how it is migrated and seeded, how sign-in works, where page files live,
+   and how each of these **changed over the history** (`git log --diff-filter=A -- <file>`
+   tells you when a seed script, a lockfile or a login page first appeared).
+3. `ui-progress init --preset <next-app|next-pages|crawl|blank>`.
+4. Write `.ui-progress/adapter.mjs` and adjust `.ui-progress/config.json`
+   (`sampling.uiPaths` and `lineage.pagePaths` should name the folders that hold UI code).
+5. Ask the user only what the repository cannot tell you. Usually that is: which sampling
+   mode (offer the pilot first), and whether throwaway databases may be created on their
+   local database server. Use one question round, not a questionnaire.
+6. Ask the user, in the same question round, whether to add the capture rule to the
+   project's instructions file. The user should never have to know or type the command:
+   you ask, explain, and run `ui-progress instructions --write` yourself on a yes.
+   - Explain why in one or two sentences: with this plugin enabled, hooks already make
+     Claude Code capture after UI changes, but anything that does not load the plugin
+     (another coding agent, a teammate's setup, a cloud or CI session) will not know the
+     history exists, and the record silently falls behind.
+   - Say what it changes: one marked section in `AGENTS.md` (or `CLAUDE.md` if that is the
+     only one), which is a committed file. Running it again updates the section in place.
+   - Recommend yes when the repository shows signs of other agents or collaborators (an
+     `AGENTS.md`, a `.codex/`, `.cursor/` or `.github/copilot-instructions.md`, several
+     commit authors). For a solo project that only ever uses Claude Code with this plugin,
+     say it is optional.
+   - Record the answer in `config.json` as `"forward": { "instructionsFile": true }` or
+     `false`, and do not ask again in a later session when the key is already set.
+     `forward.mode` controls the hooks independently of this.
+7. Prove the adapter on **three commits before anything bigger**: the newest, one from the
+   middle, and the oldest that has real pages. `ui-progress snapshot <sha> <sha> <sha>`.
+   Then open several screenshots from each and look at them (see
+   [Check the result](#check-the-result)).
+
+### Rules for the adapter
+
+- **Never touch real data.** Each snapshot gets its own throwaway database, named after
+  the commit, dropped in `teardown`. Old commits often hardcode a connection string or
+  read a different env file: grep the checkout for literal database URLs and rewrite them,
+  and make `seed` fail if the throwaway database ends up without tables.
+- **Seed every feature.** A page captured in its empty state is a gap. Use the project's
+  own seed where the commit has one, then fill every table it leaves empty. Write inserts
+  that tolerate schema drift (insert only the columns that exist). After seeding, list the
+  tables that are still empty and deal with each one that a page shows. "The project has
+  no seed for this" is never a reason to skip a feature: write the seed.
+- **Placeholder images.** Where the app shows photos, generate themed placeholder pictures
+  for every record: different pictures for different records, and fitting the subject
+  (plants for a plant app, houses and floor plans for a property app, faces for avatars).
+  Draw them as SVG and convert with `ctx.sharp`; never download images.
+- **Dynamic routes.** `resolve(ctx)` must return a concrete URL for every route with a
+  parameter that nothing links to, read from the seeded database.
+- **Handle eras.** One adapter serves every commit. Branch on `ctx.has(file)` and
+  `ctx.read(file)`, not on dates.
+- Checkouts live outside the repository (`~/.ui-progress/work/`), because build tools walk
+  up the folder tree and would pick up the live project's lockfile and config.
+
+## Backfill
+
+1. Choose the commits: `ui-progress plan --mode <mode>`, then show the user the table.
+
+   | Mode | Picks | Use for |
+   | --- | --- | --- |
+   | `pilot` | last commit of each month, at most 8 | a first look in minutes |
+   | `monthly`, `weekly`, `daily` | last commit of each period | a regular cadence |
+   | `every-n` | every Nth commit (`sampling.everyN`) | fixed density |
+   | `auto` | commits that added or removed a page, or where enough UI code changed | the meaningful history |
+   | `all` | every commit | small repositories only |
+   | `manual` | whatever is in `plan.json` | you or the user edit the list |
+
+   `--max N`, `--from DATE`, `--to DATE` narrow any mode. In `auto` mode you may refine the
+   plan yourself: `ui-progress plan --candidates` prints every commit with its UI churn and
+   page changes; edit `.ui-progress/plan.json` to add commits that matter (a redesign that
+   touched few lines) and drop ones that do not, then set `"mode": "manual"` in it so it is
+   not regenerated.
+2. Tell the user the size of the job before starting: number of snapshots, the measured
+   time per snapshot from the three test commits, and the concurrency.
+3. `ui-progress snapshot --plan` (resumable; `--concurrency N`, `--limit N`). For long runs
+   start it in the background and check `ui-progress status`.
+4. Failures are recorded automatically. Read `.ui-progress/snapshots/<sha>/run.log` and
+   `server.log`, fix the adapter, rerun `ui-progress snapshot <sha>`. Do not leave a
+   failed snapshot unexplained.
+5. Do the [lineage](#lineage) pass, then `ui-progress view`.
+
+Going from a pilot to a denser history only captures the commits that are missing.
+
+## Capture the current state
+
+A hook sends you here when a session changed UI files and is about to end without a
+capture. Decide first whether anything visible changed; if not, say so in one line and
+stop. Never commit on the user's behalf to make a capture possible.
+
+After a session changed the UI and the work is committed:
+
+- `ui-progress snapshot HEAD` builds and captures the commit from scratch, like a backfill.
+- `ui-progress snapshot --live http://localhost:3000` captures the app the user already has
+  running. Faster, but it shows their development data and any uncommitted changes, and
+  it only takes page screenshots: dialogs and sections are skipped, because finding them
+  means clicking around in the user's own data. Add `--states` only if they agree to that.
+
+Then, if a page was added, removed, split, merged or renamed in the session, add the edge
+to `.ui-progress/lineage.json` now, while you know exactly what happened and why. Finish
+with `ui-progress build`.
+
+## Lineage
+
+Git cannot tell that a page was split in two. You can.
+
+1. `ui-progress lineage candidates` lists every commit that changed the set of pages,
+   with the evidence: files moved or copied between page folders, and other pages that
+   shrank in the same commit.
+2. For each commit, decide what happened. Read the commit message, and where the evidence
+   is not conclusive, the diff (`git show <sha> --stat`, then the files that matter).
+3. Write `.ui-progress/lineage.json`:
+
+   ```json
+   {
+     "edges": [
+       { "type": "split", "from": "/account", "to": ["/account/settings"], "sha": "ba0ada76",
+         "date": "2026-09-17", "confidence": "high",
+         "evidence": "New page is a 70% copy of /account, which lost 196 lines." }
+     ],
+     "reviewed": { "63c79488": "/changelog is a new feature" }
+   }
+   ```
+
+   | type | meaning |
+   | --- | --- |
+   | `split` | one page became several; the original keeps part |
+   | `extract` | a part of a page moved out to its own page |
+   | `merge` / `absorb` | pages were folded into another |
+   | `replace` | a page was superseded by a new one |
+   | `rename` | same page, new address |
+   | `clone` | a new page built from a copy of another (shared template, not shared content) |
+
+   `from` and `to` take one route or a list. `evidence` is required: say what you saw, in
+   one or two sentences. List every commit you judged to have **no** lineage under
+   `reviewed`, with the reason, so the next pass does not redo it.
+4. `ui-progress lineage check`, then `ui-progress build`.
+
+Be conservative: a copied boilerplate file is not lineage. Record `confidence` honestly.
+
+## Check the result
+
+Never report a capture as done without looking at it. For a sample of pages per snapshot,
+open the PNG in `.ui-progress/snapshots/<sha>/shots/` and check:
+
+- it is the page, not an error page, a blank page or a login form
+- the data is there (lists are not empty, images are not broken)
+- animations had finished (no half-faded content)
+- the signed-out and signed-in versions differ where they should (`*.public.*` vs `*.user.*`)
+
+Then read `snapshot.json`: `skipped` lists every route that was not captured and why.
+Each entry is either fixed (seed more, add a `resolve` hint) or explained to the user.
+
+## Findings
+
+When **ui-progress itself** misbehaves, lacks something, or needs a workaround, record it
+at once, before working around it:
+
+```
+ui-progress finding add --kind bug --title "Section detection misses accordion panels" \
+  --detail "What happened, what was expected, how to reproduce, what you did instead." \
+  --command "ui-progress snapshot abc1234" --sha abc1234 --log-file .ui-progress/snapshots/abc1234/run.log
+```
+
+Kinds: `bug`, `limitation`, `workaround`, `idea`. Failed snapshots add a `failure` finding
+on their own; when the cause turns out to be the project's adapter and not the tool,
+`ui-progress finding resolve <id>`.
+
+At the end of the work, if there are open findings, run `ui-progress finding export` and
+tell the user that `.ui-progress/findings/REPORT.md` is ready to send to the plugin's
+maintainer. Findings can contain paths and log lines from their project: ask them to read
+it before sending, and never send it anywhere yourself.
+
+## Reference
+
+- `${CLAUDE_PLUGIN_ROOT}/docs/ADAPTERS.md` — the adapter contract, with examples for Next.js, Django and others
+- `${CLAUDE_PLUGIN_ROOT}/docs/CONFIGURATION.md` — every key of `config.json`
+- `${CLAUDE_PLUGIN_ROOT}/docs/TROUBLESHOOTING.md` — common failures and their fixes

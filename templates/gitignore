@@ -1,0 +1,10 @@
+# Throwaway checkouts of old commits (large).
+work/
+
+# Screenshots and the viewer's derived data. Remove these two lines to commit the
+# history itself; expect roughly 20-40 MB per snapshot.
+snapshots/
+viewer/
+
+# Per-session bookkeeping of the capture reminder.
+.hook-state.json

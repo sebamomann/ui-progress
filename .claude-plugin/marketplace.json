@@ -1,0 +1,12 @@
+{
+  "name": "ui-progress",
+  "description": "The ui-progress plugin",
+  "owner": { "name": "Sebastian Momann" },
+  "plugins": [
+    {
+      "name": "ui-progress",
+      "source": "./",
+      "description": "Track how a website's UI evolves across its git history, and browse it."
+    }
+  ]
+}
