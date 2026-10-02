@@ -38,8 +38,11 @@ async function sql(ctx, database, text) {
 
 export default {
   async install(ctx) {
-    // One early commit has no lockfile.
-    await ctx.exec(`npm ${ctx.has("package-lock.json") ? "ci" : "install"} --no-audit --no-fund --prefer-offline`);
+    // One early commit has no lockfile, and a few have one that is out of sync with
+    // package.json, which `npm ci` refuses.
+    const flags = "--no-audit --no-fund --prefer-offline";
+    if (!ctx.has("package-lock.json")) await ctx.exec(`npm install ${flags}`);
+    else await ctx.exec(`npm ci ${flags}`).catch(() => ctx.exec(`npm install ${flags}`));
     if (ctx.has("prisma/schema.prisma")) await ctx.exec("npx prisma generate", { env: env(ctx) });
   },
 
@@ -59,7 +62,28 @@ export default {
     await sql(ctx, "postgres", `DROP DATABASE IF EXISTS "${db}" WITH (FORCE)`);
     if (ctx.has("scripts/seed-test-db.ts")) {
       // Creates the database, migrates it and seeds the project's own dataset.
-      await ctx.exec(`"${tsx}" scripts/seed-test-db.ts`, { env: vars });
+      try {
+        await ctx.exec(`"${tsx}" scripts/seed-test-db.ts`, { env: vars });
+      } catch {
+        // Some commits carry a migration that only applied on top of the real database's
+        // state. Build the schema from the schema file, mark every migration as applied,
+        // and let the seed script run again: its own migrate step then has nothing to do.
+        ctx.log("seed failed, most likely in a migration; creating the schema with db push and retrying");
+        await sql(ctx, "postgres", `DROP DATABASE IF EXISTS "${db}" WITH (FORCE)`);
+        await sql(ctx, "postgres", `CREATE DATABASE "${db}"`);
+        await ctx.exec("npx prisma db push --accept-data-loss", { env: vars });
+        const migrations = fs.readdirSync(path.join(ctx.dir, "prisma", "migrations"), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+        for (const name of migrations) await ctx.exec(`npx prisma migrate resolve --applied ${name}`, { env: vars });
+        try {
+          await ctx.exec(`"${tsx}" scripts/seed-test-db.ts`, { env: vars });
+        } catch {
+          // A commit caught mid-refactor: its seed script no longer matches its own schema.
+          // Create just the user; enrich.mjs then writes the whole dataset by hand.
+          ctx.log("the project's seed does not match this commit's schema; seeding by hand instead");
+          ctx.state.notes = [...(ctx.state.notes ?? []), "project seed unusable at this commit; hand-written dataset used"];
+          await ctx.exec(`"${tsx}" scripts/setup-user.ts ${EMAIL} '${PASSWORD}' --admin`, { env: vars });
+        }
+      }
     } else {
       // Before the project had a seed script: schema plus one user; enrich.mjs adds the data.
       await sql(ctx, "postgres", `CREATE DATABASE "${db}"`);

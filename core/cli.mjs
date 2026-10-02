@@ -32,7 +32,7 @@ Choosing commits
 Capturing
   snapshot <sha...>             capture specific commits
   snapshot --plan               capture every planned commit that is not done yet
-      [--concurrency N] [--force] [--limit N]
+      [--concurrency N] [--force] [--limit N] [--ignore-memory]
   snapshot --live <url>         capture the app that is already running, as HEAD
       [--states]                also click through it for dialogs and sections (it is
                                 your own data: off by default)
@@ -168,7 +168,13 @@ async function snapshot(flags, positional) {
     return;
   }
   ensureClone(p); // once, here: the parallel workers must not race to create or fetch it
-  const concurrency = Math.max(1, Number(flags.concurrency ?? config.run.concurrency));
+  // Each snapshot runs the app's dev server and a browser: budget about 3.5 GB apiece and
+  // leave 6 GB for everything else on the machine. Asking for more than fits is how a long
+  // run gets killed for memory halfway through.
+  const wanted = Math.max(1, Number(flags.concurrency ?? config.run.concurrency));
+  const fits = Math.max(1, Math.floor((os.totalmem() / 2 ** 30 - 6) / 3.5));
+  const concurrency = flags["ignore-memory"] ? wanted : Math.min(wanted, fits);
+  if (concurrency < wanted) console.log(`This machine has ${Math.round(os.totalmem() / 2 ** 30)} GB of memory: running ${concurrency} at a time instead of ${wanted} (override with --ignore-memory).`);
   const queue = [...shas];
   const started = Date.now();
   let done = 0;

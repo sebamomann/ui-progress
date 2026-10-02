@@ -25,6 +25,7 @@ message). Set `UI_PROGRESS_DEBUG=1` for stack traces from the CLI itself.
 | The same dialog appears as separate rows across time | Views are matched by their button label, and the label changed | Known limitation; record a finding if it matters to you |
 | Capture is slow | Section and dialog discovery reloads the page after every click that changed it | Lower `states.maxClicks`, set `states.enabled: false` for a quick pass, raise `run.concurrency` |
 | Everything is "redesign" | Different seed data between eras counts as visual change | Raise `thresholds.redesign`; keep the seed stable across eras where possible |
+| A long run is killed, or the machine becomes unresponsive | Too many snapshots in parallel for the memory available | Lower `run.concurrency`. The automatic cap assumes 3.5 GB per snapshot; large apps need more |
 | Disk fills up | Kept checkouts or many snapshots | `rm -rf ~/.ui-progress/work`; snapshots are 20–40 MB each |
 
 ## Starting over

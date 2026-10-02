@@ -46,7 +46,7 @@ your app; a button that matches is never clicked, so its dialog is not captured 
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `concurrency` | `3` | Snapshots built at the same time. Each one runs your app, so lower it on a small machine |
+| `concurrency` | `3` | Snapshots built at the same time. Each one runs your app's dev server and a browser, roughly 2.5–3.5 GB together. The number is capped to what fits in memory (about one per 3.5 GB after reserving 6 GB; two on a 16 GB machine) unless you pass `--ignore-memory` |
 | `basePort` | `4100` | First port; worker *n* uses `basePort + n` |
 | `readyPath` | `"/"` | Path polled to know the app is up (the adapter's `start` can override it) |
 | `readyTimeoutMs` | `180000` | How long to wait for it |
