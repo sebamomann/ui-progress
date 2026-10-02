@@ -74,6 +74,19 @@ a:hover { text-decoration: underline; }
 .ghost:hover { border-color: var(--accent); text-decoration: none; }
 .menu-btn { display: none; }
 .content { flex: 1; min-height: 0; overflow: auto; }
+.focusbar { display: flex; align-items: center; gap: 8px; padding: 7px 16px; background: var(--accent-soft); border-bottom: 1px solid var(--line); flex-wrap: wrap; font-size: 13px; }
+.focusbar[hidden] { display: none; }
+.focuslabel { color: var(--muted); }
+.chip { display: inline-flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 6px 2px 9px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+.chip button { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 0 2px; font-size: 14px; line-height: 1; }
+.chip button:hover { color: var(--gone); }
+.focus-btn { border: 1px solid transparent; background: none; border-radius: 6px; cursor: pointer; color: var(--faint); padding: 0 5px; font-size: 13px; line-height: 1.4; flex: 0 0 auto; }
+.focus-btn:hover { color: var(--accent); border-color: var(--accent); }
+.focus-btn[aria-pressed="true"] { color: var(--on-accent); background: var(--accent); }
+.tree .row { display: flex; align-items: center; gap: 2px; }
+.tree .row a { flex: 1; min-width: 0; }
+.graph .labels .lrow { display: flex; align-items: center; }
+.graph .labels .lrow .grow { flex: 1; min-width: 0; }
 .pad { padding: 16px 16px 48px; }
 .lead { color: var(--muted); max-width: 78ch; margin: 0 0 12px; }
 .legend { display: flex; gap: 14px; color: var(--muted); font-size: 12.5px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
@@ -197,6 +210,8 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .frame .shot { display: block; width: 100%; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--surface); cursor: zoom-in; padding: 0; line-height: 0; box-shadow: var(--shadow); max-height: 560px; }
 .frame .shot img { width: 100%; display: block; }
 .frame .gap { border: 1px dashed var(--line-strong); border-radius: 8px; padding: 26px 12px; color: var(--muted); text-align: center; }
+.frame.skip { width: 170px; }
+.frame.skip .gap { font-size: 12.5px; line-height: 1.6; padding: 18px 10px; }
 .frame .caption { color: var(--faint); font-size: 12px; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .compare { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-width: 1100px; }
 .compare .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
@@ -204,8 +219,12 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .compare .stage { position: relative; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden auto; max-height: 78vh; line-height: 0; background: var(--raised); }
 .compare .stage img { width: 100%; display: block; }
 .compare .stage .after { position: absolute; inset: 0 0 auto 0; }
-.compare .handle { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; }
-.compare input[type="range"] { flex: 1; min-width: 180px; accent-color: var(--accent); }
+.compare .stage { cursor: col-resize; user-select: none; }
+.compare .stage.dragging { cursor: col-resize; }
+.compare .stage img { pointer-events: none; }
+.compare .handle { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); pointer-events: none; }
+.compare .handle .grip { position: sticky; top: 50%; left: 50%; display: block; width: 36px; height: 36px; margin: 0 0 0 -17px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 18px; line-height: 36px; text-align: center; box-shadow: var(--shadow); }
+.compare .cmphint { flex: 1; text-align: center; color: var(--faint); font-size: 12.5px; }
 
 /* Snapshots */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
@@ -269,6 +288,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     <label class="check" title="Hide pages that never changed"><input type="checkbox" id="onlyChanged"> Changed pages only</label>
     <div class="seg" role="group" aria-label="Viewport" id="viewports"></div>
     <button class="ghost" id="theme" title="Switch light and dark">Theme</button>
+  </div>
+  <div class="focusbar" id="focusbar" hidden>
+    <span class="focuslabel">Showing what is connected to</span><span id="focuschips"></span>
+    <label class="check" title="Also follow the grey structure links (a page added under another)"><input type="checkbox" id="focusStructure"> include structure links</label>
+    <button class="ghost" id="focusClear">Show everything</button>
   </div>
   <div class="content" id="content"></div>
 </div>
@@ -334,7 +358,47 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   const exists = (page, i) => Boolean(page.presence[snaps[i].id]);
   const lifespan = (page) => { const on = snaps.map((_, i) => i).filter((i) => exists(page, i)); return { first: on[0], last: on[on.length - 1] }; };
   const everChanged = (page) => !page.seen || snaps.some((_, i) => ["new", "major", "minor", "redirect"].includes(status(page, i).kind)) || lifespan(page).last < snaps.length - 1;
-  const matches = (page) => { const q = state.search.trim().toLowerCase(); return (!q || page.id.toLowerCase().includes(q)) && (!state.onlyChanged || everChanged(page)); };
+  state.focus = new Set();
+  state.focusStructure = false;
+  /** Every page reachable from the focused ones through lineage edges, in either direction. */
+  function connected() {
+    if (!state.focus.size) return null;
+    const seen = new Set(state.focus);
+    const queue = [...state.focus];
+    while (queue.length) {
+      const id = queue.shift();
+      for (const e of H.edges) {
+        if (e.type === "branch" && !state.focusStructure) continue;
+        const other = e.from === id ? e.to : e.to === id ? e.from : null;
+        if (other && !seen.has(other)) { seen.add(other); queue.push(other); }
+      }
+    }
+    return seen;
+  }
+  const matches = (page) => {
+    const q = state.search.trim().toLowerCase();
+    const inFocus = !state.focusSet || state.focusSet.has(page.id);
+    return inFocus && (!q || page.id.toLowerCase().includes(q)) && (!state.onlyChanged || everChanged(page));
+  };
+  function toggleFocus(id) { state.focus.has(id) ? state.focus.delete(id) : state.focus.add(id); render(); }
+  function focusButton(id) {
+    const b = el(`<button class="focus-btn" aria-pressed="${state.focus.has(id)}" title="${state.focus.has(id) ? "Stop focusing on this page" : "Focus: show only what is connected to this page"}">⌖</button>`);
+    b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); toggleFocus(id); });
+    return b;
+  }
+  function renderFocusBar() {
+    const bar = document.getElementById("focusbar");
+    bar.hidden = !state.focus.size;
+    const chips = document.getElementById("focuschips");
+    chips.innerHTML = "";
+    for (const id of state.focus) {
+      const chip = el(`<span class="chip"><a href="${pageHref(id)}">${esc(id)}</a><button title="Remove">×</button></span>`);
+      chip.querySelector("button").addEventListener("click", () => toggleFocus(id));
+      chips.append(chip);
+    }
+    const n = state.focusSet ? state.focusSet.size : 0;
+    document.querySelector(".focuslabel").textContent = `${plural(n, "connected page")}. Showing what is connected to`;
+  }
   const STATUS_TEXT = { new: "new here", base: "first snapshot", major: "redesigned", minor: "small change", same: "unchanged", missing: "exists, not captured", absent: "does not exist" };
 
   const pillFor = (st) =>
@@ -362,7 +426,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     const tree = document.getElementById("tree");
     const q = state.search.trim().toLowerCase();
     const bySection = new Map();
-    for (const p of H.pages) if (!q || p.id.toLowerCase().includes(q)) (bySection.get(p.section) ?? bySection.set(p.section, []).get(p.section)).push(p);
+    for (const p of H.pages) if ((!q || p.id.toLowerCase().includes(q)) && (!state.focusSet || state.focusSet.has(p.id))) (bySection.get(p.section) ?? bySection.set(p.section, []).get(p.section)).push(p);
     const wasOpen = new Set([...tree.querySelectorAll("details[open]")].map((d) => d.dataset.section));
     tree.innerHTML = "";
     for (const [section, pages] of bySection) {
@@ -370,7 +434,10 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       const d = el(`<details ${open ? "open" : ""} data-section="${esc(section)}"><summary>${esc(section)}<span>${pages.length}</span></summary></details>`);
       for (const p of pages) {
         const extra = extraViews(p).length;
-        d.append(el(`<a href="${pageHref(p.id)}" class="${p.seen ? "" : "unseen"}" ${p.id === current ? 'aria-current="page"' : ""} title="${p.seen ? "" : "Existed between snapshots, or was never captured"}">${esc(p.id)}<span>${p.seen ? (extra ? "+" + extra : "") : "no shots"}</span></a>`));
+        const row = el('<div class="row"></div>');
+        row.append(el(`<a href="${pageHref(p.id)}" class="${p.seen ? "" : "unseen"}" ${p.id === current ? 'aria-current="page"' : ""} title="${p.seen ? "" : "Existed between snapshots, or was never captured"}">${esc(p.id)}<span>${p.seen ? (extra ? "+" + extra : "") : "no shots"}</span></a>`));
+        row.append(focusButton(p.id));
+        d.append(row);
       }
       tree.append(d);
     }
@@ -379,9 +446,9 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 
   // ---------- Graph ----------
   function renderGraph() {
-    header("Graph", `${H.pages.length} pages · ${H.project.commits} commits · ${esc(H.project.from)} to ${esc(H.project.to)}`);
+    header("Graph", `${H.pages.length} pages · ${plural(snaps.length, "snapshot")} of ${H.project.commits} commits · ${esc(H.project.from)} to ${esc(H.project.to)}`);
     const pad = el('<div class="pad"></div>');
-    pad.append(el('<p class="lead">Each line is one page, from the day it was added to the day it was removed. A line that curves out of another came from that page; a line that curves into another went into it. Dots are the snapshots where screenshots exist. Hover a curve for the evidence, click a line to open the page.</p>'));
+    pad.append(el('<p class="lead">Each line is one page, from the day it was added to the day it was removed. A line that curves out of another came from that page; a line that curves into another went into it. Dots are the snapshots where screenshots exist. Hover a curve for the evidence, click a line to open the page. The ⌖ next to a page shows only what is connected to it.</p>'));
     pad.append(el(`<div class="legend">
       <span><i class="key new"></i> first seen</span><span><i class="key major"></i> redesigned</span><span><i class="key minor"></i> small change</span><span><i class="key same"></i> unchanged</span>
       <span><i class="key split"></i> split off</span><span><i class="key merge"></i> merged or replaced</span><span><i class="key move"></i> renamed or redirected</span><span><i class="key clone"></i> built from a copy</span><span><i class="key line"></i> new under a parent</span></div>`));
@@ -407,7 +474,9 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     for (const p of pages) {
       if (p.section !== section) { section = p.section; labels.append(el(`<div class="gsection">${esc(section)}</div>`)); bands.push(y); y += SEC; }
       const a = el(`<a class="grow ${p.seen ? "" : "unseen"}" href="${pageHref(p.id)}" title="${esc(p.id)}">${esc(p.id)}</a>`);
-      labels.append(a);
+      const lrow = el('<div class="lrow"></div>');
+      lrow.append(a, focusButton(p.id));
+      labels.append(lrow);
       rows[p.id] = { y: y + ROW / 2, label: a };
       y += ROW;
     }
@@ -636,6 +705,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       facts.append(el(`<div class="row"><span class="pill ${cls}">${text}</span><a class="mono" href="${pageHref(out ? e.to : e.from)}">${esc(out ? e.to : e.from)}</a><span>${esc(e.date)}</span>${e.sha ? `<span class="mono">${esc(e.sha)}</span>` : ""}${e.confidence ? `<span>${esc(e.confidence)} confidence</span>` : ""}</div>`));
       if (e.note) facts.append(el(`<div class="why">${esc(e.note)}</div>`));
     }
+    const focusRow = el('<div class="row"></div>');
+    const fb = el(`<button class="ghost" aria-pressed="${state.focus.has(id)}">${state.focus.has(id) ? "Stop focusing on this page" : "Show only what is connected to this page"}</button>`);
+    fb.addEventListener("click", () => { toggleFocus(id); if (state.focus.has(id)) location.hash = "#/"; });
+    focusRow.append(fb);
+    facts.append(focusRow);
     facts.append(el(`<div class="row" style="margin-top:4px">${at > 0 ? `<a class="ghost" href="${pageHref(order[at - 1].id)}">← ${esc(order[at - 1].id)}</a>` : ""}${at >= 0 && at < order.length - 1 ? `<a class="ghost" href="${pageHref(order[at + 1].id)}">${esc(order[at + 1].id)} →</a>` : ""}</div>`));
     pad.append(facts);
 
@@ -660,12 +734,29 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     const detail = wrap.querySelector(".detail");
     detail.append(el(`<div class="h2" style="margin-top:0">${esc(view.label)} over time</div>`));
     const strip = el('<div class="strip"></div>');
-    let hidden = 0;
     const series = seriesFor(`${page.id}${view.id === "page" ? "" : " · " + view.label}`, view);
+    // Snapshots that are skipped are summarised in a slim card between the frames, so a
+    // gap in time is visible without a frame for every snapshot.
+    let run = null;
+    const flush = () => {
+      if (!run) return;
+      const parts = [];
+      if (run.without) parts.push(`${plural(run.without, "snapshot")} without this view`);
+      if (run.same) parts.push(`${run.same} unchanged`);
+      const card = el(`<div class="frame skip ${narrow() ? "narrow" : ""}"><header><b>${esc(run.from)}</b>${run.from !== run.to ? `<span class="mono" style="color:var(--muted)">→ ${esc(run.to)}</span>` : ""}</header>
+        <div class="gap">${parts.join("<br>")}${run.same ? '<br><button class="expander">Show the unchanged ones</button>' : ""}</div></div>`);
+      card.querySelector("button")?.addEventListener("click", () => { document.getElementById("showSame").checked = state.showSame = true; render(); });
+      strip.append(card);
+      run = null;
+    };
+    const skip = (s, kind) => { run ??= { from: s.date, to: s.date, without: 0, same: 0 }; run.to = s.date; run[kind]++; };
     snaps.forEach((s, i) => {
       const st = viewStatus(view, i);
-      if (st.kind === "same" && !state.showSame) { hidden++; return; }
       if (!st.shot && status(page, i).kind === "absent") return;
+      if (st.kind === "same" && !state.showSame) { skip(s, "same"); return; }
+      // For a section, dialog or signed-out view, a snapshot without it is a gap, not a frame.
+      if (!st.shot && view.id !== "page") { skip(s, "without"); return; }
+      flush();
       const frame = el(`<div class="frame ${narrow() ? "narrow" : ""}"><header><b>${esc(s.date)}</b><span class="mono" style="color:var(--muted)">${esc(s.id)}</span>${pillFor(st)}</header></div>`);
       if (st.shot && img(st.shot)) {
         const b = el(`<button class="shot"><img loading="lazy" src="${esc(img(st.shot).mid)}" alt="${esc(page.id)} on ${esc(s.date)}"></button>`);
@@ -679,12 +770,8 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       frame.append(el(`<div class="caption" title="${esc(s.subject)}">${esc(s.subject)}</div>`));
       strip.append(frame);
     });
+    flush();
     detail.append(strip);
-    if (hidden) {
-      const note = el(`<p class="lead" style="margin-top:-4px">${plural(hidden, "snapshot")} where this looked the same as before ${hidden === 1 ? "is" : "are"} hidden. <button class="expander">Show them</button></p>`);
-      note.querySelector("button").addEventListener("click", () => { document.getElementById("showSame").checked = state.showSame = true; render(); });
-      detail.append(note);
-    }
     // The slider offers the snapshots where the view changed (all of them when shown).
     const withShots = snaps.filter((s, i) => img(view.shots[s.id]) && (state.showSame || viewStatus(view, i).kind !== "same"));
     if (withShots.length >= 2) {
@@ -697,17 +784,27 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 
   function compare(view, withShots) {
     const options = (sel) => withShots.map((s) => `<option value="${s.id}" ${s.id === sel ? "selected" : ""}>${esc(s.date)} · ${esc(s.id)}</option>`).join("");
-    const box = el(`<div class="compare"><div class="controls"><select class="field">${options(withShots[0].id)}</select>
-      <input type="range" min="0" max="100" value="50" aria-label="Reveal"><select class="field">${options(withShots[withShots.length - 1].id)}</select></div>
-      <div class="stage"><img class="before" alt=""><img class="after" alt=""><div class="handle"></div></div></div>`);
+    const box = el(`<div class="compare"><div class="controls"><select class="field">${options(withShots[0].id)}</select><span class="cmphint">Drag the line over the image</span><select class="field">${options(withShots[withShots.length - 1].id)}</select></div>
+      <div class="stage"><img class="before" alt=""><img class="after" alt=""><div class="handle" role="slider" aria-label="Reveal" aria-valuemin="0" aria-valuemax="100" tabindex="0"><span class="grip">⟷</span></div></div></div>`);
     const [a, b] = box.querySelectorAll("select");
-    const range = box.querySelector("input"), before = box.querySelector(".before"), after = box.querySelector(".after"), handle = box.querySelector(".handle");
-    const update = () => {
-      before.src = img(view.shots[a.value]).full; after.src = img(view.shots[b.value]).full;
-      after.style.clipPath = `inset(0 0 0 ${range.value}%)`; handle.style.left = range.value + "%";
-    };
-    [a, b, range].forEach((n) => n.addEventListener("input", update));
-    update();
+    const stage = box.querySelector(".stage"), before = box.querySelector(".before"), after = box.querySelector(".after"), handle = box.querySelector(".handle");
+    let split = 50;
+    const paint = () => { after.style.clipPath = `inset(0 0 0 ${split}%)`; handle.style.left = split + "%"; handle.setAttribute("aria-valuenow", Math.round(split)); };
+    const load = () => { before.src = img(view.shots[a.value]).full; after.src = img(view.shots[b.value]).full; paint(); };
+    [a, b].forEach((n) => n.addEventListener("input", load));
+    // The split follows the pointer anywhere on the image; the handle just shows where it is.
+    const setFromPointer = (e) => { const r = stage.getBoundingClientRect(); split = Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)); paint(); };
+    stage.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      setFromPointer(e);
+      stage.classList.add("dragging");
+      const move = (ev) => setFromPointer(ev);
+      const up = () => { stage.classList.remove("dragging"); window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+      window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+    });
+    handle.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") { split = Math.max(0, split - 2); paint(); } if (e.key === "ArrowRight") { split = Math.min(100, split + 2); paint(); } });
+    load();
     return box;
   }
 
@@ -795,6 +892,8 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     render.last = hash;
     document.getElementById("tip").style.display = "none";
     document.body.classList.remove("side-open");
+    state.focusSet = connected();
+    renderFocusBar();
     let active = "graph", current = null;
     if (hash.startsWith("#/page/")) {
       const [id, view] = hash.slice(7).split("/").map(decodeURIComponent);
@@ -807,11 +906,13 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     renderTree(current);
     if (keep) { content.scrollLeft = keep[0]; content.scrollTop = keep[1]; } else content.scrollTop = 0;
   }
-  document.getElementById("project").textContent = H.project.name;
+  document.getElementById("project").innerHTML = `${esc(H.project.name)}<br>${plural(snaps.length, "snapshot")} of ${H.project.commits} commits`;
   document.title = `UI History · ${H.project.name}`;
   document.getElementById("search").addEventListener("input", (e) => { state.search = e.target.value; render(); e.target.focus(); });
   document.getElementById("onlyChanged").addEventListener("change", (e) => { state.onlyChanged = e.target.checked; render(); });
   document.getElementById("showSame").addEventListener("change", (e) => { state.showSame = e.target.checked; render(); });
+  document.getElementById("focusClear").addEventListener("click", () => { state.focus.clear(); render(); });
+  document.getElementById("focusStructure").addEventListener("change", (e) => { state.focusStructure = e.target.checked; render(); });
   const seg = document.getElementById("viewports");
   viewportNames.forEach((name, i) => {
     const b = el(`<button data-viewport="${esc(name)}" aria-pressed="${i === 0}">${esc(name)}</button>`);

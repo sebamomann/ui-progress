@@ -53,10 +53,24 @@ Continue with [SETUP.md](SETUP.md).
 
 ## Update
 
-```
-claude plugin marketplace update ui-progress
-claude plugin update ui-progress@ui-progress
-```
+Claude Code does not announce new plugin versions. Either turn on automatic updates once,
+or update by hand:
+
+- **Automatic:** in a session, `/plugin`, open **Marketplaces**, select `ui-progress`, and
+  choose **Enable auto-update**. New versions are then fetched in the background after a
+  session starts.
+- **By hand:**
+
+  ```
+  claude plugin marketplace update ui-progress
+  claude plugin update ui-progress@ui-progress
+  ```
+
+Then, in each tracked repository, `ui-progress view` (or `build`). The viewer in
+`.ui-progress/viewer/` is a copy made at build time, so a new plugin version reaches it
+only when the viewer is rebuilt; the screenshots and data stay as they are. After an
+update, the first session in a tracked repository says that the viewer is out of date, and
+Claude rebuilds it when asked.
 
 ## Uninstall
 

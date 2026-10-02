@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { findRepo, loadConfig, paths } from "./config.mjs";
-import { git, readJson, writeJson } from "./util.mjs";
+import { VERSION, git, readJson, writeJson } from "./util.mjs";
 
 const MARK_START = "<!-- ui-progress:start -->";
 const MARK_END = "<!-- ui-progress:end -->";
@@ -56,9 +56,13 @@ export function sessionStart() {
   if (mode === "off") return;
   if (input.session_id) saveSession(p, input.session_id, { start: uiState(p, config) });
   const done = fs.existsSync(p.snapshots) ? fs.readdirSync(p.snapshots).filter((s) => fs.existsSync(path.join(p.snapshots, s, "OK"))).length : 0;
+  // The viewer in the project is a copy made at build time; say so when the plugin moved on.
+  const dataFile = path.join(p.viewer, "data", "history.js");
+  const builtWith = fs.existsSync(dataFile) ? /"tool":\{"name":"ui-progress","version":"([^"]+)"/.exec(fs.readFileSync(dataFile, "utf8").slice(0, 400))?.[1] : null;
+  const stale = builtWith && builtWith !== VERSION ? ` The viewer in .ui-progress/viewer was built with ui-progress ${builtWith}; this is ${VERSION}, so run \`ui-progress build\` once to update it.` : "";
   console.log(
     `This repository records its UI history with ui-progress (${done} snapshots in .ui-progress/). ` +
-      `When this session changes how a page looks, or adds, removes, splits, merges or renames a page, capture it before finishing: use the ui-progress skill ("Capture the current state").`,
+      `When this session changes how a page looks, or adds, removes, splits, merges or renames a page, capture it before finishing: use the ui-progress skill ("Capture the current state").` + stale,
   );
 }
 
