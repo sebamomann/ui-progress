@@ -260,7 +260,7 @@ async function snapshot(flags, positional) {
   const runChild = async (sha, slot) => {
     const line = await new Promise((resolve) => {
       let output = "";
-      const child = spawn(process.execPath, [SELF, "snapshot", sha, "--port", String(config.run.basePort + slot)], { cwd: p.repo, env: { ...process.env, UI_PROGRESS_CONCURRENCY: String(concurrency) }, stdio: ["ignore", "pipe", "inherit"] });
+      const child = spawn(process.execPath, [SELF, "snapshot", sha, "--port", String(config.run.basePort + slot)], { cwd: p.repo, env: { ...process.env, UI_PROGRESS_CONCURRENCY: String(Math.min(concurrency, shas.length)) }, stdio: ["ignore", "pipe", "inherit"] });
       child.stdout.on("data", (d) => (output += d));
       child.on("exit", () => resolve(output.trim().split("\n").pop()));
     });
@@ -324,7 +324,7 @@ async function snapshot(flags, positional) {
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, shas.length) }, (_, i) => worker(i)));
-  appendRun(p, { kind: "batch", command: `ui-progress snapshot ${process.argv.slice(3).join(" ")}`.trim(), started: new Date(started).toISOString(), seconds: Math.round((Date.now() - started) / 1000), snapshots: shas.length, ok: done - failed, failed, standIns, concurrency });
+  appendRun(p, { kind: "batch", command: `ui-progress snapshot ${process.argv.slice(3).join(" ")}`.trim(), started: new Date(started).toISOString(), seconds: Math.round((Date.now() - started) / 1000), snapshots: shas.length, ok: done - failed, failed, standIns, concurrency: Math.min(concurrency, shas.length) });
   console.log(`\nDone in ${Math.round((Date.now() - started) / 60000)} min: ${done - failed} captured, ${failed} failed.`);
   if (failed) console.log("Failures are recorded as findings: ui-progress finding list");
 }
