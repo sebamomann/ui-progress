@@ -326,6 +326,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 /* ---------- Lightbox ---------- */
 .lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(8, 9, 12, .94); display: none; flex-direction: column; color: #eee; }
 .lightbox.open { display: flex; }
+.lightbox .body:focus { outline: none; }
 .lightbox .bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; flex-wrap: wrap; }
 .lightbox .where { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; }
 .lightbox .when { color: #b9bac4; }
@@ -409,7 +410,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     <span class="lbzoom"><button id="lbOut" title="Zoom out (−)">−</button><output id="lbZoom"></output><button id="lbIn" title="Zoom in (+)">+</button><button id="lbWidth" title="Fill the width (0)">Width</button><button id="lbPage" title="Show the whole screenshot">Whole</button></span>
     <button id="lbPlay" title="Step through time automatically">▶ Play</button><button id="lbPrev">← Older</button><button id="lbNext">Newer →</button><button id="lbClose">Close</button>
   </div>
-  <div class="body"><div class="stack" id="lbStack"><img id="lbImg" alt=""><canvas id="lbTint"></canvas></div></div>
+  <div class="body" tabindex="-1"><div class="stack" id="lbStack"><img id="lbImg" alt=""><canvas id="lbTint"></canvas></div></div>
 </div>
 
 <script src="data/history.js"></script>
@@ -1183,7 +1184,12 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   function setZoom(zoom) { lb.zoom = zoom === "page" ? zoom : Math.min(1, Math.max(0.1, zoom)); applyZoom(); }
   const zoomBy = (factor) => setZoom(Math.round(lbScale() * factor * 100) / 100);
   lbImg.addEventListener("load", applyZoom);
-  function openLightbox(series, index, play = false) { lb.series = series; lb.index = index; lb.box.classList.add("open"); paintLightbox(); if (play) setPlaying(true); }
+  function openLightbox(series, index, play = false) {
+    lb.series = series; lb.index = index; lb.opener = document.activeElement;
+    lb.box.classList.add("open");
+    lbBody.focus({ preventScroll: true });
+    paintLightbox(); if (play) setPlaying(true);
+  }
   function setPlaying(on) {
     clearInterval(lb.timer); lb.timer = null;
     document.getElementById("lbPlay").setAttribute("aria-pressed", String(on));
@@ -1220,7 +1226,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     document.getElementById("lbPrev").disabled = nextFrame(-1) == null;
     document.getElementById("lbNext").disabled = nextFrame(1) == null;
   }
-  const closeLightbox = () => { setPlaying(false); lb.box.classList.remove("open"); };
+  const closeLightbox = () => { setPlaying(false); lb.box.classList.remove("open"); lb.opener?.focus?.({ preventScroll: true }); };
   document.getElementById("lbPrev").addEventListener("click", () => step(-1));
   document.getElementById("lbNext").addEventListener("click", () => step(1));
   document.getElementById("lbClose").addEventListener("click", closeLightbox);
@@ -1233,16 +1239,25 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   lbBody.addEventListener("wheel", (e) => { if (!e.ctrlKey) return; e.preventDefault(); zoomBy(Math.exp(-e.deltaY / 100)); }, { passive: false });
   window.addEventListener("resize", () => { if (lb.box.classList.contains("open")) applyZoom(); });
   lb.box.addEventListener("click", (e) => { if (e.target === lb.box || e.target.classList.contains("body")) closeLightbox(); });
+  // Captured before anything else: while the lightbox is open its keys belong to it, and
+  // the page behind must neither scroll nor react.
+  const lbKeys = {
+    Escape: () => closeLightbox(),
+    ArrowLeft: () => { setPlaying(false); step(-1); },
+    ArrowRight: () => { setPlaying(false); step(1); },
+    " ": () => setPlaying(!lb.timer),
+    "-": () => zoomBy(1 / 1.25), _: () => zoomBy(1 / 1.25),
+    "+": () => zoomBy(1.25), "=": () => zoomBy(1.25),
+    0: () => setZoom(1),
+    ArrowDown: () => lbBody.scrollBy({ top: 80 }), ArrowUp: () => lbBody.scrollBy({ top: -80 }),
+    PageDown: () => lbBody.scrollBy({ top: lbBody.clientHeight * 0.9 }), PageUp: () => lbBody.scrollBy({ top: -lbBody.clientHeight * 0.9 }),
+    Home: () => lbBody.scrollTo({ top: 0 }), End: () => lbBody.scrollTo({ top: lbBody.scrollHeight }),
+  };
   document.addEventListener("keydown", (e) => {
-    if (!lb.box.classList.contains("open")) return;
-    if (e.key === "Escape") closeLightbox();
-    if (e.key === "ArrowLeft") { setPlaying(false); step(-1); }
-    if (e.key === "ArrowRight") { setPlaying(false); step(1); }
-    if (e.key === " ") { e.preventDefault(); setPlaying(!lb.timer); }
-    if (e.key === "-" || e.key === "_") zoomBy(1 / 1.25);
-    if (e.key === "+" || e.key === "=") zoomBy(1.25);
-    if (e.key === "0") setZoom(1);
-  });
+    if (!lb.box.classList.contains("open") || e.metaKey || e.ctrlKey || e.altKey) return;
+    const action = lbKeys[e.key];
+    if (action) { e.preventDefault(); e.stopPropagation(); action(); }
+  }, true);
 
   // ---------- Shell ----------
   function render() {
