@@ -28,6 +28,7 @@ message). Set `UI_PROGRESS_DEBUG=1` for stack traces from the CLI itself.
 | Sticky header or floating button in the middle of a tall screenshot | The element is positioned by script, not CSS | Add its selector to `capture.hide` |
 | A dialog is missing | Its button's label matches `capture.unsafe`, or the click budget ran out | Narrow `unsafe`, raise `states.maxClicks` |
 | A screenshot shows the result of an action (item marked done, offer accepted) | An action button was clicked while looking for sections | Add its label to `capture.unsafe` |
+| A sidebar, banner or tab is open on some pages and closed on others | The app saves the choice in a cookie or storage, and sign-in itself set it | Every page starts from the cookies and storage that sign-in left, so set the state you want shot in `login` (or seed it). Names that look like credentials (session, token, auth, csrf, sid) keep their latest value instead |
 | The same dialog appears as separate rows across time | Views are matched by their button label, and the label changed | Known limitation; record a finding if it matters to you |
 | Capture is slow | Section and dialog discovery reloads the page after every click that changed it | Lower `states.maxClicks`, set `states.enabled: false` for a quick pass, raise `run.concurrency` |
 | Everything is "redesign" | Different seed data between eras counts as visual change | Raise `thresholds.redesign`; keep the seed stable across eras where possible |

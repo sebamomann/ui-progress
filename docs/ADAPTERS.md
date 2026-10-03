@@ -96,8 +96,10 @@ return `{ stop() {...} }` instead of a command.
 
 ### `login(page, ctx)`
 
-`page` is a Playwright page in the context used for all signed-in screenshots. Sign in
-with the seeded user. Return without doing anything for commits that predate sign-in.
+`page` is a Playwright page in a signed-in browser context. Sign in with the seeded user.
+Return without doing anything for commits that predate sign-in. The cookies and
+localStorage present when `login` returns are what every signed-in page is loaded with, so
+a preference saved by a click on one page never shows up on another.
 Token-based apps can set the token directly:
 
 ```js

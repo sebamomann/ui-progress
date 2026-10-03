@@ -9,6 +9,11 @@
  * with a request instead of a render; overlays are closed with Escape instead of reloading;
  * a dialog seen on one page of a section is not opened again on its siblings; pages whose
  * source did not change since the previous snapshot can be copied forward (see `reuse`).
+ *
+ * Stable state: every tab has a browser context of its own, and every page is loaded with the
+ * cookies and storage as they were right after sign-in. A preference the app saves when a
+ * control is clicked (a collapsed sidebar, a dismissed banner, a chosen tab) therefore never
+ * reaches the next page, nor a page another tab is shooting at the same time.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -61,6 +66,46 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     }
   }
 
+  // ---------- Browser state ----------
+
+  /** The storage each capture page starts from: what sign-in left behind, or nothing. */
+  const baselineOf = new WeakMap();
+  const origin = new URL(baseUrl).origin;
+
+  // Sign-in keeps its latest value: a session or refresh token the app rotated must not be
+  // put back to an old one. "sid" alone, so "sidebar" is still reset.
+  const CREDENTIAL = /sess|token|auth|csrf|xsrf|jwt|refresh|credential|(?:^|[^a-z])sid(?:$|[^a-z])/i;
+
+  /**
+   * Put the page's cookies, localStorage and sessionStorage back to its baseline, except
+   * credentials, which keep their latest value. Each capture page owns its context, so this
+   * cannot disturb another tab.
+   */
+  async function resetStorage(page) {
+    const baseline = baselineOf.get(page);
+    if (!baseline) return;
+    const context = page.context();
+    const current = await context.cookies();
+    const cookies = [...baseline.cookies.filter((k) => !CREDENTIAL.test(k.name)), ...current.filter((k) => CREDENTIAL.test(k.name))];
+    await context.clearCookies();
+    if (cookies.length) await context.addCookies(cookies);
+    if (!page.url().startsWith(origin)) return; // a fresh page: its context already starts from the baseline
+    const local = baseline.origins.find((o) => o.origin === origin)?.localStorage ?? [];
+    await page
+      .evaluate(([entries, credential]) => {
+        const keep = new RegExp(credential, "i");
+        for (const store of [localStorage, sessionStorage]) for (const key of Object.keys(store)) if (!keep.test(key)) store.removeItem(key);
+        for (const { name, value } of entries) if (!keep.test(name)) localStorage.setItem(name, value);
+      }, [local, CREDENTIAL.source])
+      .catch(() => {});
+  }
+
+  /** Cookies and web storage as one string, to notice a click that saved something. */
+  const storageOf = (page) =>
+    page
+      .evaluate(() => JSON.stringify([document.cookie, Object.entries(localStorage).sort(), Object.entries(sessionStorage).sort()]))
+      .catch(() => "");
+
   // Hydration mismatches are mostly logged, not thrown, so the console is watched too.
   const hydration = new RegExp(c.checks.hydration, "i");
   async function visit(page, url) {
@@ -82,6 +127,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     let status = null;
     let failure = null;
     try {
+      await resetStorage(page);
       const response = await page.goto(baseUrl + url, { waitUntil: "domcontentloaded", timeout: c.navTimeoutMs });
       status = response?.status() ?? null;
       await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
@@ -264,7 +310,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     const states = [];
     const deadline = Date.now() + limits.budgetMs;
     const section = sectionOf(route);
-    const reload = () => visit(page, url);
+    let cleanStorage = await storageOf(page);
+    const reload = async () => { await visit(page, url); cleanStorage = await storageOf(page); };
     let baseText = await textOf(page);
     const baseSearch = new URL(page.url()).search;
     const baseOverlays = new Set(await overlaysOf(page));
@@ -326,7 +373,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
             if (!stillOpen) break;
           }
         }
-        if (!(await closeOverlays(page, baseText))) await reload();
+        if (!(await closeOverlays(page, baseText)) || (await storageOf(page)) !== cleanStorage) await reload();
         continue;
       }
       const change = textChange(baseText, await textOf(page));
@@ -334,7 +381,9 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         await record(candidate, "section", name, { change: Number(change.toFixed(3)) });
         await reload();
         baseText = await textOf(page);
-      } else if (change > 0.02) {
+      } else if (change > 0.02 || (await storageOf(page)) !== cleanStorage) {
+        // A click that saved a preference changes the page for every later shot, even when
+        // little text moved (a sidebar folded to icons): start the next click from a clean load.
         await reload();
       }
     }
@@ -403,11 +452,13 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   const crawling = !routes;
 
   const browser = await chromium.launch();
-  const contextFor = (scheme) => browser.newContext({ viewport: { width: viewports[primaryName].width, height: viewports[primaryName].height }, locale: c.locale, colorScheme: scheme, reducedMotion: "reduce" });
+  const contextFor = (scheme, storageState) => browser.newContext({ viewport: { width: viewports[primaryName].width, height: viewports[primaryName].height }, locale: c.locale, colorScheme: scheme, reducedMotion: "reduce", storageState });
   const anonCtx = {}, userCtx = {};
   for (const scheme of schemes) { anonCtx[scheme] = await contextFor(scheme); userCtx[scheme] = await contextFor(scheme); }
 
-  // Sign in once per colour scheme (contexts do not share cookies).
+  // Sign in once per colour scheme (contexts do not share cookies). What sign-in leaves in
+  // the browser is the baseline every signed-in page starts from.
+  const signedIn = {};
   let loggedIn = false;
   let loginError = null;
   if (adapter.login || config.login) {
@@ -422,6 +473,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
           await Promise.all([page.waitForURL((u) => u.pathname !== l.url, { timeout: 30_000 }), page.click(l.submit ?? 'button[type="submit"]')]);
         }
         loggedIn = true;
+        signedIn[scheme] = await userCtx[scheme].storageState();
       } catch (err) {
         loginError = String(err.message ?? err).split("\n")[0];
         log(`sign-in failed (${scheme}): ${loginError}`);
@@ -546,7 +598,12 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   const workers = [];
   for (let i = 0; i < Math.max(1, c.parallel); i++) {
     const w = { anon: {}, user: {} };
-    for (const scheme of schemes) { w.anon[scheme] = await anonCtx[scheme].newPage(); w.user[scheme] = await userCtx[scheme].newPage(); }
+    for (const scheme of schemes) {
+      w.anon[scheme] = await (await contextFor(scheme)).newPage();
+      baselineOf.set(w.anon[scheme], { cookies: [], origins: [] });
+      w.user[scheme] = await (await contextFor(scheme, signedIn[scheme])).newPage();
+      baselineOf.set(w.user[scheme], signedIn[scheme] ?? { cookies: [], origins: [] });
+    }
     workers.push(w);
   }
   const run = async (jobs) => {
