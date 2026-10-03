@@ -1,4 +1,5 @@
 /** Where things live in the tracked project, and its configuration merged over defaults. */
+import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -156,7 +157,21 @@ function checkAdapterVersion(p, mod) {
 /** The project adapter: plain functions that know how to run this particular app. */
 export async function loadAdapter(p) {
   if (!fs.existsSync(p.adapter)) return {};
-  const mod = await import(pathToFileURL(p.adapter).href + `?t=${fs.statSync(p.adapter).mtimeMs}`);
+  let mod;
+  try {
+    mod = await import(pathToFileURL(p.adapter).href + `?t=${fs.statSync(p.adapter).mtimeMs}`);
+  } catch (err) {
+    // An ES module that does not parse says only "Unexpected token": ask node for the place.
+    let where = "";
+    if (err instanceof SyntaxError) {
+      try {
+        execFileSync(process.execPath, ["--check", p.adapter], { stdio: "pipe" });
+      } catch (check) {
+        where = String(check.stderr).trim().split("\n").slice(0, 3).join("\n");
+      }
+    }
+    throw new Error(`${path.relative(p.repo, p.adapter)} does not load: ${err.message}${where ? `\n${where}` : ""}`);
+  }
   checkAdapterVersion(p, mod);
   return mod.default ?? mod;
 }
