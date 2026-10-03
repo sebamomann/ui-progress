@@ -234,6 +234,11 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
     fs.writeFileSync(path.join(out, "OK"), "");
     return { short, date, timings, manifest };
   } catch (err) {
+    // The cause of a build or start failure is usually only in the app's own log.
+    const cause = ["start", "capture"].includes(phase) ? firstError(path.join(out, "server.log")) : null;
+    if (cause && !err.message.includes(cause)) err.message += `\nFirst error in server.log: ${cause}`;
+    const fixUp = fixUpCandidate(p.repo, full);
+    if (fixUp) err.message += `\nThe next commit ${fixUp.short} came ${fixUp.minutes} min later by the same author ("${fixUp.subject}") and may fix this one. To capture it instead: ui-progress snapshot ${fixUp.short}`;
     log(`FAILED in ${phase}: ${err.stack ?? err}`);
     fs.writeFileSync(path.join(out, "FAILED"), `${phase}\n${err.message}\n`);
     addFinding(p, {
@@ -244,6 +249,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       command: `ui-progress snapshot ${short}`,
       sha: short,
       phase,
+      error: err.message,
       log: tail(logFile, 30) + (fs.existsSync(path.join(out, "server.log")) ? "\n--- server.log ---\n" + tail(path.join(out, "server.log"), 20) : ""),
     });
     return { short, date, failed: phase, error: err.message };
@@ -261,6 +267,30 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
         fs.rmSync(dir, { recursive: true, force: true });
       }
     }
+  }
+}
+
+/** The first line in an app log that looks like the cause of a failure, with its context. */
+export function firstError(file) {
+  if (!fs.existsSync(file)) return null;
+  const lines = fs.readFileSync(file, "utf8").replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").split("\n");
+  const i = lines.findIndex((l) => /Module not found|Cannot find module|Failed to compile|SyntaxError|TypeError|ReferenceError|ModuleNotFoundError|ImportError|NameError|error TS\d+|Traceback|Exception|EADDRINUSE|\bERROR\b|Error:/.test(l));
+  return i < 0 ? null : lines.slice(i, i + 3).map((l) => l.trim()).filter(Boolean).join(" | ").slice(0, 400);
+}
+
+/** The next commit on the line, when it came soon after by the same author: often a fix-up. */
+export function fixUpCandidate(repo, full) {
+  try {
+    const next = git(repo, "rev-list", "--first-parent", "--reverse", "--ancestry-path", `${full}..HEAD`).split("\n")[0];
+    if (!next) return null;
+    const info = (sha) => git(repo, "log", "-1", "--format=%ct|%ae|%h|%s", sha).trim().split("|");
+    const [t1, a1] = info(full);
+    const [t2, a2, short, ...subject] = info(next);
+    const minutes = Math.round((Number(t2) - Number(t1)) / 60);
+    if (a1 !== a2 || minutes > 60) return null;
+    return { short, minutes, subject: subject.join("|") };
+  } catch {
+    return null;
   }
 }
 

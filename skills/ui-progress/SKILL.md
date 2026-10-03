@@ -147,8 +147,11 @@ selectors before the long run. Add to it whenever a later session adds a filter 
 3. `ui-progress snapshot --plan` (resumable; `--concurrency N`, `--limit N`). For long runs
    start it in the background and check `ui-progress status`.
 4. Failures are recorded automatically. Read `.ui-progress/snapshots/<sha>/run.log` and
-   `server.log`, fix the adapter, rerun `ui-progress snapshot <sha>`. Do not leave a
-   failed snapshot unexplained.
+   `server.log` (the failure line already quotes the first error found there), fix the
+   adapter, rerun `ui-progress snapshot <sha>`. When the commit itself is broken and the
+   failure names a fix-up commit (the next one, minutes later, same author), capture that
+   one instead and swap it into `plan.json`. The same cause on many commits is one finding
+   with every commit listed. Do not leave a failed snapshot unexplained.
 5. Do the [lineage](#lineage) pass, then `ui-progress view`.
 
 Going from a pilot to a denser history only captures the commits that are missing.
