@@ -8,6 +8,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { capture } from "./capture.mjs";
 import { addFinding } from "./findings.mjs";
+import { unbuildableEntry } from "./unbuildable.mjs";
 import { assertIsolated, neutraliseCheckout, protectedDatabases, rewriteDatabaseUrls } from "./isolation.mjs";
 import { hasDep, requireDep } from "./deps.mjs";
 import * as routes from "./routes.mjs";
@@ -217,6 +218,10 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
     // A snapshot of error pages is not a snapshot.
     if (manifest.captured === 0) throw new Error(`no page could be captured (${manifest.routesTotal} routes, ${manifest.serverErrors.length} server errors${manifest.loginError ? ", sign-in failed: " + manifest.loginError : ""})`);
     if (manifest.serverErrors.length > manifest.routesTotal / 2) throw new Error(`${manifest.serverErrors.length} of ${manifest.routesTotal} pages answered with a server error; see server.log`);
+    // Pages copied forward keep their old suspects; only what this commit rendered counts.
+    const copied = new Set(manifest.routes.filter((r) => r.copiedFrom).map((r) => r.route));
+    const errorPages = new Set(manifest.suspects.filter((s) => s.issues.includes("error page or overlay") && !copied.has(s.route)).map((s) => s.route));
+    if (errorPages.size > (manifest.captured - manifest.reused) * config.run.fallback.errorPageShare) throw new Error(`${errorPages.size} of ${manifest.captured - manifest.reused} rendered pages show an error page or overlay; see server.log`);
     writeJson(path.join(out, "snapshot.json"), {
       sha: full,
       short,
@@ -237,8 +242,8 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
     // The cause of a build or start failure is usually only in the app's own log.
     const cause = ["start", "capture"].includes(phase) ? firstError(path.join(out, "server.log")) : null;
     if (cause && !err.message.includes(cause)) err.message += `\nFirst error in server.log: ${cause}`;
-    const fixUp = fixUpCandidate(p.repo, full);
-    if (fixUp) err.message += `\nThe next commit ${fixUp.short} came ${fixUp.minutes} min later by the same author ("${fixUp.subject}") and may fix this one. To capture it instead: ui-progress snapshot ${fixUp.short}`;
+    const fixUp = FALLBACK_PHASES.includes(phase) ? fixUpCandidates(p.repo, full, { ...config.run.fallback, branch: config.sampling.branch ?? "HEAD" }).find((c) => !unbuildableEntry(p, c.sha)) : null;
+    if (fixUp) err.message += `\nThe next commit ${fixUp.short} came ${fixUp.minutes} min later ("${fixUp.subject}") and may fix this one.`;
     log(`FAILED in ${phase}: ${err.stack ?? err}`);
     fs.writeFileSync(path.join(out, "FAILED"), `${phase}\n${err.message}\n`);
     addFinding(p, {
@@ -278,19 +283,29 @@ export function firstError(file) {
   return i < 0 ? null : lines.slice(i, i + 3).map((l) => l.trim()).filter(Boolean).join(" | ").slice(0, 400);
 }
 
-/** The next commit on the line, when it came soon after by the same author: often a fix-up. */
-export function fixUpCandidate(repo, full) {
+/** Phases whose failure can be the commit's own fault (it does not install, build or run). */
+export const FALLBACK_PHASES = ["install", "seed", "start", "capture"];
+
+/**
+ * The commits right after this one on the mainline, within `maxHours` and `maxCommits`:
+ * where a fix for a broken commit usually lands. The search stops before a commit for which
+ * `stop(sha)` is true (one that is planned or captured anyway), so a stand-in never jumps
+ * over the next snapshot.
+ */
+export function fixUpCandidates(repo, full, { maxCommits = 5, maxHours = 24, branch = "HEAD", stop = () => false } = {}) {
   try {
-    const next = git(repo, "rev-list", "--first-parent", "--reverse", "--ancestry-path", `${full}..HEAD`).split("\n")[0];
-    if (!next) return null;
-    const info = (sha) => git(repo, "log", "-1", "--format=%ct|%ae|%h|%s", sha).trim().split("|");
-    const [t1, a1] = info(full);
-    const [t2, a2, short, ...subject] = info(next);
-    const minutes = Math.round((Number(t2) - Number(t1)) / 60);
-    if (a1 !== a2 || minutes > 60) return null;
-    return { short, minutes, subject: subject.join("|") };
+    const time = (sha) => Number(git(repo, "log", "-1", "--format=%ct", sha).trim());
+    const t0 = time(full);
+    const out = [];
+    for (const line of git(repo, "log", "--first-parent", "--reverse", "--ancestry-path", "--format=%H|%ct|%ad|%s", "--date=short", `${full}..${branch}`).split("\n").filter(Boolean)) {
+      const [sha, t, date, ...subject] = line.split("|");
+      const minutes = Math.round((Number(t) - t0) / 60);
+      if (out.length >= maxCommits || minutes > maxHours * 60 || stop(sha)) break;
+      out.push({ sha, short: sha.slice(0, 8), date, minutes, subject: subject.join("|") });
+    }
+    return out;
   } catch {
-    return null;
+    return [];
   }
 }
 

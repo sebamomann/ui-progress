@@ -149,12 +149,19 @@ selectors before the long run. Add to it whenever a later session adds a filter 
    time per snapshot from the three test commits, and the concurrency.
 3. `ui-progress snapshot --plan` (resumable; `--concurrency N`, `--limit N`). For long runs
    start it in the background and check `ui-progress status`.
-4. Failures are recorded automatically. Read `.ui-progress/snapshots/<sha>/run.log` and
-   `server.log` (the failure line already quotes the first error found there), fix the
-   adapter, rerun `ui-progress snapshot <sha>`. When the commit itself is broken and the
-   failure names a fix-up commit (the next one, minutes later, same author), capture that
-   one instead and swap it into `plan.json`. The same cause on many commits is one finding
-   with every commit listed. Do not leave a failed snapshot unexplained.
+4. Broken commits are handled on their own: when a commit fails to install, start or
+   render, the commits right after it are tried, and the first that works is captured in
+   its place ("stands in for …" in the output and in `plan.json`). The broken commit goes
+   into `.ui-progress/unbuildable.json`, which every later plan and run skips. Do not
+   retry those commits, and do not undo the swap.
+   Failures that remain are recorded as findings. Read `.ui-progress/snapshots/<sha>/run.log`
+   and `server.log` (the failure line already quotes the first error found there), fix the
+   adapter, rerun `ui-progress snapshot <sha>`. A stand-in that "failed the same way"
+   means the adapter is at fault, not the commit. If you find a commit is broken itself
+   and no commit nearby fixes it, record it: `ui-progress unbuildable add <sha> --reason
+   "..."` (with `--replaced-by <sha>` when you captured another one for it). The same
+   cause on many commits is one finding with every commit listed. Do not leave a failed
+   snapshot unexplained.
 5. Do the [lineage](#lineage) pass, then `ui-progress view`.
 
 Going from a pilot to a denser history only captures the commits that are missing. A

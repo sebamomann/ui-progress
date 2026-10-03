@@ -7,13 +7,13 @@ import { fileURLToPath } from "node:url";
 import { build } from "./build.mjs";
 import { DEFAULTS, findRepo, loadAdapter, loadConfig, paths } from "./config.mjs";
 import { DEPS_DIR, PACKAGES, hasDep } from "./deps.mjs";
-import { addFinding, exportFindings, listFindings, resolveFinding } from "./findings.mjs";
+import { addFinding, dropFailure, exportFindings, listFindings, resolveFinding, signatureOf } from "./findings.mjs";
 import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, pendingState, renderPending, sessionStart, stop } from "./forward.mjs";
 import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
 import { acquireLock } from "./lock.mjs";
-import { depsReady, ensureClone, isDone, runSnapshot, snapshotDir } from "./snapshot.mjs";
+import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir } from "./snapshot.mjs";
 import { clearUnbuildable, markUnbuildable, readUnbuildable, unbuildableEntry } from "./unbuildable.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
@@ -35,7 +35,9 @@ Choosing commits
 Capturing
   snapshot <sha...>             capture specific commits
   snapshot --plan               capture every planned commit that is not done yet
-      [--concurrency N] [--force] [--limit N] [--ignore-memory]
+      [--concurrency N] [--force] [--limit N] [--ignore-memory] [--no-fallback]
+                                a commit that does not build is replaced by the next one
+                                that does (config run.fallback) and kept in unbuildable.json
   status                        what is planned, done and failed
   unbuildable [list]            commits recorded as not building, and what stands in for them
   unbuildable add <sha> --reason "..." [--replaced-by <sha>]
@@ -228,30 +230,88 @@ async function snapshot(flags, positional) {
   let done = 0;
   let failed = 0;
   console.log(`Capturing ${shas.length} snapshot(s), ${concurrency} at a time ...`);
+  const runChild = async (sha, slot) => {
+    const line = await new Promise((resolve) => {
+      let output = "";
+      const child = spawn(process.execPath, [SELF, "snapshot", sha, "--port", String(config.run.basePort + slot)], { cwd: p.repo, stdio: ["ignore", "pipe", "inherit"] });
+      child.stdout.on("data", (d) => (output += d));
+      child.on("exit", () => resolve(output.trim().split("\n").pop()));
+    });
+    try {
+      return JSON.parse(line);
+    } catch {
+      return { short: sha.slice(0, 8), failed: "crash", error: line };
+    }
+  };
+  // Commits that are planned, queued or captured already are never taken as a stand-in.
+  const fullOf = (sha) => git(p.repo, "rev-parse", `${sha}^{commit}`).trim();
+  const taken = new Set([...shas.map(fullOf), ...(readJson(p.plan)?.entries ?? []).map((e) => e.sha)]);
+  const fallback = config.run.fallback.enabled && !flags["no-fallback"];
+  /** The cause of a failure, without what differs between commits. */
+  const causeOf = (r) => signatureOf(r.failed, String(r.error ?? "").split("\n").filter((l) => !l.startsWith("The next commit")).join(" "));
+  /**
+   * A commit that fails to install, build, start or render: try the commits right after it
+   * (where a fix usually lands). The first that works is captured in its place, and the
+   * commit is recorded in unbuildable.json so nobody tries it again. A stand-in failing
+   * the same way points at the adapter or the machine instead: then nothing is recorded.
+   */
+  const fallBack = async (sha, first, slot) => {
+    const broken = [{ ...first, sha: fullOf(sha) }];
+    const stop = (c) => taken.has(c) || isDone(p, git(p.repo, "rev-parse", "--short=8", c).trim());
+    for (const candidate of fixUpCandidates(p.repo, broken[0].sha, { ...config.run.fallback, branch: config.sampling.branch ?? "HEAD", stop })) {
+      if (unbuildableEntry(p, candidate.sha)) continue;
+      taken.add(candidate.sha);
+      console.log(`      ${first.short} failed in ${first.failed}; trying ${candidate.short}, ${candidate.minutes} min later ("${candidate.subject.slice(0, 60)}") ...`);
+      const result = await runChild(candidate.sha, slot);
+      if (!result.failed) {
+        for (const b of broken) {
+          markUnbuildable(p, b.sha, { phase: b.failed, cause: b.error, replacedBy: candidate.sha, source: "auto" });
+          dropFailure(p, b.short, `${b.short} does not build; ${result.short} was captured in its place`);
+        }
+        standIn(p, broken[0].sha, candidate.sha);
+        return { ...result, standsInFor: broken.map((b) => b.short) };
+      }
+      if (causeOf(result) === causeOf(first)) {
+        console.log(`      ${result.short} failed the same way: probably not the commit's fault. Fix the adapter, see run.log and server.log.`);
+        return null;
+      }
+      if (!FALLBACK_PHASES.includes(result.failed)) return null;
+      broken.push({ ...result, sha: candidate.sha });
+    }
+    return null;
+  };
   const worker = async (slot) => {
     while (queue.length) {
       const sha = queue.shift();
-      const line = await new Promise((resolve) => {
-        let output = "";
-        const child = spawn(process.execPath, [SELF, "snapshot", sha, "--port", String(config.run.basePort + slot)], { cwd: p.repo, stdio: ["ignore", "pipe", "inherit"] });
-        child.stdout.on("data", (d) => (output += d));
-        child.on("exit", () => resolve(output.trim().split("\n").pop()));
-      });
-      let result = {};
-      try {
-        result = JSON.parse(line);
-      } catch {
-        result = { short: sha.slice(0, 8), failed: "crash", error: line };
+      let result = await runChild(sha, slot);
+      if (result.failed && fallback && FALLBACK_PHASES.includes(result.failed)) {
+        // The hint to try the next commit is spent once the fallback has tried it.
+        result = (await fallBack(sha, result, slot)) ?? { ...result, error: String(result.error).split("\n").filter((l) => !l.startsWith("The next commit")).join("\n") };
       }
       done++;
       if (result.failed) failed++;
       const seconds = result.timings ? Object.values(result.timings).reduce((a, b) => a + b, 0) : 0;
-      console.log(`[${done}/${shas.length}] ${result.date ?? ""} ${result.short}  ${result.failed ? `FAILED in ${result.failed}: ${result.error}` : `${result.pages} pages${result.reused ? ` (${result.reused} copied forward)` : ""}, ${result.states} states, ${seconds}s${result.suspects ? `, ${result.suspects} suspect page(s): see "suspects" in snapshots/${result.short}/snapshot.json` : ""}`}`);
+      const standsIn = result.standsInFor ? ` (stands in for ${result.standsInFor.join(", ")}, which do${result.standsInFor.length > 1 ? "" : "es"} not build)` : "";
+      console.log(`[${done}/${shas.length}] ${result.date ?? ""} ${result.short}${standsIn}  ${result.failed ? `FAILED in ${result.failed}: ${result.error}` : `${result.pages} pages${result.reused ? ` (${result.reused} copied forward)` : ""}, ${result.states} states, ${seconds}s${result.suspects ? `, ${result.suspects} suspect page(s): see "suspects" in snapshots/${result.short}/snapshot.json` : ""}`}`);
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, shas.length) }, (_, i) => worker(i)));
   console.log(`\nDone in ${Math.round((Date.now() - started) / 60000)} min: ${done - failed} captured, ${failed} failed.`);
   if (failed) console.log("Failures are recorded as findings: ui-progress finding list");
+}
+
+/** Put the stand-in where the broken commit was in plan.json (once, keeping its reason). */
+function standIn(p, brokenSha, sha) {
+  const planned = readJson(p.plan);
+  const i = planned?.entries.findIndex((e) => e.sha === brokenSha) ?? -1;
+  if (i < 0) return;
+  const old = planned.entries[i];
+  if (planned.entries.some((e) => e.sha === sha)) planned.entries.splice(i, 1);
+  else {
+    const [short, date, ...subject] = git(p.repo, "log", "-1", "--format=%h|%ad|%s", "--date=short", sha).trim().split("|");
+    planned.entries[i] = { sha, short, date, subject: subject.join("|"), reason: `${old.reason} (stands in for ${old.short}, which does not build)` };
+  }
+  writeJson(p.plan, planned);
 }
 
 function status(flags) {

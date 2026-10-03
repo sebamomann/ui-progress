@@ -71,6 +71,31 @@ Copied pages are marked `copiedFrom` in the manifest. A changed `viewports` sett
 | `readyTimeoutMs` | `180000` | How long to wait for it |
 | `keepWorktrees` | `false` | Keep the checkout after a snapshot, for debugging |
 | `workDir` | `~/.ui-progress/work/<repo>` | Where old commits are checked out. Keep it outside the repository |
+| `fallback.enabled` | `true` | When a commit fails to install, seed, start or render, capture the next commit on the line instead (see below). `snapshot --no-fallback` turns it off for one run |
+| `fallback.maxCommits` | `5` | Later commits tried, at most |
+| `fallback.maxHours` | `24` | Only commits made within this many hours after the broken one |
+| `fallback.errorPageShare` | `0.5` | A snapshot where more than this share of the rendered pages shows an error page or dev-server overlay counts as failed in `capture` |
+
+### Commits that do not build
+
+History has commits that never worked: a syntax error, a missing import, a page that
+throws on every render, fixed minutes later. When a snapshot fails in `install`, `seed`,
+`start` or `capture`, ui-progress tries the commits right after it, one at a time, within
+`maxCommits` and `maxHours`. It never goes past a commit that is planned or captured
+anyway. The first one that works is captured in its place: `plan.json` gets the stand-in
+(its reason says which commit it stands in for), the broken commit goes into
+`.ui-progress/unbuildable.json` with the phase and the cause, and its failure finding is
+resolved, since the adapter evidently works.
+
+If a stand-in fails the same way, the cause is the adapter or the machine, not the commit:
+the fallback stops and nothing is recorded. Plans and snapshot runs skip every commit in
+`unbuildable.json` from then on, also on other machines and in later sessions, so commit
+the file. `ui-progress unbuildable` lists it; `unbuildable add <sha> --reason "..."` records
+a commit by hand and `unbuildable remove <sha>` lets it be tried again (after the adapter
+learned to build it, for example).
+
+Hydration errors do not make a snapshot fail: the page usually renders. They are listed
+under `suspects` in `snapshot.json` for review.
 
 ## `data`: whose data the snapshots use
 

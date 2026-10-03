@@ -61,7 +61,11 @@ export const DEFAULTS = {
     include: [],
     exclude: [],
   },
-  run: { concurrency: 3, basePort: 4100, keepWorktrees: false, readyPath: "/", readyTimeoutMs: 180000, workDir: null },
+  // fallback: when a commit fails to install, build, start or render, capture the next
+  // commit on the line within maxCommits / maxHours instead, and record the broken one in
+  // unbuildable.json. errorPageShare: more rendered pages than this share showing an error
+  // page or overlay makes the snapshot a failure.
+  run: { concurrency: 3, basePort: 4100, keepWorktrees: false, readyPath: "/", readyTimeoutMs: 180000, workDir: null, fallback: { enabled: true, maxCommits: 5, maxHours: 24, errorPageShare: 0.5 } },
   // isolation "throwaway": snapshots build their own data and are refused if they would
   // touch a database from the project's env files. "shared" only on the user's explicit wish.
   data: { isolation: "throwaway", protect: [] },

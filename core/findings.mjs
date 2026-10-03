@@ -10,7 +10,7 @@ import { VERSION, readJson, writeJson } from "./util.mjs";
 const KINDS = ["bug", "limitation", "workaround", "idea", "failure"];
 
 /** The cause of a failure without what differs between commits (shas, numbers, paths). */
-const signatureOf = (phase, message) => `${phase}:${String(message).split("\n")[0].replace(/\b[0-9a-f]{7,40}\b/g, "<sha>").replace(/\d+/g, "<n>").replace(/\/[^\s"')]+/g, "<path>")}`;
+export const signatureOf = (phase, message) => `${phase}:${String(message).split("\n")[0].replace(/\b[0-9a-f]{7,40}\b/g, "<sha>").replace(/\d+/g, "<n>").replace(/\/[^\s"')]+/g, "<path>")}`;
 
 export function addFinding(p, { kind = "bug", title, detail = "", command = null, sha = null, phase = null, log = null, source = "agent", error = null }) {
   if (!KINDS.includes(kind)) throw new Error(`kind must be one of: ${KINDS.join(", ")}`);
@@ -81,4 +81,27 @@ export function resolveFinding(p, id) {
   if (!finding) throw new Error(`no finding ${id}`);
   finding.status = "resolved";
   writeJson(file, finding);
+}
+
+/**
+ * A failure that turned out to be the commit's own (a later commit built with the same
+ * adapter) is not a problem with ui-progress: take this commit out of its finding, and
+ * resolve the finding when no other commit is left in it.
+ */
+export function dropFailure(p, short, note) {
+  for (const f of listFindings(p)) {
+    if (f.status !== "open" || f.kind !== "failure") continue;
+    const occurrences = f.occurrences ?? [{ sha: f.sha, at: f.createdAt }];
+    const left = occurrences.filter((o) => o.sha !== short);
+    if (left.length === occurrences.length) continue;
+    if (left.length) {
+      f.occurrences = left;
+      f.sha = left[0].sha;
+      f.title = left.length > 1 ? `${left.length} snapshots failed in ${f.phase}` : `Snapshot ${left[0].sha} failed in ${f.phase}`;
+    } else {
+      f.status = "resolved";
+      f.resolution = note;
+    }
+    writeJson(path.join(p.findings, `${f.id}.json`), f);
+  }
 }
