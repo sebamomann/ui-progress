@@ -35,5 +35,6 @@ database. Do not add ways to capture a running app, a working tree or the user's
 
 ## Releasing
 
-Bump the version in `core/util.mjs` (`VERSION`), `.claude-plugin/plugin.json` and
-`.claude-plugin/marketplace.json` together.
+Bump the version in `core/util.mjs` (`VERSION`) and `.claude-plugin/plugin.json` together,
+in a commit of its own. When a release adds a `ctx` method, add it with its version to
+`CTX_METHODS` in `core/config.mjs`, so adapters that use it fail early on older installs.
