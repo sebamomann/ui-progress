@@ -6,293 +6,347 @@
 <title>UI History</title>
 <style>
 :root {
-  --bg: #f4f4f1; --surface: #ffffff; --raised: #fafaf8; --line: #e1e0da; --line-strong: #c9c7be;
-  --text: #1c1d1a; --muted: #6c6d66; --faint: #9a9b93;
-  --accent: #3d5afe; --accent-soft: #e8ecff; --on-accent: #ffffff;
-  --new: #1a8f4c; --new-soft: #dff3e6; --major: #c2570a; --major-soft: #fdebd8; --minor: #8a7a1f;
-  --gone: #c0322b; --gone-soft: #fbe3e1; --lane: #a9aec9; --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.06);
-  --side-w: 270px; --label-w: 230px; --col-w: 176px;
+  --bg: #f3f3f0; --surface: #ffffff; --raised: #f8f8f6; --line: #e3e2dc; --line-strong: #cfcdc4;
+  --text: #1c1d1a; --muted: #5f6059; --faint: #7f8079;
+  --accent: #3b55e6; --accent-soft: #e9ecfc; --on-accent: #ffffff;
+  --new: #178a47; --new-soft: #dff3e6; --major: #c2570a; --major-soft: #fdebd8; --minor: #8a7a1f; --minor-soft: #f6f0d2;
+  --gone: #c0322b; --gone-soft: #fbe3e1; --lane: #aeb3cc; --shadow: 0 1px 2px rgba(0,0,0,.05), 0 3px 10px rgba(0,0,0,.05);
+  --side-w: 260px; --label-w: 250px; --col-w: 132px; --bar-h: 52px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #131412; --surface: #1c1d1a; --raised: #222320; --line: #2e302b; --line-strong: #45473f;
-    --text: #ecece6; --muted: #a2a39b; --faint: #74756d;
-    --accent: #8c9eff; --accent-soft: #252b4d; --on-accent: #10122a;
-    --new: #5fd08a; --new-soft: #17301f; --major: #f0a060; --major-soft: #3a2614; --minor: #c9b955;
-    --gone: #f0776f; --gone-soft: #3a1b19; --lane: #565d87; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+    --bg: #121311; --surface: #1b1c19; --raised: #21221f; --line: #2d2f2a; --line-strong: #43453e;
+    --text: #ecece6; --muted: #a6a79f; --faint: #85867f;
+    --accent: #8f9fff; --accent-soft: #262c4e; --on-accent: #10122a;
+    --new: #5fd08a; --new-soft: #17301f; --major: #f0a060; --major-soft: #3a2614; --minor: #d2c160; --minor-soft: #32301a;
+    --gone: #f0776f; --gone-soft: #3a1b19; --lane: #5d6390; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.35);
   }
 }
 :root[data-theme="dark"] {
-  --bg: #131412; --surface: #1c1d1a; --raised: #222320; --line: #2e302b; --line-strong: #45473f;
-  --text: #ecece6; --muted: #a2a39b; --faint: #74756d;
-  --accent: #8c9eff; --accent-soft: #252b4d; --on-accent: #10122a;
-  --new: #5fd08a; --new-soft: #17301f; --major: #f0a060; --major-soft: #3a2614; --minor: #c9b955;
-  --gone: #f0776f; --gone-soft: #3a1b19; --lane: #565d87; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+  --bg: #121311; --surface: #1b1c19; --raised: #21221f; --line: #2d2f2a; --line-strong: #43453e;
+  --text: #ecece6; --muted: #a6a79f; --faint: #85867f;
+  --accent: #8f9fff; --accent-soft: #262c4e; --on-accent: #10122a;
+  --new: #5fd08a; --new-soft: #17301f; --major: #f0a060; --major-soft: #3a2614; --minor: #d2c160; --minor-soft: #32301a;
+  --gone: #f0776f; --gone-soft: #3a1b19; --lane: #5d6390; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.35);
 }
 * { box-sizing: border-box; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a, button, .thumb, .lrow, .tree .item, .nav a, .views a { transition: background-color .15s ease-out, border-color .15s ease-out, color .15s ease-out, opacity .15s ease-out; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 html, body { height: 100%; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 13.5px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; }
 button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .92em; }
-
-/* Sidebar */
-.side { width: var(--side-w); flex: 0 0 var(--side-w); background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
-.brand { padding: 14px 16px 10px; font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
-.brand small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; margin-top: 1px; }
-.nav { display: flex; flex-direction: column; gap: 2px; padding: 0 8px 10px; }
-.nav a { display: flex; flex-direction: column; padding: 7px 10px; border-radius: 8px; color: var(--text); }
-.nav a small { color: var(--muted); font-size: 12px; }
-.nav a:hover { background: var(--raised); text-decoration: none; }
-.nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.nav a[aria-current="page"] small { color: inherit; opacity: .8; font-weight: 400; }
-.side .searchbox { padding: 10px 12px 8px; border-top: 1px solid var(--line); }
-.field { width: 100%; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--raised); padding: 6px 10px; }
-.tree { flex: 1; overflow: auto; padding: 0 8px 16px; }
-.tree details { margin-top: 2px; }
-.tree summary { cursor: pointer; padding: 5px 8px; font-size: 11.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-radius: 6px; list-style: none; display: flex; justify-content: space-between; }
-.tree summary::-webkit-details-marker { display: none; }
-.tree summary:hover { background: var(--raised); }
-.tree a { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px 4px 14px; border-radius: 6px; color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
-.tree a:hover { background: var(--raised); text-decoration: none; }
-.tree a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
-.tree a.unseen { color: var(--faint); }
-.tree a span { color: var(--faint); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11.5px; white-space: nowrap; }
-
-/* Main */
-.main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
-.top { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.top h1 { font-size: 16px; font-weight: 650; margin: 0; letter-spacing: -.01em; overflow-wrap: anywhere; }
-.top .sub { color: var(--muted); font-size: 12.5px; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .93em; }
+.muted { color: var(--muted); }
 .spacer { flex: 1; }
-.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--raised); }
-.seg button { border: 0; background: none; padding: 5px 11px; cursor: pointer; color: var(--muted); text-transform: capitalize; }
+
+/* ---------- Sidebar ---------- */
+.side { width: var(--side-w); flex: 0 0 var(--side-w); background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.brand { height: var(--bar-h); display: flex; flex-direction: column; justify-content: center; padding: 0 16px; border-bottom: 1px solid var(--line); }
+.brand b { font-size: 14px; font-weight: 650; letter-spacing: -.01em; line-height: 1.2; }
+.brand small { color: var(--muted); font-size: 12px; line-height: 1.3; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav { padding: 8px; display: flex; flex-direction: column; gap: 1px; border-bottom: 1px solid var(--line); }
+.nav a { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; color: var(--text); font-weight: 500; }
+.nav a svg { width: 16px; height: 16px; flex: 0 0 16px; color: var(--muted); }
+.nav a:hover { background: var(--raised); text-decoration: none; }
+.nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+.nav a[aria-current="page"] svg { color: inherit; }
+.tools { padding: 10px 12px 8px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line); }
+.field { width: 100%; height: 32px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--raised); padding: 0 10px; }
+.field:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.tools .row { display: flex; align-items: center; gap: 10px; min-height: 24px; }
+.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap; font-size: 12.5px; }
+.check input { margin: 0; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 7px; overflow: hidden; background: var(--raised); height: 28px; }
+.seg button { border: 0; background: none; padding: 0 10px; color: var(--muted); text-transform: capitalize; font-size: 12.5px; display: inline-flex; align-items: center; }
+.seg button + button { border-left: 1px solid var(--line-strong); }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
-.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap; }
-.ghost { border: 1px solid var(--line-strong); background: var(--raised); border-radius: 8px; padding: 5px 10px; cursor: pointer; color: var(--text); }
-.ghost:hover { border-color: var(--accent); text-decoration: none; }
-.menu-btn { display: none; }
-.content { flex: 1; min-height: 0; overflow: auto; }
-.focusbar { display: flex; align-items: center; gap: 8px; padding: 7px 16px; background: var(--accent-soft); border-bottom: 1px solid var(--line); flex-wrap: wrap; font-size: 13px; }
-.focusbar[hidden] { display: none; }
-.focuslabel { color: var(--muted); }
-.chip { display: inline-flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 6px 2px 9px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
-.chip button { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 0 2px; font-size: 14px; line-height: 1; }
-.chip button:hover { color: var(--gone); }
-.focus-btn { border: 1px solid transparent; background: none; border-radius: 6px; cursor: pointer; color: var(--faint); padding: 0 5px; font-size: 13px; line-height: 1.4; flex: 0 0 auto; }
-.focus-btn:hover { color: var(--accent); border-color: var(--accent); }
+.tree { flex: 1; overflow: auto; padding: 6px 8px 16px; }
+.tree summary { cursor: pointer; display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); border-radius: 6px; list-style: none; user-select: none; }
+.tree summary::-webkit-details-marker { display: none; }
+.tree summary::before { content: "▸"; font-size: 10px; width: 10px; color: var(--faint); }
+.tree details[open] > summary::before { content: "▾"; }
+.tree summary:hover { background: var(--raised); }
+.tree summary .n { margin-left: auto; font-weight: 500; color: var(--faint); letter-spacing: 0; }
+.tree .item { display: flex; align-items: center; height: 26px; border-radius: 6px; padding-left: 10px; }
+.tree .item:hover { background: var(--raised); }
+.tree .item a { flex: 1; min-width: 0; color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+.tree .item a > span { direction: ltr; unicode-bidi: isolate; }
+.tree .item a:hover { text-decoration: none; }
+.tree .item[aria-current="page"] { background: var(--accent-soft); }
+.tree .item[aria-current="page"] a { color: var(--accent); }
+.tree .item a.unseen { color: var(--faint); }
+.tree .item .n { color: var(--faint); font-size: 11px; margin: 0 4px; }
+.focus-btn { width: 26px; height: 26px; border: 0; background: none; border-radius: 5px; color: var(--faint); display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; opacity: 0; }
+.focus-btn svg { width: 14px; height: 14px; }
+.item:hover .focus-btn, .lrow:hover .focus-btn, .focus-btn[aria-pressed="true"], .focus-btn:focus-visible { opacity: 1; }
+.focus-btn:hover { color: var(--accent); background: var(--accent-soft); }
 .focus-btn[aria-pressed="true"] { color: var(--on-accent); background: var(--accent); }
-.tree .row { display: flex; align-items: center; gap: 2px; }
-.tree .row a { flex: 1; min-width: 0; }
-.graph .labels .lrow { display: flex; align-items: center; }
-.graph .labels .lrow .grow { flex: 1; min-width: 0; }
-.pad { padding: 16px 16px 48px; }
-.lead { color: var(--muted); max-width: 78ch; margin: 0 0 12px; }
-.legend { display: flex; gap: 14px; color: var(--muted); font-size: 12.5px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.pill { display: inline-block; font-size: 10.5px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; line-height: 1.5; white-space: nowrap; }
+
+/* ---------- Main ---------- */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.top { height: var(--bar-h); flex: 0 0 var(--bar-h); display: flex; align-items: center; gap: 10px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+.top .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; margin-top: 2px; }
+.top .titles { min-width: 0; }
+.top .actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.btn { height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--line-strong); background: var(--raised); border-radius: 7px; color: var(--text); font-size: 12.5px; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); text-decoration: none; }
+.btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn.icon { width: 28px; padding: 0; justify-content: center; }
+.btn svg { width: 15px; height: 15px; }
+.menu-btn { display: none; }
+.help { display: none; padding: 10px 16px; background: var(--accent-soft); border-bottom: 1px solid var(--line); color: var(--text); font-size: 13px; line-height: 1.5; }
+.help.open { display: block; }
+.help p { margin: 0 0 6px; max-width: 90ch; }
+.help p:last-child { margin: 0; }
+.focusbar { display: flex; align-items: center; gap: 8px; padding: 6px 16px; background: var(--accent-soft); border-bottom: 1px solid var(--line); flex-wrap: wrap; font-size: 12.5px; }
+.focusbar[hidden] { display: none; }
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; padding: 0 6px 0 9px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+.chip button { border: 0; background: none; color: var(--muted); padding: 0 2px; font-size: 14px; line-height: 1; }
+.chip button:hover { color: var(--gone); }
+.content { flex: 1; min-height: 0; overflow: auto; }
+.pad { padding: 16px; }
+.empty { padding: 48px 16px; color: var(--muted); text-align: center; }
+.h2 { font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.pill { display: inline-flex; align-items: center; height: 18px; font-size: 10.5px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; padding: 0 6px; border-radius: 999px; white-space: nowrap; line-height: 1; }
 .pill.new { background: var(--new-soft); color: var(--new); }
 .pill.major { background: var(--major-soft); color: var(--major); }
-.pill.minor { color: var(--minor); box-shadow: inset 0 0 0 1px currentColor; }
+.pill.minor { background: var(--minor-soft); color: var(--minor); }
 .pill.gone { background: var(--gone-soft); color: var(--gone); }
 .pill.link { background: var(--accent-soft); color: var(--accent); }
 .pill.same { color: var(--faint); box-shadow: inset 0 0 0 1px var(--line-strong); }
-.h2 { font-size: 12px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; }
-.empty { padding: 48px 16px; color: var(--muted); text-align: center; }
-
-/* Graph */
-.graph { display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.graph .labels { flex: 0 0 var(--label-w); border-right: 1px solid var(--line); }
-.graph .plot { flex: 1; overflow-x: auto; min-width: 0; }
-.graph .axis-gap { height: 38px; border-bottom: 1px solid var(--line-strong); }
-.grow { height: 26px; display: flex; align-items: center; padding: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--text); }
-a.grow:hover, a.grow.hot { background: var(--accent-soft); text-decoration: none; }
-.grow.unseen { color: var(--faint); }
-.gsection { height: 24px; display: flex; align-items: flex-end; padding: 0 10px 3px; font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); background: var(--raised); border-top: 1px solid var(--line); }
-.plot svg { display: block; }
-.plot text { font: 11.5px ui-sans-serif, system-ui, sans-serif; fill: var(--muted); }
-.plot .guide { stroke: var(--line-strong); stroke-dasharray: 3 4; }
-.plot .month { stroke: var(--line-strong); }
-.plot .week { stroke: var(--line); }
-.plot .day { stroke: var(--line); opacity: .55; }
-.plot text.fine { fill: var(--faint); font-size: 10.5px; }
-.graph .plot { cursor: grab; }
-.graph .plot.panning { cursor: grabbing; user-select: none; }
-.zoombar { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; color: var(--muted); font-size: 12.5px; flex-wrap: wrap; }
-.zoombar .seg button { padding: 3px 12px; min-width: 34px; color: var(--text); text-transform: none; }
-.zoombar .seg button + button { border-left: 1px solid var(--line-strong); }
-.zoomhint { color: var(--faint); }
-.plot .band { fill: var(--raised); }
-.plot .lane { stroke: var(--lane); stroke-width: 2; }
-.plot .lane, .plot .birth, .plot .death { pointer-events: none; }
-.plot .lane.unseen { stroke-dasharray: 2 4; opacity: .7; }
-.plot .rowhit { fill: transparent; cursor: pointer; }
-.plot .rowhit:hover, .plot .rowhit.hot { fill: var(--accent-soft); }
-.plot .node { cursor: pointer; }
-.plot .node.same { fill: var(--lane); }
-.plot .node.new, .plot .node.base { fill: var(--surface); stroke: var(--new); stroke-width: 2.5; }
-.plot .node.major { fill: var(--major); stroke: var(--surface); stroke-width: 1.5; }
-.plot .node.minor { fill: var(--surface); stroke: var(--minor); stroke-width: 2; }
-.plot .node.missing { fill: var(--faint); }
-.plot .birth { stroke: var(--new); stroke-width: 2; }
-.plot .death { stroke: var(--gone); stroke-width: 2; }
-.plot .edge { fill: none; stroke-width: 1.5; }
-.plot .edge.branch { stroke: var(--lane); }
-.plot .edge.split { stroke: var(--new); stroke-width: 2; }
-.plot .edge.merged, .plot .edge.replaced { stroke: var(--gone); stroke-width: 2; }
-.plot .edge.redirect, .plot .edge.rename { stroke: var(--accent); stroke-width: 2; }
-.plot .edge.clone { stroke: var(--accent); stroke-dasharray: 4 3; }
-.tip { position: fixed; z-index: 40; pointer-events: none; background: var(--text); color: var(--bg); padding: 6px 9px; border-radius: 7px; font-size: 12.5px; max-width: 340px; box-shadow: var(--shadow); display: none; }
-.tip b { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
-.key { display: inline-block; width: 11px; height: 11px; border-radius: 50%; }
+.legend { display: flex; gap: 14px; row-gap: 4px; color: var(--muted); font-size: 12px; flex-wrap: wrap; align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.key { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
 .key.new { border: 2.5px solid var(--new); }
 .key.major { background: var(--major); }
 .key.minor { border: 2px solid var(--minor); }
 .key.same { width: 6px; height: 6px; background: var(--lane); }
-.key.line { width: 20px; height: 2px; border-radius: 0; background: var(--lane); }
-.key.split { width: 20px; height: 2px; border-radius: 0; background: var(--new); }
-.key.merge { width: 20px; height: 2px; border-radius: 0; background: var(--gone); }
-.key.move { width: 20px; height: 2px; border-radius: 0; background: var(--accent); }
-.key.clone { width: 20px; height: 0; border-radius: 0; border-top: 2px dashed var(--accent); }
+.key.line { width: 18px; height: 2px; border-radius: 0; background: var(--lane); }
+.key.split { width: 18px; height: 2px; border-radius: 0; background: var(--new); }
+.key.merge { width: 18px; height: 2px; border-radius: 0; background: var(--gone); }
+.key.move { width: 18px; height: 2px; border-radius: 0; background: var(--accent); }
+.key.clone { width: 18px; height: 0; border-radius: 0; border-top: 2px dashed var(--accent); }
 
-/* Thumbnail timeline */
-.grid { display: grid; position: relative; width: max-content; }
-.head { position: sticky; top: 0; z-index: 6; background: var(--surface); border-bottom: 1px solid var(--line-strong); padding: 8px 10px; border-left: 1px solid var(--line); }
-a.head { color: inherit; }
+/* ---------- Graph ---------- */
+.intro { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; background: var(--accent-soft); border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.5; }
+.intro > div:first-child { max-width: 100ch; }
+.introactions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.graphbar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
+.zoom { display: flex; align-items: center; gap: 8px; }
+.zoom .seg button { min-width: 32px; justify-content: center; }
+.zoomlvl { color: var(--muted); font-size: 12px; min-width: 70px; }
+.graph { height: 100%; overflow: auto; cursor: grab; }
+.graph.panning { cursor: grabbing; user-select: none; }
+.graph .gwrap { display: grid; grid-template-columns: var(--label-w) max-content; width: max-content; min-width: 100%; }
+.graph .corner { position: sticky; left: 0; top: 0; z-index: 9; height: 44px; background: var(--surface); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line-strong); display: flex; align-items: flex-end; padding: 0 12px 6px; font-size: 11px; color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
+.graph .axis { position: sticky; top: 0; z-index: 7; height: 44px; background: var(--surface); border-bottom: 1px solid var(--line-strong); line-height: 0; }
+.graph .labels { position: sticky; left: 0; z-index: 8; background: var(--surface); border-right: 1px solid var(--line); }
+.graph .body { line-height: 0; }
+.lrow { height: 24px; display: flex; align-items: center; padding-left: 12px; padding-right: 4px; }
+.lrow:hover, .lrow.hot { background: var(--accent-soft); }
+.lrow a { flex: 1; min-width: 0; color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+.lrow a > span { direction: ltr; unicode-bidi: isolate; }
+.lrow a:hover { text-decoration: none; color: var(--accent); }
+.lrow a.unseen { color: var(--faint); }
+.gsection { height: 22px; display: flex; align-items: center; padding: 0 12px; font-size: 10.5px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); background: var(--raised); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.graph svg { display: block; }
+.graph text { font: 11px ui-sans-serif, system-ui, sans-serif; fill: var(--muted); }
+.graph text.month { font-weight: 650; fill: var(--text); }
+.graph text.fine { fill: var(--faint); font-size: 10px; }
+.graph text.count { font-size: 8.5px; font-weight: 700; fill: var(--text); pointer-events: none; }
+.graph text.count.onfill { fill: var(--surface); }
+.graph .axisbg { fill: var(--surface); }
+.graph .guide { stroke: var(--line-strong); stroke-dasharray: 2 4; }
+.graph .monthline { stroke: var(--line-strong); }
+.graph .week { stroke: var(--line); }
+.graph .day { stroke: var(--line); opacity: .5; }
+.graph .band { fill: var(--raised); }
+.graph .bandline { stroke: var(--line); }
+.graph .lane { stroke: var(--lane); stroke-width: 2; }
+.graph .lane.unseen { stroke-dasharray: 2 4; opacity: .7; }
+.graph .lane, .graph .birth, .graph .death { pointer-events: none; }
+.graph .rowhit { fill: transparent; cursor: pointer; }
+.graph .rowhit:hover, .graph .rowhit.hot { fill: var(--accent-soft); }
+.graph .node { cursor: pointer; }
+.graph .node.same { fill: var(--lane); }
+.graph .node.new, .graph .node.base { fill: var(--surface); stroke: var(--new); stroke-width: 2.5; }
+.graph .node.major { fill: var(--major); stroke: var(--surface); stroke-width: 1.5; }
+.graph .node.minor { fill: var(--surface); stroke: var(--minor); stroke-width: 2; }
+.graph .node.missing { fill: var(--faint); }
+.graph .birth { stroke: var(--new); stroke-width: 2; }
+.graph .death { stroke: var(--gone); stroke-width: 2; }
+.graph .edge { fill: none; stroke-width: 1.5; }
+.graph .edge.branch { stroke: var(--lane); }
+.graph .edge.split { stroke: var(--new); stroke-width: 2; }
+.graph .edge.merged, .graph .edge.replaced { stroke: var(--gone); stroke-width: 2; }
+.graph .edge.redirect, .graph .edge.rename { stroke: var(--accent); stroke-width: 2; }
+.graph .edge.clone { stroke: var(--accent); stroke-dasharray: 4 3; }
+.tip { position: fixed; z-index: 40; pointer-events: none; background: var(--text); color: var(--bg); padding: 6px 9px; border-radius: 7px; font-size: 12px; max-width: 340px; box-shadow: var(--shadow); display: none; line-height: 1.45; }
+.tip b { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+/* ---------- Thumbnail timeline ---------- */
+.grid { display: grid; position: relative; width: max-content; min-width: 100%; background: var(--surface); }
+.head { position: sticky; top: 0; z-index: 6; background: var(--surface); border-bottom: 1px solid var(--line-strong); border-left: 1px solid var(--line); padding: 8px 10px; color: inherit; line-height: 1.25; }
 a.head:hover { background: var(--accent-soft); text-decoration: none; }
-.head .date { font-weight: 650; }
-.head .meta { color: var(--muted); font-size: 12px; }
-.corner { position: sticky; left: 0; top: 0; z-index: 8; background: var(--surface); border-bottom: 1px solid var(--line-strong); padding: 8px 12px; color: var(--muted); font-size: 12px; display: flex; align-items: flex-end; }
-.section { grid-column: 1 / -1; background: var(--bg); padding: 12px 12px 5px; font-size: 11.5px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
-.section span { position: sticky; left: 12px; }
-.label { position: sticky; left: 0; z-index: 4; background: var(--surface); border-bottom: 1px solid var(--line); padding: 8px 10px 8px 12px; display: flex; flex-direction: column; gap: 3px; justify-content: center; min-width: 0; }
-.label .route { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
-.label .sub { color: var(--faint); font-size: 11.5px; }
-.expander { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 11.5px; text-align: left; }
-.cell { position: relative; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); padding: 8px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 52px; background: var(--surface); }
+.head .date { font-weight: 650; font-size: 12.5px; }
+.head .meta { color: var(--faint); font-size: 11px; margin-top: 2px; }
+.corner { position: sticky; left: 0; top: 0; z-index: 8; background: var(--surface); border-bottom: 1px solid var(--line-strong); padding: 8px 12px; color: var(--faint); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: flex-end; }
+.section { grid-column: 1 / -1; position: sticky; left: 0; background: var(--raised); border-bottom: 1px solid var(--line); height: 26px; display: flex; align-items: center; padding: 0 12px; font-size: 10.5px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.label { position: sticky; left: 0; z-index: 4; min-height: 84px; background: var(--surface); border-bottom: 1px solid var(--line); padding: 0 8px 0 12px; display: flex; align-items: center; gap: 4px; min-width: 0; }
+.label .route { flex: 1; min-width: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+.label .route > span { direction: ltr; unicode-bidi: isolate; }
+.label .route:hover { text-decoration: none; color: var(--accent); }
+.label .kind { color: var(--faint); font-size: 11px; white-space: nowrap; }
+.expander { height: 22px; border: 1px solid var(--line-strong); background: var(--raised); border-radius: 6px; padding: 0 7px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.expander:hover { border-color: var(--accent); color: var(--accent); }
+.subrow .label { background: var(--raised); padding-left: 24px; }
+.subrow .label .route { font-family: inherit; font-weight: 500; direction: ltr; }
+.subrow .cell { background: var(--raised); }
+.cell { position: relative; min-height: 84px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); display: flex; align-items: center; justify-content: center; background: var(--surface); }
+.cell.outside { background: var(--bg); }
 .cell.alive::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--lane); }
 .cell.first::before { left: 50%; }
 .cell.last::before { right: 50%; }
 .cell.first.last::before { display: none; }
-.thumb { position: relative; z-index: 1; display: block; border-radius: 6px; overflow: hidden; border: 1px solid var(--line-strong); background: var(--raised); cursor: zoom-in; padding: 0; line-height: 0; box-shadow: var(--shadow); }
+.thumb { position: relative; z-index: 1; display: block; border-radius: 5px; overflow: hidden; border: 1px solid var(--line-strong); background: var(--raised); cursor: zoom-in; padding: 0; line-height: 0; box-shadow: var(--shadow); }
 .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .thumb:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
 .thumb.same { opacity: .5; box-shadow: none; }
 .thumb.same:hover { opacity: 1; }
-.tags { position: relative; z-index: 1; display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
-.samedot { cursor: pointer; padding: 0; }
-.samedot:hover { border-color: var(--accent); }
-.dot { position: relative; z-index: 1; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--lane); }
-.subrow .label, .subrow .cell { background: var(--raised); }
-.subrow .label { padding-left: 24px; }
-.subrow .label .route { font-family: inherit; font-weight: 500; }
+.thumb .pill { position: absolute; top: 4px; left: 4px; z-index: 2; height: 16px; font-size: 9.5px; padding: 0 5px; }
+.cell .dot { position: relative; z-index: 1; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--lane); padding: 0; }
+/* The dot stays small; its hit area does not. */
+.cell .samedot { width: 28px; height: 28px; border: 0; background: none; display: inline-flex; align-items: center; justify-content: center; }
+.cell .samedot::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--lane); box-sizing: border-box; }
+.cell .samedot:hover::after { border-color: var(--accent); }
+.cell .pill.gone, .cell .pill.link { position: relative; z-index: 1; }
 
-/* Page view */
-.facts { color: var(--muted); display: flex; flex-direction: column; gap: 3px; margin-bottom: 14px; }
-.facts .row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-.facts .why { color: var(--faint); font-size: 12.5px; padding-left: 4px; max-width: 90ch; }
-.pagewrap { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px; align-items: start; }
-.views { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px; position: sticky; top: 0; max-height: calc(100vh - 90px); overflow: auto; }
-.views .group { font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 9px 8px 3px; }
-.views a { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; border-radius: 7px; color: var(--text); }
+/* ---------- Page ---------- */
+.pagehead { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; }
+.pagehead .life { color: var(--muted); font-size: 12.5px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.pagehead .life > span { display: inline-flex; align-items: center; gap: 6px; }
+.pagehead .rel { display: flex; flex-direction: column; gap: 2px; }
+.pagehead .rel details { font-size: 12.5px; }
+.pagehead .rel summary { display: flex; align-items: center; gap: 8px; row-gap: 2px; cursor: pointer; list-style: none; min-height: 24px; flex-wrap: wrap; }
+.pagehead .rel summary > * { white-space: nowrap; }
+.pagehead .rel summary::-webkit-details-marker { display: none; }
+.pagehead .rel summary .why { color: var(--faint); font-size: 11.5px; text-decoration: underline dotted; }
+.pagehead .rel .ev { color: var(--muted); padding: 2px 0 6px 2px; max-width: 90ch; }
+.pagewrap { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; align-items: start; }
+.views { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px; position: sticky; top: 0; max-height: calc(100vh - var(--bar-h) - 32px); overflow: auto; }
+.views .group { font-size: 10.5px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 8px 8px 4px; }
+.views a { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px; color: var(--text); }
+.views a .lbl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.views a .n { color: var(--faint); font-size: 11px; white-space: nowrap; }
 .views a:hover { background: var(--raised); text-decoration: none; }
 .views a[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.ticks { display: flex; gap: 2px; flex-wrap: wrap; }
-.ticks i { width: 8px; height: 4px; border-radius: 2px; background: var(--line-strong); }
-.ticks i.on { background: var(--lane); }
-.ticks i.major { background: var(--major); }
-.ticks i.new { background: var(--new); }
-.strip { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 14px; align-items: flex-start; }
-.frame { flex: 0 0 auto; width: 320px; }
-.frame.narrow { width: 190px; }
-.frame header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-.frame .shot { display: block; width: 100%; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--surface); cursor: zoom-in; padding: 0; line-height: 0; box-shadow: var(--shadow); max-height: 560px; }
-.frame .shot img { width: 100%; display: block; }
-.frame .gap { border: 1px dashed var(--line-strong); border-radius: 8px; padding: 26px 12px; color: var(--muted); text-align: center; }
-.frame.skip { width: 170px; }
-.frame.skip .gap { font-size: 12.5px; line-height: 1.6; padding: 18px 10px; }
-.frame .caption { color: var(--faint); font-size: 12px; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.views a[aria-current="true"] .n { color: inherit; opacity: .75; }
+.strip { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 12px; align-items: stretch; }
+.frame { flex: 0 0 auto; width: 300px; display: flex; flex-direction: column; }
+.frame.narrow { width: 180px; }
+.frame header { display: flex; align-items: center; gap: 6px; height: 24px; margin-bottom: 6px; white-space: nowrap; }
+.frame header b { font-size: 12.5px; }
+.frame header .mono { color: var(--faint); font-size: 11px; }
+.frame .shot { display: block; height: 380px; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--surface); cursor: zoom-in; padding: 0; line-height: 0; box-shadow: var(--shadow); }
+.frame .shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.frame .gap { height: 380px; border: 1px dashed var(--line-strong); border-radius: 8px; padding: 12px; color: var(--muted); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; line-height: 1.5; }
+.frame.skip { width: 150px; }
+.frame.skip header { color: var(--muted); }
+.frame .caption { color: var(--faint); font-size: 11.5px; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font-size: inherit; }
 .compare { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-width: 1100px; }
-.compare .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.compare .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
 .compare .controls .field { width: auto; }
-.compare .stage { position: relative; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden auto; max-height: 78vh; line-height: 0; background: var(--raised); }
-.compare .stage img { width: 100%; display: block; }
+.compare .cmphint { flex: 1; text-align: center; color: var(--faint); font-size: 12px; }
+.compare .stage { position: relative; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden auto; max-height: 78vh; line-height: 0; background: var(--raised); cursor: col-resize; user-select: none; }
+.compare .stage img { width: 100%; display: block; pointer-events: none; }
 .compare .stage .after { position: absolute; inset: 0 0 auto 0; }
-.compare .stage { cursor: col-resize; user-select: none; }
-.compare .stage.dragging { cursor: col-resize; }
-.compare .stage img { pointer-events: none; }
 .compare .handle { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); pointer-events: none; }
-.compare .handle .grip { position: sticky; top: 50%; left: 50%; display: block; width: 36px; height: 36px; margin: 0 0 0 -17px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 18px; line-height: 36px; text-align: center; box-shadow: var(--shadow); }
-.compare .cmphint { flex: 1; text-align: center; color: var(--faint); font-size: 12.5px; }
+.compare .handle .grip { position: sticky; top: 50%; left: 50%; display: block; width: 34px; height: 34px; margin: 0 0 0 -16px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 17px; line-height: 34px; text-align: center; box-shadow: var(--shadow); }
 
-/* Snapshots */
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
-.cards.narrow { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+/* ---------- Snapshots ---------- */
+.snaps { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.snap { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; color: var(--text); display: flex; flex-direction: column; gap: 5px; }
+.snap:hover { border-color: var(--accent); text-decoration: none; }
+.snap b { font-size: 15px; }
+.snap .subj { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.snap .counts { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 2px; }
+.summary { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; }
+.summary ul { margin: 6px 0 0; padding-left: 16px; line-height: 1.7; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.cards.narrow { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 .card .thumb { width: 100%; aspect-ratio: 16 / 10; }
 .cards.narrow .card .thumb { aspect-ratio: 15 / 26; }
-.card .route { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
-.snaps { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
-.snap { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; color: var(--text); display: flex; flex-direction: column; gap: 6px; }
-.snap:hover { border-color: var(--accent); text-decoration: none; }
-.snap b { font-size: 16px; }
-.snap .counts { display: flex; gap: 6px; flex-wrap: wrap; }
-.lists { display: flex; gap: 28px; flex-wrap: wrap; }
-.lists ul { margin: 4px 0 0; padding-left: 18px; }
+.card .route { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Lightbox */
+/* ---------- Lightbox ---------- */
 .lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(8, 9, 12, .94); display: none; flex-direction: column; color: #eee; }
 .lightbox.open { display: flex; }
 .lightbox .bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; flex-wrap: wrap; }
 .lightbox .where { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; }
 .lightbox .when { color: #b9bac4; }
-.lightbox button { border: 1px solid #555; background: #1d1e24; color: #eee; border-radius: 8px; padding: 5px 11px; cursor: pointer; }
+.lightbox button { height: 28px; border: 1px solid #555; background: #1d1e24; color: #eee; border-radius: 7px; padding: 0 11px; }
 .lightbox button:disabled { opacity: .35; cursor: default; }
 .lightbox .body { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 0 16px 24px; }
 .lightbox .body img { max-width: 100%; border-radius: 6px; background: #fff; }
 .lightbox .steps { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; max-width: 40vw; }
 .lightbox .steps i { width: 8px; height: 8px; border-radius: 50%; background: #555; }
 .lightbox .steps i.on { background: #fff; }
-.lightbox .steps i.off { background: transparent; box-shadow: inset 0 0 0 1px #555; }
 .hint { color: #8f909a; font-size: 12px; }
 
 @media (max-width: 900px) {
   .side { position: fixed; inset: 0 auto 0 0; z-index: 30; transform: translateX(-100%); transition: transform .18s; box-shadow: var(--shadow); max-width: 86vw; }
   body.side-open .side { transform: none; }
-  .menu-btn { display: inline-block; }
+  .menu-btn { display: inline-flex; }
   .pagewrap { grid-template-columns: minmax(0, 1fr); }
-  .views { position: static; max-height: 260px; }
-  :root { --label-w: 150px; --col-w: 140px; }
+  .views { position: static; max-height: 240px; }
+  :root { --label-w: 150px; --col-w: 110px; }
   .hint { display: none; }
+  .top .sub { display: none; }
+  .pagehead .rel summary .mono.muted, .pagehead .life .muted { display: none; }
+  .frame { width: 240px; }
+  .frame .shot, .frame .gap { height: 300px; }
 }
 </style>
 </head>
 <body>
 <aside class="side" id="side">
-  <div class="brand">UI History<small id="project"></small></div>
+  <div class="brand"><b>UI History</b><small id="project"></small></div>
   <nav class="nav" id="nav">
-    <a href="#/" data-view="graph">Graph<small>How pages were added, split off and merged</small></a>
-    <a href="#/timeline" data-view="timeline">Screens over time<small>Every page as thumbnails, snapshot by snapshot</small></a>
-    <a href="#/snapshots" data-view="snapshots">Snapshots<small>The whole site at one point in time</small></a>
+    <a href="#/" data-view="graph" title="How pages were added, split off and merged, over time"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 4h5M2 8h12M2 12h8"/><circle cx="7" cy="4" r="1.6" fill="currentColor" stroke="none"/><circle cx="11" cy="8" r="1.6" fill="currentColor" stroke="none"/></svg>Graph</a>
+    <a href="#/timeline" data-view="timeline" title="Every page as thumbnails, snapshot by snapshot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="4" height="4"/><rect x="10" y="3" width="4" height="4"/><rect x="2" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/></svg>Screens</a>
+    <a href="#/snapshots" data-view="snapshots" title="The whole site at one point in time"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>Snapshots</a>
   </nav>
-  <div class="searchbox"><input class="field" id="search" type="search" placeholder="Find a page…" aria-label="Find a page"></div>
+  <div class="tools">
+    <input class="field" id="search" type="search" placeholder="Find a page…  ( / )" aria-label="Find a page">
+    <div class="row">
+      <label class="check" title="Also show the snapshots in which a page looked the same as before"><input type="checkbox" id="showSame"> Show unchanged</label>
+      <label class="check" title="Hide pages that never changed"><input type="checkbox" id="onlyChanged"> Changed only</label>
+    </div>
+    <div class="row"><div class="seg" role="group" aria-label="Viewport" id="viewports"></div><span class="muted" style="font-size:12px">viewport</span></div>
+  </div>
   <div class="tree" id="tree"></div>
 </aside>
 <div class="main">
   <div class="top">
-    <button class="ghost menu-btn" id="menuBtn">Pages</button>
-    <div><h1 id="title"></h1><div class="sub" id="subtitle"></div></div>
+    <button class="btn menu-btn" id="menuBtn">Pages</button>
+    <div class="titles"><h1 id="title"></h1><div class="sub" id="subtitle"></div></div>
     <div class="spacer"></div>
-    <label class="check" title="Also show the snapshots in which a page looked the same as before"><input type="checkbox" id="showSame"> Show unchanged</label>
-    <label class="check" title="Hide pages that never changed"><input type="checkbox" id="onlyChanged"> Changed pages only</label>
-    <div class="seg" role="group" aria-label="Viewport" id="viewports"></div>
-    <button class="ghost" id="theme" title="Switch light and dark">Theme</button>
+    <div class="actions" id="actions"></div>
+    <button class="btn icon" id="helpBtn" title="What am I looking at?" aria-pressed="false">?</button>
+    <button class="btn icon" id="theme" title="Switch light and dark"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2v2M8 12v2M2 8h2M12 8h2M3.8 3.8l1.4 1.4M10.8 10.8l1.4 1.4M3.8 12.2l1.4-1.4M10.8 5.2l1.4-1.4"/><circle cx="8" cy="8" r="2.6"/></svg></button>
   </div>
+  <div class="help" id="help"></div>
   <div class="focusbar" id="focusbar" hidden>
-    <span class="focuslabel">Showing what is connected to</span><span id="focuschips"></span>
+    <span class="muted" id="focuslabel"></span><span id="focuschips"></span>
     <label class="check" title="Also follow the grey structure links (a page added under another)"><input type="checkbox" id="focusStructure"> include structure links</label>
-    <button class="ghost" id="focusClear">Show everything</button>
+    <button class="btn" id="focusClear">Show everything</button>
   </div>
   <div class="content" id="content"></div>
 </div>
@@ -319,13 +373,15 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   const snapIndex = Object.fromEntries(snaps.map((s, i) => [s.id, i]));
   const pageById = Object.fromEntries(H.pages.map((p) => [p.id, p]));
   const viewportNames = H.viewports ?? ["desktop", "mobile"];
-  const state = { viewport: viewportNames[0], search: "", onlyChanged: false, showSame: false, expanded: new Set(), zoom: 1, graphLeft: 0 };
+  const state = { viewport: viewportNames[0], search: "", onlyChanged: false, showSame: false, expanded: new Set(), zoom: 1, graphLeft: 0, focus: new Set(), focusStructure: false, help: false };
   const MAX_ZOOM = 80;
   const KIND_LABEL = { page: "Whole page", "signed-out": "Signed out", section: "Sections", dialog: "Dialogs", menu: "Menus" };
   const EDGE_TEXT = {
-    branch: ["Grew", "Grew out of"], split: ["Split off", "Split off from"], merged: ["Folded into", "Absorbed"],
+    branch: ["Later added under it", "Added under"], split: ["Split off", "Split off from"], merged: ["Folded into", "Absorbed"],
     replaced: ["Replaced by", "Replaced"], clone: ["Copied to make", "Built from a copy of"], rename: ["Renamed to", "Renamed from"], redirect: ["Redirects to", "Target of"],
   };
+  const STATUS_TEXT = { new: "first seen", base: "first snapshot", major: "redesigned", minor: "small change", same: "unchanged", missing: "exists, not captured", absent: "does not exist" };
+  const FOCUS_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="3"/><path d="M8 1v3M8 12v3M1 8h3M12 8h3"/></svg>';
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -336,6 +392,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   const mainView = (page) => page.views.find((v) => v.id === "page");
   const extraViews = (page) => page.views.filter((v) => v.id !== "page");
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const routeHtml = (id) => `<span>${esc(id)}</span>`;
 
   /** What a view looked like at a snapshot, relative to the last time it was captured. */
   function viewStatus(view, i) {
@@ -357,9 +414,9 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   }
   const exists = (page, i) => Boolean(page.presence[snaps[i].id]);
   const lifespan = (page) => { const on = snaps.map((_, i) => i).filter((i) => exists(page, i)); return { first: on[0], last: on[on.length - 1] }; };
+  const changesOf = (view) => snaps.reduce((n, _, i) => n + (["new", "major", "minor"].includes(viewStatus(view, i).kind) ? 1 : 0), 0);
   const everChanged = (page) => !page.seen || snaps.some((_, i) => ["new", "major", "minor", "redirect"].includes(status(page, i).kind)) || lifespan(page).last < snaps.length - 1;
-  state.focus = new Set();
-  state.focusStructure = false;
+
   /** Every page reachable from the focused ones through lineage edges, in either direction. */
   function connected() {
     if (!state.focus.size) return null;
@@ -377,12 +434,12 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   }
   const matches = (page) => {
     const q = state.search.trim().toLowerCase();
-    const inFocus = !state.focusSet || state.focusSet.has(page.id);
-    return inFocus && (!q || page.id.toLowerCase().includes(q)) && (!state.onlyChanged || everChanged(page));
+    return (!state.focusSet || state.focusSet.has(page.id)) && (!q || page.id.toLowerCase().includes(q)) && (!state.onlyChanged || everChanged(page));
   };
   function toggleFocus(id) { state.focus.has(id) ? state.focus.delete(id) : state.focus.add(id); render(); }
   function focusButton(id) {
-    const b = el(`<button class="focus-btn" aria-pressed="${state.focus.has(id)}" title="${state.focus.has(id) ? "Stop focusing on this page" : "Focus: show only what is connected to this page"}">⌖</button>`);
+    const on = state.focus.has(id);
+    const b = el(`<button class="focus-btn" aria-pressed="${on}" title="${on ? "Stop focusing on this page" : "Show only what is connected to this page"}">${FOCUS_ICON}</button>`);
     b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); toggleFocus(id); });
     return b;
   }
@@ -396,10 +453,8 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       chip.querySelector("button").addEventListener("click", () => toggleFocus(id));
       chips.append(chip);
     }
-    const n = state.focusSet ? state.focusSet.size : 0;
-    document.querySelector(".focuslabel").textContent = `${plural(n, "connected page")}. Showing what is connected to`;
+    document.getElementById("focuslabel").textContent = `${plural(state.focusSet?.size ?? 0, "connected page")} ·`;
   }
-  const STATUS_TEXT = { new: "new here", base: "first snapshot", major: "redesigned", minor: "small change", same: "unchanged", missing: "exists, not captured", absent: "does not exist" };
 
   const pillFor = (st) =>
     st.kind === "new" ? '<span class="pill new">new</span>'
@@ -407,18 +462,30 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     : st.kind === "minor" ? '<span class="pill minor">tweak</span>'
     : st.kind === "same" ? '<span class="pill same">same</span>' : "";
 
-  function thumb(image, series, index, cls = "") {
-    const size = narrow() ? "width:60px;height:104px" : "width:144px;height:90px";
-    const b = el(`<button class="thumb ${cls}" style="${size}"><img loading="lazy" src="${esc(image.card)}" alt=""></button>`);
+  function thumb(image, series, index, st) {
+    const size = narrow() ? "width:40px;height:70px" : "width:112px;height:70px";
+    const b = el(`<button class="thumb ${st?.kind === "same" ? "same" : ""}" style="${size}"><img loading="lazy" src="${esc(image.card)}" alt=""></button>`);
+    if (st && st.kind !== "same" && st.kind !== "base") b.prepend(el(pillFor(st)));
     b.addEventListener("click", () => openLightbox(series, index));
     return b;
   }
   /** One view across all snapshots, for stepping through time in the lightbox. */
   const seriesFor = (title, view) => ({ title, frames: snaps.map((s, i) => { const im = img(view?.shots[s.id]); return im ? { snap: s, image: im, same: viewStatus(view, i).kind === "same" } : null; }) });
 
-  function header(title, subtitle) {
+  function emptyState() {
+    const box = el('<div class="empty">No page matches the current search or filters.<br><button class="btn" style="margin-top:10px">Clear search and filters</button></div>');
+    box.querySelector("button").addEventListener("click", () => { state.search = ""; document.getElementById("search").value = ""; state.onlyChanged = false; document.getElementById("onlyChanged").checked = false; state.focus.clear(); render(); });
+    return box;
+  }
+  function header(title, subtitle, actions = [], help = "") {
     document.getElementById("title").textContent = title;
     document.getElementById("subtitle").innerHTML = subtitle ?? "";
+    document.getElementById("actions").replaceChildren(...actions);
+    const h = document.getElementById("help");
+    h.innerHTML = help;
+    h.classList.toggle("open", state.help && Boolean(help));
+    document.getElementById("helpBtn").style.display = help ? "" : "none";
+    document.getElementById("helpBtn").setAttribute("aria-pressed", String(state.help));
   }
 
   // ---------- Sidebar ----------
@@ -427,97 +494,121 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     const q = state.search.trim().toLowerCase();
     const bySection = new Map();
     for (const p of H.pages) if ((!q || p.id.toLowerCase().includes(q)) && (!state.focusSet || state.focusSet.has(p.id))) (bySection.get(p.section) ?? bySection.set(p.section, []).get(p.section)).push(p);
-    const wasOpen = new Set([...tree.querySelectorAll("details[open]")].map((d) => d.dataset.section));
+    const open = new Set([...tree.querySelectorAll("details[open]")].map((d) => d.dataset.section));
     tree.innerHTML = "";
+    const currentSection = current ? pageById[current]?.section : null;
     for (const [section, pages] of bySection) {
-      const open = q || pages.some((p) => p.id === current) || wasOpen.has(section) || bySection.size <= 6;
-      const d = el(`<details ${open ? "open" : ""} data-section="${esc(section)}"><summary>${esc(section)}<span>${pages.length}</span></summary></details>`);
+      const isOpen = Boolean(q) || Boolean(state.focusSet) || section === currentSection || open.has(section) || bySection.size <= 4 || (tree.dataset.first !== "1" && [...bySection.keys()].indexOf(section) < 2);
+      const d = el(`<details ${isOpen ? "open" : ""} data-section="${esc(section)}"><summary>${esc(section)}<span class="n">${pages.length}</span></summary></details>`);
       for (const p of pages) {
         const extra = extraViews(p).length;
-        const row = el('<div class="row"></div>');
-        row.append(el(`<a href="${pageHref(p.id)}" class="${p.seen ? "" : "unseen"}" ${p.id === current ? 'aria-current="page"' : ""} title="${p.seen ? "" : "Existed between snapshots, or was never captured"}">${esc(p.id)}<span>${p.seen ? (extra ? "+" + extra : "") : "no shots"}</span></a>`));
+        const row = el(`<div class="item" ${p.id === current ? 'aria-current="page"' : ""}><a href="${pageHref(p.id)}" class="${p.seen ? "" : "unseen"}" title="${esc(p.id)}${p.seen ? "" : " — existed between snapshots, or was never captured"}">${routeHtml(p.id)}</a><span class="n">${p.seen ? (extra ? "+" + extra : "") : "–"}</span></div>`);
         row.append(focusButton(p.id));
         d.append(row);
       }
       tree.append(d);
     }
     if (!bySection.size) tree.append(el('<div class="empty">No page matches.</div>'));
+    tree.dataset.first = "1";
   }
 
   // ---------- Graph ----------
   function renderGraph() {
-    header("Graph", `${H.pages.length} pages · ${plural(snaps.length, "snapshot")} of ${H.project.commits} commits · ${esc(H.project.from)} to ${esc(H.project.to)}`);
-    const pad = el('<div class="pad"></div>');
-    pad.append(el('<p class="lead">Each line is one page, from the day it was added to the day it was removed. A line that curves out of another came from that page; a line that curves into another went into it. Dots are the snapshots where screenshots exist. Hover a curve for the evidence, click a line to open the page. The ⌖ next to a page shows only what is connected to it.</p>'));
-    pad.append(el(`<div class="legend">
-      <span><i class="key new"></i> first seen</span><span><i class="key major"></i> redesigned</span><span><i class="key minor"></i> small change</span><span><i class="key same"></i> unchanged</span>
-      <span><i class="key split"></i> split off</span><span><i class="key merge"></i> merged or replaced</span><span><i class="key move"></i> renamed or redirected</span><span><i class="key clone"></i> built from a copy</span><span><i class="key line"></i> new under a parent</span></div>`));
-    const zoomBar = el(`<div class="zoombar"><span class="seg"><button data-zoom="out" title="Zoom out">−</button><button data-zoom="fit" title="Show the whole history">Fit</button><button data-zoom="in" title="Zoom in">+</button></span>
-      <span>${state.zoom === 1 ? "whole history" : "×" + (state.zoom < 10 ? state.zoom.toFixed(1) : Math.round(state.zoom))}</span><span class="zoomhint">Zoom the time axis: Ctrl or ⌘ + scroll, or pinch. Drag to pan.</span></div>`);
-    pad.append(zoomBar);
+    const zoomBar = el(`<div class="zoom"><span class="seg"><button data-zoom="out" title="Zoom out">−</button><button data-zoom="fit" title="Show the whole history">Fit</button><button data-zoom="in" title="Zoom in">+</button></span><span class="zoomlvl">${state.zoom === 1 ? "whole history" : "×" + (state.zoom < 10 ? state.zoom.toFixed(1) : Math.round(state.zoom))}</span></div>`);
+    header("Graph", `${H.pages.length} pages · ${plural(snaps.length, "snapshot")} of ${H.project.commits} commits · ${esc(H.project.from)} to ${esc(H.project.to)}`, [zoomBar],
+      `<p>Each line is one page, from the day it was added to the day it was removed. A line that curves <b>out of</b> another came from that page (split off, or built from a copy); a line that curves <b>into</b> another was folded into it. Dots are the snapshots where screenshots exist; a numbered dot stands for several snapshots too close together to show apart at this zoom.</p>
+       <p>Hover a dot or a curve for details, click a line to open the page, and use the target icon next to a page to show only what is connected to it. Zoom the time axis with Ctrl or ⌘ + scroll (or pinch); drag to pan.</p>`);
     const pages = H.pages.filter(matches);
-    if (!pages.length) { pad.append(el('<div class="empty">No pages match the filter.</div>')); content.replaceChildren(pad); return; }
+    const wrap = el('<div style="display:flex;flex-direction:column;height:100%"></div>');
+    let seenIntro = false;
+    try { seenIntro = localStorage.getItem("ui-history-intro") === "1"; } catch { /* storage unavailable */ }
+    if (!seenIntro && !state.focusSet) {
+      const latest = snaps[snaps.length - 1];
+      const intro = el(`<div class="intro"><div><b>This is the UI history of ${esc(H.project.name)}</b>: ${H.pages.length} pages across ${plural(snaps.length, "snapshot")}, ${esc(H.project.from)} to ${esc(H.project.to)}.
+        Each line below is one page through time; dots are the snapshots it was photographed in, curves show where pages came from or went. Three ways in:</div>
+        <div class="introactions"><a class="btn" href="#/timeline">Browse the screenshots</a><a class="btn" href="#/snapshot/${latest.id}">See the whole site today</a><button class="btn" data-pick>Pick a page on the left</button><span class="spacer"></span><button class="btn" data-dismiss>Got it</button></div></div>`);
+      intro.querySelector("[data-pick]").addEventListener("click", () => { document.getElementById("search").focus(); document.body.classList.add("side-open"); });
+      intro.querySelector("[data-dismiss]").addEventListener("click", () => { try { localStorage.setItem("ui-history-intro", "1"); } catch { /* ignore */ } intro.remove(); });
+      wrap.append(intro);
+    }
+    wrap.append(el(`<div class="graphbar"><div class="legend">
+      <span><i class="key new"></i> first seen</span><span><i class="key major"></i> redesigned</span><span><i class="key minor"></i> small change</span><span><i class="key same"></i> unchanged</span>
+      <span><i class="key split"></i> split off</span><span><i class="key merge"></i> merged or replaced</span><span><i class="key move"></i> renamed or redirected</span><span><i class="key clone"></i> built from a copy</span><span><i class="key line"></i> added under a parent</span></div></div>`));
+    if (!pages.length) { wrap.append(emptyState()); content.replaceChildren(wrap); return; }
 
-    const ROW = 26, SEC = 24, AXIS = 38, LEFT = 16, RIGHT = 28;
+    const ROW = 24, SEC = 22, AXIS = 44, LEFT = 18, RIGHT = 28;
     const t0 = Date.parse(H.project.from), t1 = Math.max(Date.parse(H.project.to), t0 + 86400000);
     const labelW = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--label-w"));
-    const fitWidth = Math.max(720, content.clientWidth - 32 - labelW - 4);
+    const fitWidth = Math.max(720, content.clientWidth - labelW - 2);
     const width = Math.round(fitWidth * state.zoom);
     const pxPerDay = (width - LEFT - RIGHT) / ((t1 - t0) / 86400000);
     const x = (date) => LEFT + ((Math.min(Math.max(Date.parse(date), t0), t1) - t0) / (t1 - t0)) * (width - LEFT - RIGHT);
 
-    const graph = el('<div class="graph"><div class="labels"><div class="axis-gap"></div></div><div class="plot"></div></div>');
+    // One scroll container: the label column sticks to the left, the date axis to the top,
+    // so the labels and the lines can never drift apart.
+    const graph = el('<div class="graph"><div class="gwrap"><div class="corner">Page</div><div class="axis"></div><div class="labels"></div><div class="body"></div></div></div>');
     const labels = graph.querySelector(".labels");
     const rows = {};
-    let y = AXIS, section = null;
+    let y = 0, section = null;
     const bands = [];
     for (const p of pages) {
       if (p.section !== section) { section = p.section; labels.append(el(`<div class="gsection">${esc(section)}</div>`)); bands.push(y); y += SEC; }
-      const a = el(`<a class="grow ${p.seen ? "" : "unseen"}" href="${pageHref(p.id)}" title="${esc(p.id)}">${esc(p.id)}</a>`);
+      const a = el(`<a class="${p.seen ? "" : "unseen"}" href="${pageHref(p.id)}" title="${esc(p.id)}">${routeHtml(p.id)}</a>`);
+      a.addEventListener("click", (e) => { if (state.dragged) e.preventDefault(); });
       const lrow = el('<div class="lrow"></div>');
       lrow.append(a, focusButton(p.id));
       labels.append(lrow);
-      rows[p.id] = { y: y + ROW / 2, label: a };
+      rows[p.id] = { y: y + ROW / 2, label: lrow };
       y += ROW;
     }
     const height = y + 8;
+    labels.append(el('<div style="height:8px"></div>'));
     const svg = svgEl("svg", { width, height, viewBox: `0 0 ${width} ${height}` });
+    const axisSvg = svgEl("svg", { width, height: AXIS, viewBox: `0 0 ${width} ${AXIS}` });
     const defs = svgEl("defs");
     const marker = svgEl("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 9, markerHeight: 9, markerUnits: "userSpaceOnUse", orient: "auto" });
     marker.append(svgEl("path", { d: "M0 0 L10 5 L0 10 z", fill: "context-stroke" }));
     defs.append(marker); svg.append(defs);
     const layer = () => { const g = svgEl("g"); svg.append(g); return g; };
     const gBack = layer(), gHit = layer(), gLanes = layer(), gEdges = layer(), gNodes = layer();
+    const gAxis = svgEl("g"); axisSvg.append(gAxis);
 
-    for (const by of bands) gBack.append(svgEl("rect", { class: "band", x: 0, y: by, width, height: SEC }));
-    const cursor = new Date(t0); cursor.setUTCDate(1); cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    for (const by of bands) { gBack.append(svgEl("rect", { class: "band", x: 0, y: by, width, height: SEC })); gBack.append(svgEl("line", { class: "bandline", x1: 0, x2: width, y1: by + SEC, y2: by + SEC })); }
+    // Axis: months on top, snapshot dates below where there is room, finer ticks when zoomed.
+
+    const first = new Date(t0);
+    const mlabel = (d, withYear) => d.toLocaleString("en", { month: "short", timeZone: "UTC" }) + (withYear ? " " + d.getUTCFullYear() : "");
+    { const t = svgEl("text", { class: "month", x: LEFT, y: 15 }); t.textContent = mlabel(first, true); gAxis.append(t); }
+    const cursor = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 1));
     for (; cursor.getTime() < t1; cursor.setUTCMonth(cursor.getUTCMonth() + 1)) {
       const mx = x(cursor.toISOString().slice(0, 10));
-      gBack.append(svgEl("line", { class: "month", x1: mx, x2: mx, y1: 0, y2: height }));
-      const t = svgEl("text", { x: mx + 4, y: 13 }); t.textContent = cursor.toLocaleString("en", { month: "short", timeZone: "UTC" }); gBack.append(t);
+      gBack.append(svgEl("line", { class: "monthline", x1: mx, x2: mx, y1: 0, y2: height }));
+      gAxis.append(svgEl("line", { class: "monthline", x1: mx, x2: mx, y1: 0, y2: AXIS }));
+      if (mx - LEFT > 64) { const t = svgEl("text", { class: "month", x: mx + 5, y: 15 }); t.textContent = mlabel(cursor, cursor.getUTCMonth() === 0); gAxis.append(t); }
     }
-    // Finer ticks appear as the axis is stretched: weeks first, then single days.
     if (pxPerDay >= 2.2) {
       const day = new Date(t0);
       for (; day.getTime() <= t1; day.setUTCDate(day.getUTCDate() + 1)) {
-        const monday = day.getUTCDay() === 1, first = day.getUTCDate() === 1;
-        if (first || (!monday && pxPerDay < 16)) continue;
+        const monday = day.getUTCDay() === 1, firstDay = day.getUTCDate() === 1;
+        if (firstDay || (!monday && pxPerDay < 16)) continue;
         const dx = x(day.toISOString().slice(0, 10));
-        gBack.append(svgEl("line", { class: monday ? "week" : "day", x1: dx, x2: dx, y1: AXIS - 4, y2: height }));
-        if (monday ? pxPerDay >= 4.5 : pxPerDay >= 22) { const t = svgEl("text", { class: "fine", x: dx + 3, y: 13 }); t.textContent = day.getUTCDate(); gBack.append(t); }
+        gBack.append(svgEl("line", { class: monday ? "week" : "day", x1: dx, x2: dx, y1: 0, y2: height }));
+        if (monday ? pxPerDay >= 4.5 : pxPerDay >= 22) { const t = svgEl("text", { class: "fine", x: dx + 3, y: 27 }); t.textContent = day.getUTCDate(); gAxis.append(t); }
       }
     }
     let lastLabel = -100;
     snaps.forEach((s) => {
       const sx = x(s.date);
-      gBack.append(svgEl("line", { class: "guide", x1: sx, x2: sx, y1: AXIS - 8, y2: height }));
-      if (sx - lastLabel > 36) { const t = svgEl("text", { x: sx, y: 28, "text-anchor": "middle" }); t.textContent = s.date.slice(5); gBack.append(t); lastLabel = sx; }
+      gBack.append(svgEl("line", { class: "guide", x1: sx, x2: sx, y1: 0, y2: height }));
+      gAxis.append(svgEl("line", { class: "monthline", x1: sx, x2: sx, y1: AXIS - 6, y2: AXIS }));
+      if (sx - lastLabel > 46) { const t = svgEl("text", { x: sx, y: 40, "text-anchor": "middle" }); t.textContent = s.date.slice(5); gAxis.append(t); lastLabel = sx; }
     });
 
     const tip = document.getElementById("tip");
     const showTip = (e, html) => { tip.innerHTML = html; tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - 350) + "px"; tip.style.top = e.clientY + 16 + "px"; };
     const hideTip = () => (tip.style.display = "none");
     const ends = new Map(H.edges.filter((e) => ["merged", "redirect", "replaced", "rename"].includes(e.type)).map((e) => [e.from, e]));
+    const RANK = { major: 5, new: 4, base: 4, minor: 3, missing: 2, same: 1 };
 
     for (const p of pages) {
       const row = rows[p.id];
@@ -530,8 +621,8 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       gHit.append(hit);
 
       const end = ends.get(p.id);
-      const { first, last } = lifespan(p);
-      const spans = p.life?.length ? p.life : first == null ? [] : [{ from: snaps[first].date, to: last < snaps.length - 1 ? snaps[last + 1].date : null }];
+      const { first: f0, last: l0 } = lifespan(p);
+      const spans = p.life?.length ? p.life : f0 == null ? [] : [{ from: snaps[f0].date, to: l0 < snaps.length - 1 ? snaps[l0 + 1].date : null }];
       spans.forEach((span, k) => {
         const lastSpan = k === spans.length - 1;
         const stop = lastSpan && end && !span.to ? end.date : span.to ?? H.project.to;
@@ -543,17 +634,35 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
           gLanes.append(svgEl("line", { class: "death", x1: x2 - 4, x2: x2 + 4, y1: row.y + 4, y2: row.y - 4 }));
         }
       });
+
+      // Snapshots closer than a node's width are drawn as one numbered dot.
+      const points = [];
       snaps.forEach((s, i) => {
         const st = status(p, i);
         if (st.kind === "absent" || st.kind === "redirect") return;
-        const r = { major: 5.5, new: 5, base: 5, minor: 4, same: 2.5, missing: 2.5 }[st.kind];
-        const node = svgEl("circle", { class: `node ${st.kind}`, cx: x(s.date), cy: row.y, r });
-        const views = p.views.filter((v) => v.shots[s.id]).length;
-        node.addEventListener("mousemove", (e) => showTip(e, `<b>${esc(p.id)}</b><br>${esc(s.date)} · ${STATUS_TEXT[st.kind]}${views > 1 ? ` · ${plural(views, "view")}` : ""}`));
+        points.push({ s, i, st, x: x(s.date) });
+      });
+      const groups = [];
+      for (const pt of points) {
+        const g = groups[groups.length - 1];
+        if (g && pt.x - g.last < 7) { g.items.push(pt); g.last = pt.x; }
+        else groups.push({ last: pt.x, items: [pt] });
+      }
+      for (const g of groups) {
+        const top = g.items.reduce((a, b) => (RANK[b.st.kind] > RANK[a.st.kind] ? b : a));
+        const cx = g.items.reduce((n, it) => n + it.x, 0) / g.items.length;
+        // Several unchanged snapshots on top of each other are still just "unchanged";
+        // a pile that contains a change shows the change, with the count inside.
+        const cluster = g.items.length > 1 && top.st.kind !== "same";
+        const r = cluster ? 6.5 : { major: 5.5, new: 5, base: 5, minor: 4, same: 2.5, missing: 2.5 }[top.st.kind];
+        const node = svgEl("circle", { class: `node ${top.st.kind}`, cx, cy: row.y, r });
+        const detail = g.items.map((it) => { const n = p.views.filter((v) => v.shots[it.s.id]).length; return `${esc(it.s.date)} · ${STATUS_TEXT[it.st.kind]}${n > 1 ? ` · ${plural(n, "view")}` : ""}`; }).join("<br>");
+        node.addEventListener("mousemove", (e) => showTip(e, `<b>${esc(p.id)}</b><br>${detail}`));
         node.addEventListener("mouseleave", hideTip);
         node.addEventListener("click", () => { if (!state.dragged) location.hash = pageHref(p.id); });
         gNodes.append(node);
-      });
+        if (cluster) { const t = svgEl("text", { class: `count ${top.st.kind === "major" ? "onfill" : ""}`, x: cx, y: row.y + 3, "text-anchor": "middle" }); t.textContent = g.items.length; gNodes.append(t); }
+      }
     }
 
     for (const e of H.edges) {
@@ -571,15 +680,18 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       path.addEventListener("mouseleave", hideTip);
       gEdges.append(path);
     }
-    const plot = graph.querySelector(".plot");
-    plot.append(svg);
-    pad.append(graph);
-    content.replaceChildren(pad);
+    graph.querySelector(".axis").append(axisSvg);
+    graph.querySelector(".body").append(svg);
+    wrap.append(graph);
+    content.replaceChildren(wrap);
+    const plot = graph;
     plot.scrollLeft = state.graphLeft;
-    plot.addEventListener("scroll", () => (state.graphLeft = plot.scrollLeft));
+    plot.scrollTop = state.graphTop ?? 0;
+    plot.addEventListener("scroll", () => { state.graphLeft = plot.scrollLeft; state.graphTop = plot.scrollTop; });
 
     // Zoom keeps the moment under the pointer (or the centre) where it is.
-    const zoomTo = (next, anchorX = plot.clientWidth / 2) => {
+    // anchorX is measured from the left edge of the plot area (after the label column).
+    const zoomTo = (next, anchorX = (plot.clientWidth - labelW) / 2) => {
       next = Math.min(MAX_ZOOM, Math.max(1, next));
       if (next === state.zoom) return;
       const at = (plot.scrollLeft + anchorX - LEFT) / (width - LEFT - RIGHT);
@@ -593,30 +705,26 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     }));
     let pending = null;
     plot.addEventListener("wheel", (e) => {
-      if (!e.ctrlKey && !e.metaKey) return; // plain scrolling pans and scrolls as usual
+      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      const anchorX = e.clientX - plot.getBoundingClientRect().left;
+      const anchorX = e.clientX - plot.getBoundingClientRect().left - labelW;
       const factor = Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.04 : 0.006));
       pending = { zoom: (pending?.zoom ?? state.zoom) * factor, anchorX };
       if (!plot.dataset.frame) {
         plot.dataset.frame = "1";
-        requestAnimationFrame(() => { const p = pending; pending = null; delete plot.dataset.frame; zoomTo(p.zoom, p.anchorX); });
+        requestAnimationFrame(() => { const q = pending; pending = null; delete plot.dataset.frame; zoomTo(q.zoom, q.anchorX); });
       }
     }, { passive: false });
-    // Drag to pan. A drag must not count as a click on a line.
     plot.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
-      const startX = e.clientX, startLeft = plot.scrollLeft;
+      if (e.target.closest("a, button")) return;
+      const startX = e.clientX, startY = e.clientY, startLeft = plot.scrollLeft, startTop = plot.scrollTop;
       state.dragged = false;
       const move = (ev) => {
-        if (Math.abs(ev.clientX - startX) > 4) { state.dragged = true; plot.classList.add("panning"); }
-        if (state.dragged) plot.scrollLeft = startLeft - (ev.clientX - startX);
+        if (Math.abs(ev.clientX - startX) > 4 || Math.abs(ev.clientY - startY) > 4) { state.dragged = true; plot.classList.add("panning"); }
+        if (state.dragged) { plot.scrollLeft = startLeft - (ev.clientX - startX); plot.scrollTop = startTop - (ev.clientY - startY); }
       };
-      const up = () => {
-        window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
-        plot.classList.remove("panning");
-        setTimeout(() => (state.dragged = false), 0);
-      };
+      const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); plot.classList.remove("panning"); setTimeout(() => (state.dragged = false), 0); };
       window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
     });
   }
@@ -624,63 +732,55 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   // ---------- Screens over time ----------
   function renderTimeline() {
     const pages = H.pages.filter((p) => p.seen && matches(p));
-    header("Screens over time", `${pages.length} pages · ${plural(snaps.length, "snapshot")}`);
-    const pad = el('<div class="pad"></div>');
-    pad.append(el('<p class="lead">One row per page, one column per snapshot. A thumbnail appears where the page first existed or changed; a small dot means it looked the same as before. Click a thumbnail to enlarge it, then use the arrow keys to move through the changes. Open a row to see its sections, dialogs and menus.</p>'));
-    if (!pages.length) { pad.append(el('<div class="empty">No pages match the filter.</div>')); content.replaceChildren(pad); return; }
+    header("Screens", `${pages.length} pages · ${plural(snaps.length, "snapshot")}`, [],
+      "<p>One row per page, one column per snapshot. A thumbnail appears where the page first existed or changed; a small dot on the line means it looked the same as before, and the line shows how long the page existed. Click a thumbnail to enlarge it, then use the arrow keys to move through the changes. The \"views\" button opens the page's sections, dialogs and menus as extra rows.</p>");
+    if (!pages.length) { content.replaceChildren(emptyState()); return; }
     const grid = el(`<div class="grid" style="grid-template-columns: var(--label-w) repeat(${snaps.length}, var(--col-w))"></div>`);
-    grid.append(el('<div class="corner">Page ↓ · Time →</div>'));
-    snaps.forEach((s) => grid.append(el(`<a class="head" href="#/snapshot/${s.id}" title="${esc(s.subject)}"><div class="date">${esc(s.date)}</div><div class="meta">${s.pages} pages</div></a>`)));
+    grid.append(el('<div class="corner">Page · Time →</div>'));
+    snaps.forEach((s) => grid.append(el(`<a class="head" href="#/snapshot/${s.id}" title="${esc(s.subject)}"><div class="date">${esc(s.date)}</div><div class="meta">${s.pages} pages · ${esc(s.id)}</div></a>`)));
 
     let section = null;
+    const cellFor = (st, i, first, last, series, inRange) => {
+      const cell = el(`<div class="cell ${inRange ? "alive" : "outside"} ${i === first ? "first" : ""} ${i === last ? "last" : ""}"></div>`);
+      if (st.shot && img(st.shot)) {
+        if (st.kind === "same" && !state.showSame) {
+          const same = el(`<button class="dot samedot" title="Unchanged on ${esc(snaps[i].date)}. Click to look anyway."></button>`);
+          same.addEventListener("click", () => openLightbox(series, i));
+          cell.append(same);
+        } else cell.append(thumb(img(st.shot), series, i, st));
+      } else if (st.kind === "redirect") {
+        cell.append(el(`<a class="pill link" href="${pageHref(st.to)}" title="Redirects to ${esc(st.to)}">→ ${esc(st.to.length > 14 ? "…" + st.to.slice(-13) : st.to)}</a>`));
+      } else if (st.kind === "missing") cell.append(el('<span class="dot" title="Exists, but could not be captured"></span>'));
+      else if (st.kind === "gone") cell.append(el('<span class="pill gone">removed</span>'));
+      return cell;
+    };
     for (const page of pages) {
-      if (page.section !== section) { section = page.section; grid.append(el(`<div class="section"><span>${esc(section)}</span></div>`)); }
+      if (page.section !== section) { section = page.section; grid.append(el(`<div class="section">${esc(section)}</div>`)); }
       const { first, last } = lifespan(page);
       const extras = extraViews(page);
-      const label = el(`<div class="label"><a class="route" href="${pageHref(page.id)}">${esc(page.id)}</a></div>`);
+      const label = el(`<div class="label"><a class="route" href="${pageHref(page.id)}" title="${esc(page.id)}">${routeHtml(page.id)}</a></div>`);
       if (extras.length) {
         const open = state.expanded.has(page.id);
-        const ex = el(`<button class="expander">${open ? "▾ Hide" : "▸ Show"} ${plural(extras.length, "more view")}</button>`);
+        const ex = el(`<button class="expander" title="${open ? "Hide" : "Show"} this page's sections, dialogs and menus">${open ? "▾" : "▸"} ${extras.length} views</button>`);
         ex.addEventListener("click", () => { open ? state.expanded.delete(page.id) : state.expanded.add(page.id); render(); });
         label.append(ex);
       }
       grid.append(label);
       const series = seriesFor(page.id, mainView(page));
       snaps.forEach((s, i) => {
-        const st = status(page, i);
-        const cell = el(`<div class="cell ${i >= first && i <= last ? "alive" : ""} ${i === first ? "first" : ""} ${i === last ? "last" : ""}"></div>`);
-        if (st.shot && img(st.shot) && st.kind === "same" && !state.showSame) {
-          const same = el(`<button class="dot samedot" title="Unchanged on ${esc(s.date)}. Click to look anyway."></button>`);
-          same.addEventListener("click", () => openLightbox(series, i));
-          cell.append(same);
-        } else if (st.shot && img(st.shot)) {
-          cell.append(thumb(img(st.shot), series, i, st.kind === "same" ? "same" : ""));
-          if (st.kind !== "same" && st.kind !== "base") cell.append(el(`<div class="tags">${pillFor(st)}</div>`));
-        } else if (st.kind === "redirect") {
-          cell.append(el('<span class="dot"></span>'), el(`<a class="pill link" style="position:relative;z-index:1" href="${pageHref(st.to)}">→ ${esc(st.to)}</a>`));
-        } else if (st.kind === "missing") cell.append(el('<span class="dot"></span>'));
-        else if (i === last + 1) cell.append(el('<span class="pill gone">removed</span>'));
-        grid.append(cell);
+        const st = i === last + 1 && last < snaps.length - 1 ? { kind: "gone" } : status(page, i);
+        grid.append(cellFor(st, i, first, last, series, i >= first && i <= last));
       });
       if (state.expanded.has(page.id)) for (const view of extras) {
         const row = el('<div class="subrow" style="display:contents"></div>');
-        row.append(el(`<div class="label"><a class="route" href="${pageHref(page.id, view.id)}">${esc(view.label)}</a><div class="sub">${esc(KIND_LABEL[view.kind] ?? view.kind)}</div></div>`));
+        row.append(el(`<div class="label"><a class="route" href="${pageHref(page.id, view.id)}" title="${esc(view.label)}">${esc(view.label)}</a><span class="kind">${esc((KIND_LABEL[view.kind] ?? view.kind).replace(/s$/, ""))}</span></div>`));
         const vSeries = seriesFor(`${page.id} · ${view.label}`, view);
-        snaps.forEach((s, i) => {
-          const cell = el('<div class="cell"></div>');
-          const st = viewStatus(view, i);
-          if (st.shot && img(st.shot) && st.kind === "same" && !state.showSame) {
-            const same = el(`<button class="dot samedot" title="Unchanged on ${esc(s.date)}. Click to look anyway."></button>`);
-            same.addEventListener("click", () => openLightbox(vSeries, i));
-            cell.append(same);
-          } else if (st.shot && img(st.shot)) cell.append(thumb(img(st.shot), vSeries, i, st.kind === "same" ? "same" : ""));
-          row.append(cell);
-        });
+        const on = snaps.map((_, i) => i).filter((i) => view.shots[snaps[i].id]);
+        snaps.forEach((s, i) => row.append(cellFor(viewStatus(view, i), i, on[0], on[on.length - 1], vSeries, i >= on[0] && i <= on[on.length - 1])));
         grid.append(row);
       }
     }
-    pad.append(grid);
-    content.replaceChildren(pad);
+    content.replaceChildren(grid);
   }
 
   // ---------- Page ----------
@@ -689,29 +789,34 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     if (!page) { header("Unknown page"); content.innerHTML = '<div class="empty">Unknown page.</div>'; return; }
     const order = H.pages.filter((p) => p.seen);
     const at = order.indexOf(page);
-    header(page.id, `<a href="#/">Graph</a> › ${esc(page.section)}`);
+    const focusBtn = el(`<button class="btn" aria-pressed="${state.focus.has(id)}" title="Show only what is connected to this page">${FOCUS_ICON} Connected</button>`);
+    focusBtn.addEventListener("click", () => { toggleFocus(id); if (state.focus.has(id)) location.hash = "#/"; });
+    const prev = at > 0 ? el(`<a class="btn" href="${pageHref(order[at - 1].id)}" title="${esc(order[at - 1].id)}">←</a>`) : null;
+    const next = at >= 0 && at < order.length - 1 ? el(`<a class="btn" href="${pageHref(order[at + 1].id)}" title="${esc(order[at + 1].id)}">→</a>`) : null;
+    header(page.id, `<a href="#/">Graph</a> › <a href="#/?section=${encodeURIComponent(page.section)}">${esc(page.section)}</a> › ${plural(page.views.length, "view")}`, [focusBtn, prev, next].filter(Boolean),
+      "<p>The list on the left holds every view of this page: the page itself, its signed-out version where that differs, and each section, dialog and menu found on it. Pick one to see it across time. Snapshots where it looked the same as before, or where the view was not on the page, are folded into the small cards. Click a screenshot to enlarge it and step through time with the arrow keys; the slider at the bottom compares any two snapshots.</p>");
     const pad = el('<div class="pad"></div>');
 
-    const facts = el('<div class="facts"></div>');
-    for (const h of page.history) {
-      const text = { added: "Added", deleted: "Deleted", "renamed-to": "Renamed to", "renamed-from": "Renamed from" }[h.kind];
-      const other = h.other ? ` <a class="mono" href="${pageHref(h.other)}">${esc(h.other)}</a>` : "";
-      facts.append(el(`<div class="row"><span class="pill ${h.kind === "added" ? "new" : h.kind === "deleted" ? "gone" : "link"}">${text}</span>${other}<span>${esc(h.date)}</span><span class="mono">${esc(h.sha)}</span><span>${esc(h.subject)}</span></div>`));
+    const head = el('<div class="pagehead"></div>');
+    const added = page.history.find((h) => h.kind === "added");
+    const gone = page.life?.length && page.life[page.life.length - 1].to ? [...page.history].reverse().find((h) => h.kind === "deleted") : null;
+    const life = el('<div class="life"></div>');
+    if (added) life.append(el(`<span><span class="pill new">added</span> ${esc(added.date)} <span class="mono">${esc(added.sha)}</span> <span class="muted">${esc(added.subject)}</span></span>`));
+    else life.append(el(`<span>First captured ${esc(snaps.find((s) => page.presence[s.id])?.date ?? "–")}</span>`));
+    if (gone) life.append(el(`<span><span class="pill gone">deleted</span> ${esc(gone.date)} <span class="mono">${esc(gone.sha)}</span></span>`));
+    head.append(life);
+    const rels = H.edges.filter((e) => e.source !== "git" && (e.from === id || e.to === id));
+    if (rels.length) {
+      const rel = el('<div class="rel"></div>');
+      for (const e of rels) {
+        const out = e.from === id;
+        const text = (EDGE_TEXT[e.type] ?? ["Linked to", "Linked from"])[out ? 0 : 1];
+        const cls = e.type === "split" || e.type === "branch" || e.type === "clone" ? "new" : e.type === "merged" || e.type === "replaced" ? "gone" : "link";
+        rel.append(el(`<details><summary><span class="pill ${cls}">${text}</span><a class="mono" href="${pageHref(out ? e.to : e.from)}">${esc(out ? e.to : e.from)}</a><span class="muted">${esc(e.date)}</span>${e.sha ? `<span class="mono muted">${esc(e.sha)}</span>` : ""}${e.note ? `<span class="why">${e.confidence ? esc(e.confidence) + " confidence · " : ""}why?</span>` : ""}</summary>${e.note ? `<div class="ev">${esc(e.note)}</div>` : ""}</details>`));
+      }
+      head.append(rel);
     }
-    for (const e of H.edges.filter((e) => e.source !== "git" && (e.from === id || e.to === id))) {
-      const out = e.from === id;
-      const text = (EDGE_TEXT[e.type] ?? ["Linked to", "Linked from"])[out ? 0 : 1];
-      const cls = e.type === "split" || e.type === "branch" || e.type === "clone" ? "new" : e.type === "merged" || e.type === "replaced" ? "gone" : "link";
-      facts.append(el(`<div class="row"><span class="pill ${cls}">${text}</span><a class="mono" href="${pageHref(out ? e.to : e.from)}">${esc(out ? e.to : e.from)}</a><span>${esc(e.date)}</span>${e.sha ? `<span class="mono">${esc(e.sha)}</span>` : ""}${e.confidence ? `<span>${esc(e.confidence)} confidence</span>` : ""}</div>`));
-      if (e.note) facts.append(el(`<div class="why">${esc(e.note)}</div>`));
-    }
-    const focusRow = el('<div class="row"></div>');
-    const fb = el(`<button class="ghost" aria-pressed="${state.focus.has(id)}">${state.focus.has(id) ? "Stop focusing on this page" : "Show only what is connected to this page"}</button>`);
-    fb.addEventListener("click", () => { toggleFocus(id); if (state.focus.has(id)) location.hash = "#/"; });
-    focusRow.append(fb);
-    facts.append(focusRow);
-    facts.append(el(`<div class="row" style="margin-top:4px">${at > 0 ? `<a class="ghost" href="${pageHref(order[at - 1].id)}">← ${esc(order[at - 1].id)}</a>` : ""}${at >= 0 && at < order.length - 1 ? `<a class="ghost" href="${pageHref(order[at + 1].id)}">${esc(order[at + 1].id)} →</a>` : ""}</div>`));
-    pad.append(facts);
+    pad.append(head);
 
     if (!page.views.length) {
       pad.append(el('<div class="empty">There are no screenshots of this page: it existed only between two snapshots, only ever redirected, or could not be captured.</div>'));
@@ -720,46 +825,48 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     const view = page.views.find((v) => v.id === viewId) ?? mainView(page) ?? page.views[0];
     const wrap = el('<div class="pagewrap"><nav class="views" aria-label="Views of this page"></nav><div class="detail"></div></div>');
     const nav = wrap.querySelector(".views");
-    nav.append(el('<div class="group">Whole page</div>'));
     for (const kind of ["page", "signed-out", "section", "dialog", "menu"]) {
       const group = page.views.filter((v) => v.kind === kind);
       if (!group.length) continue;
-      if (kind !== "page" && kind !== "signed-out") nav.append(el(`<div class="group">${KIND_LABEL[kind]} · ${group.length}</div>`));
+      if (kind === "page") nav.append(el('<div class="group">Whole page</div>'));
+      else if (kind !== "signed-out") nav.append(el(`<div class="group">${KIND_LABEL[kind]} · ${group.length}</div>`));
       for (const v of group) {
-        const ticks = snaps.map((s, i) => { const st = viewStatus(v, i); return `<i class="${st.kind === "absent" ? "" : st.kind === "major" ? "major" : st.kind === "new" || st.kind === "base" ? "new" : "on"}" title="${esc(s.date)}: ${STATUS_TEXT[st.kind]}"></i>`; }).join("");
-        nav.append(el(`<a href="${pageHref(page.id, v.id)}" aria-current="${v === view}">${esc(v.label)}<span class="ticks">${ticks}</span></a>`));
+        nav.append(el(`<a href="${pageHref(page.id, v.id)}" aria-current="${v === view}" title="${esc(v.label)}"><span class="lbl">${esc(v.label)}</span><span class="n" title="snapshots in which this view changed">${changesOf(v)}×</span></a>`));
       }
     }
 
     const detail = wrap.querySelector(".detail");
-    detail.append(el(`<div class="h2" style="margin-top:0">${esc(view.label)} over time</div>`));
+    detail.append(el(`<div class="h2">${esc(view.label)} over time</div>`));
     const strip = el('<div class="strip"></div>');
     const series = seriesFor(`${page.id}${view.id === "page" ? "" : " · " + view.label}`, view);
-    // Snapshots that are skipped are summarised in a slim card between the frames, so a
-    // gap in time is visible without a frame for every snapshot.
     let run = null;
     const flush = () => {
       if (!run) return;
       const parts = [];
       if (run.without) parts.push(`${plural(run.without, "snapshot")} without this view`);
+      if (run.missing) parts.push(`${plural(run.missing, "snapshot")} where the page exists but could not be captured`);
+      if (run.redirect) parts.push(`${plural(run.redirect, "snapshot")} redirecting to <a class="mono" href="${pageHref(run.redirectTo)}">${esc(run.redirectTo)}</a>`);
       if (run.same) parts.push(`${run.same} unchanged`);
-      const card = el(`<div class="frame skip ${narrow() ? "narrow" : ""}"><header><b>${esc(run.from)}</b>${run.from !== run.to ? `<span class="mono" style="color:var(--muted)">→ ${esc(run.to)}</span>` : ""}</header>
-        <div class="gap">${parts.join("<br>")}${run.same ? '<br><button class="expander">Show the unchanged ones</button>' : ""}</div></div>`);
+      const card = el(`<div class="frame skip ${narrow() ? "narrow" : ""}"><header><b>${esc(run.from.slice(5))}</b>${run.from !== run.to ? `<span class="mono">→ ${esc(run.to.slice(5))}</span>` : ""}</header>
+        <div class="gap">${parts.join("<br>")}${run.same ? '<br><button class="linkbtn">Show them</button>' : ""}</div></div>`);
       card.querySelector("button")?.addEventListener("click", () => { document.getElementById("showSame").checked = state.showSame = true; render(); });
       strip.append(card);
       run = null;
     };
-    const skip = (s, kind) => { run ??= { from: s.date, to: s.date, without: 0, same: 0 }; run.to = s.date; run[kind]++; };
+    const skip = (s, kind, extra) => { run ??= { from: s.date, to: s.date, without: 0, same: 0, missing: 0, redirect: 0 }; run.to = s.date; run[kind]++; if (extra) run.redirectTo = extra; };
     snaps.forEach((s, i) => {
       const st = viewStatus(view, i);
-      if (!st.shot && status(page, i).kind === "absent") return;
+      const ps = status(page, i);
+      if (!st.shot && ps.kind === "absent") return;
       if (st.kind === "same" && !state.showSame) { skip(s, "same"); return; }
-      // For a section, dialog or signed-out view, a snapshot without it is a gap, not a frame.
       if (!st.shot && view.id !== "page") { skip(s, "without"); return; }
+      // A snapshot with nothing to show is noted in the small card, not given a frame of its own.
+      if (!st.shot && ps.kind === "missing") { skip(s, "missing"); return; }
+      if (!st.shot && ps.kind === "redirect") { skip(s, "redirect", ps.to); return; }
       flush();
-      const frame = el(`<div class="frame ${narrow() ? "narrow" : ""}"><header><b>${esc(s.date)}</b><span class="mono" style="color:var(--muted)">${esc(s.id)}</span>${pillFor(st)}</header></div>`);
+      const frame = el(`<div class="frame ${narrow() ? "narrow" : ""}"><header><b>${esc(s.date)}</b><span class="mono">${esc(s.id)}</span>${pillFor(st)}</header></div>`);
       if (st.shot && img(st.shot)) {
-        const b = el(`<button class="shot"><img loading="lazy" src="${esc(img(st.shot).mid)}" alt="${esc(page.id)} on ${esc(s.date)}"></button>`);
+        const b = el(`<button class="shot" title="Open full size"><img loading="lazy" src="${esc(img(st.shot).mid)}" alt="${esc(page.id)} on ${esc(s.date)}"></button>`);
         b.addEventListener("click", () => openLightbox(series, i));
         frame.append(b);
       } else {
@@ -772,10 +879,9 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     });
     flush();
     detail.append(strip);
-    // The slider offers the snapshots where the view changed (all of them when shown).
     const withShots = snaps.filter((s, i) => img(view.shots[s.id]) && (state.showSame || viewStatus(view, i).kind !== "same"));
     if (withShots.length >= 2) {
-      detail.append(el('<div class="h2">Compare two points in time</div>'));
+      detail.append(el('<div class="h2" style="margin-top:10px">Compare two points in time</div>'));
       detail.append(compare(view, withShots));
     }
     pad.append(wrap);
@@ -792,15 +898,13 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     const paint = () => { after.style.clipPath = `inset(0 0 0 ${split}%)`; handle.style.left = split + "%"; handle.setAttribute("aria-valuenow", Math.round(split)); };
     const load = () => { before.src = img(view.shots[a.value]).full; after.src = img(view.shots[b.value]).full; paint(); };
     [a, b].forEach((n) => n.addEventListener("input", load));
-    // The split follows the pointer anywhere on the image; the handle just shows where it is.
     const setFromPointer = (e) => { const r = stage.getBoundingClientRect(); split = Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)); paint(); };
     stage.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       e.preventDefault();
       setFromPointer(e);
-      stage.classList.add("dragging");
       const move = (ev) => setFromPointer(ev);
-      const up = () => { stage.classList.remove("dragging"); window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+      const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
       window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
     });
     handle.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") { split = Math.max(0, split - 2); paint(); } if (e.key === "ArrowRight") { split = Math.min(100, split + 2); paint(); } });
@@ -820,11 +924,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     };
   }
   function renderSnapshots() {
-    header("Snapshots", `${plural(snaps.length, "snapshot")} of ${H.project.commits} commits`);
-    const pad = el('<div class="pad"><p class="lead">Each snapshot is one commit that was built, seeded and screenshotted. Open one to see the whole site as it was then.</p><div class="snaps"></div></div>');
+    header("Snapshots", `${plural(snaps.length, "snapshot")} of ${H.project.commits} commits`, [], "<p>Each snapshot is one commit that was built, seeded and screenshotted. Open one to see the whole site as it was then, and what changed since the snapshot before.</p>");
+    const pad = el('<div class="pad"><div class="snaps"></div></div>');
     snaps.forEach((s, i) => {
       const d = delta(i);
-      pad.querySelector(".snaps").append(el(`<a class="snap" href="#/snapshot/${s.id}"><b>${esc(s.date)}</b><span class="mono" style="color:var(--muted)">${esc(s.id)}</span><span>${esc(s.subject)}</span>
+      pad.querySelector(".snaps").append(el(`<a class="snap" href="#/snapshot/${s.id}"><b>${esc(s.date)} <span class="mono muted" style="font-size:12px;font-weight:400">${esc(s.id)}</span></b><span class="subj" title="${esc(s.subject)}">${esc(s.subject)}</span>
         <span class="counts"><span class="pill same">${s.pages} pages</span><span class="pill same">${plural(s.views, "view")}</span>${d.added.length ? `<span class="pill new">+${d.added.length} new</span>` : ""}${d.redesigned.length ? `<span class="pill major">${d.redesigned.length} redesigned</span>` : ""}${d.removed.length ? `<span class="pill gone">−${d.removed.length}</span>` : ""}${d.folded.length ? `<span class="pill link">${d.folded.length} folded</span>` : ""}</span></a>`));
     });
     content.replaceChildren(pad);
@@ -833,25 +937,27 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     const i = snapIndex[id];
     if (i == null) { header("Unknown snapshot"); content.innerHTML = '<div class="empty">Unknown snapshot.</div>'; return; }
     const s = snaps[i], d = delta(i);
-    header(s.date, `<a href="#/snapshots">Snapshots</a> › <span class="mono">${esc(s.id)}</span> · ${esc(s.subject)}`);
+    const prev = i > 0 ? el(`<a class="btn" href="#/snapshot/${snaps[i - 1].id}" title="${esc(snaps[i - 1].date)}">← older</a>`) : null;
+    const next = i < snaps.length - 1 ? el(`<a class="btn" href="#/snapshot/${snaps[i + 1].id}" title="${esc(snaps[i + 1].date)}">newer →</a>`) : null;
+    header(`${s.date} · ${s.id}`, `<a href="#/snapshots">Snapshots</a> › ${esc(s.subject)} · ${s.pages} pages, ${s.captured} captured, ${plural(s.views, "view")}`, [prev, next].filter(Boolean),
+      "<p>Every page as it looked at this commit. The lists at the top say what changed since the previous snapshot.</p>");
     const pad = el('<div class="pad"></div>');
-    pad.append(el(`<div class="facts"><div class="row">${s.pages} pages · ${s.captured} captured · ${plural(s.views, "view")}</div>
-      <div class="row">${i > 0 ? `<a class="ghost" href="#/snapshot/${snaps[i - 1].id}">← ${esc(snaps[i - 1].date)}</a>` : ""}${i < snaps.length - 1 ? `<a class="ghost" href="#/snapshot/${snaps[i + 1].id}">${esc(snaps[i + 1].date)} →</a>` : ""}</div></div>`));
     if (i > 0) {
       const link = (p) => `<a class="mono" href="${pageHref(p.id)}">${esc(p.id)}</a>`;
       const list = (title, cls, items, fmt = link) => items.length ? `<div><span class="pill ${cls}">${title} · ${items.length}</span><ul>${items.map((p) => `<li>${fmt(p)}</li>`).join("")}</ul></div>` : "";
       const html = list("Added", "new", d.added) + list("Redesigned", "major", d.redesigned) + list("Removed", "gone", d.removed) + list("Folded", "link", d.folded, (p) => `${link(p)} → <span class="mono">${esc(p.presence[s.id].redirect)}</span>`);
-      if (html) { pad.append(el(`<div class="h2">Since ${esc(snaps[i - 1].date)}</div>`)); pad.append(el(`<div class="lists">${html}</div>`)); }
+      pad.append(el(`<div class="h2">Since ${esc(snaps[i - 1].date)}</div>`));
+      pad.append(el(`<div class="summary">${html || '<span class="muted">No pages added, removed or redesigned.</span>'}</div>`));
     }
-    pad.append(el('<div class="h2">All pages at this point</div>'));
+    pad.append(el('<div class="h2">All pages</div>'));
     const cards = el(`<div class="cards ${narrow() ? "narrow" : ""}"></div>`);
     for (const page of d.here.filter(matches)) {
       const st = status(page, i);
       if (!st.shot || !img(st.shot)) continue;
       if (state.onlyChanged && !["new", "major", "minor"].includes(st.kind)) continue;
-      const card = el(`<div class="card"><div style="display:flex;gap:6px;align-items:center;justify-content:space-between"><a class="route" href="${pageHref(page.id)}">${esc(page.id)}</a>${st.kind === "same" || st.kind === "base" ? "" : pillFor(st)}</div></div>`);
-      const t = thumb(img(st.shot), seriesFor(page.id, mainView(page)), i);
-      t.style.cssText = ""; card.prepend(t);
+      const card = el(`<div class="card"><a class="route" href="${pageHref(page.id)}" title="${esc(page.id)}">${esc(page.id)}</a></div>`);
+      const t = thumb(img(st.shot), seriesFor(page.id, mainView(page)), i, st.kind === "base" ? null : st);
+      t.style.cssText = ""; t.classList.remove("same"); card.prepend(t);
       cards.append(card);
     }
     pad.append(cards);
@@ -861,7 +967,6 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   // ---------- Lightbox ----------
   const lb = { box: document.getElementById("lightbox"), series: null, index: 0 };
   function openLightbox(series, index) { lb.series = series; lb.index = index; lb.box.classList.add("open"); paintLightbox(); }
-  // Stepping skips snapshots where nothing changed, unless they are being shown.
   const nextFrame = (dir) => { for (let i = lb.index + dir; i >= 0 && i < lb.series.frames.length; i += dir) { const f = lb.series.frames[i]; if (f && (state.showSame || !f.same)) return i; } return null; };
   function step(dir) { const i = nextFrame(dir); if (i != null) { lb.index = i; paintLightbox(); } }
   function paintLightbox() {
@@ -887,7 +992,9 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 
   // ---------- Shell ----------
   function render() {
-    const hash = location.hash || "#/";
+    let hash = location.hash || "#/";
+    const sectionWanted = /\?section=([^&]+)/.exec(hash)?.[1];
+    if (sectionWanted) { hash = hash.split("?")[0]; const d = document.querySelector(`#tree details[data-section="${CSS.escape(decodeURIComponent(sectionWanted))}"]`); if (d) d.open = true; }
     const keep = render.last === hash ? [content.scrollLeft, content.scrollTop] : null;
     render.last = hash;
     document.getElementById("tip").style.display = "none";
@@ -906,25 +1013,26 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     renderTree(current);
     if (keep) { content.scrollLeft = keep[0]; content.scrollTop = keep[1]; } else content.scrollTop = 0;
   }
-  document.getElementById("project").innerHTML = `${esc(H.project.name)}<br>${plural(snaps.length, "snapshot")} of ${H.project.commits} commits`;
+  document.getElementById("project").textContent = `${H.project.name} · ${plural(snaps.length, "snapshot")} of ${H.project.commits} commits`;
   document.title = `UI History · ${H.project.name}`;
   document.getElementById("search").addEventListener("input", (e) => { state.search = e.target.value; render(); e.target.focus(); });
   document.getElementById("onlyChanged").addEventListener("change", (e) => { state.onlyChanged = e.target.checked; render(); });
   document.getElementById("showSame").addEventListener("change", (e) => { state.showSame = e.target.checked; render(); });
   document.getElementById("focusClear").addEventListener("click", () => { state.focus.clear(); render(); });
   document.getElementById("focusStructure").addEventListener("change", (e) => { state.focusStructure = e.target.checked; render(); });
+  document.getElementById("helpBtn").addEventListener("click", () => { state.help = !state.help; document.getElementById("help").classList.toggle("open", state.help); document.getElementById("helpBtn").setAttribute("aria-pressed", String(state.help)); });
   const seg = document.getElementById("viewports");
   viewportNames.forEach((name, i) => {
     const b = el(`<button data-viewport="${esc(name)}" aria-pressed="${i === 0}">${esc(name)}</button>`);
     b.addEventListener("click", () => {
       state.viewport = name;
       seg.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-      document.documentElement.style.setProperty("--col-w", narrow() ? "112px" : "");
+      document.documentElement.style.setProperty("--col-w", narrow() ? "72px" : "");
       render();
     });
     seg.append(b);
   });
-  if (viewportNames.length < 2) seg.style.display = "none";
+  if (viewportNames.length < 2) seg.parentElement.style.display = "none";
   document.getElementById("theme").addEventListener("click", () => {
     const root = document.documentElement;
     const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
@@ -932,6 +1040,9 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   });
   document.getElementById("menuBtn").addEventListener("click", (e) => { e.stopPropagation(); document.body.classList.toggle("side-open"); });
   content.addEventListener("click", () => document.body.classList.remove("side-open"));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && !/input|select|textarea/i.test(document.activeElement?.tagName ?? "")) { e.preventDefault(); document.getElementById("search").focus(); }
+  });
   window.addEventListener("hashchange", render);
   let resizeTimer; window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
   render();

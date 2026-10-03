@@ -166,8 +166,8 @@ async function seedFeatures(user, friend, friendPlants) {
   const { rows: plants } = await client.query(`SELECT * FROM "Plant" WHERE "userId" = $1 ORDER BY id`, [user.id]);
   const [p1, p2, p3] = plants;
   const fertilizer = await first("Fertilizer", `WHERE "userId" = $1`, [user.id]);
-  const type = await first("GlobalPlantType");
-  const type2 = type && (await first("GlobalPlantType", "WHERE id <> $1", [type.id]));
+  let type = await first("GlobalPlantType");
+  let type2 = type && (await first("GlobalPlantType", "WHERE id <> $1", [type.id]));
   const theirs = friendPlants[0];
 
   // People.
@@ -246,7 +246,29 @@ async function seedFeatures(user, friend, friendPlants) {
     }
   }
 
-  // Plant type catalogue.
+  // Plant type catalogue. The global catalogue arrived before the project's seed filled it.
+  await fill("GlobalPlantType", async () => {
+    const names = { Monstera: "Fensterblatt", "Snake Plant": "Bogenhanf", "Chinese Money Plant": "Ufopflanze", "Golden Pothos": "Efeutute", "Old Man Cactus": "Greisenhaupt", "Fiddle Leaf Fig": "Geigenfeige" };
+    const { rows: plantsAll } = await client.query(`SELECT id, "plantTypeId" FROM "Plant" ORDER BY id`).catch(() => ({ rows: [] }));
+    const plantColumns = await columns("Plant");
+    const linkColumn = ["globalTypeId", "globalPlantTypeId"].find((c) => plantColumns.has(c));
+    for (const [i, t] of TYPES.entries()) {
+      const g = await insert("GlobalPlantType", {
+        genus: t.genus, species: t.species, botanicalKey: `${t.genus} ${t.species}`.toLowerCase(), family: ["Araceae", "Asparagaceae", "Urticaceae", "Araceae", "Cactaceae", "Moraceae"][i],
+        status: "VERIFIED", createdById: user.id, verifiedById: user.id, verifiedAt: now,
+        sunRequirement: 1 + (i % 3), waterRequirement: 1 + ((i + 1) % 3), feedingNeed: 2, humidity: 2, difficulty: 1 + (i % 3), toxicToPets: i % 2 === 0,
+        suggestedWateringDaysSummer: 5 + i * 2, suggestedWateringDaysWinter: 12 + i * 2, suggestedFertilizingWeeksSummer: 2 + (i % 3), suggestedFertilizingWeeksWinter: 0,
+        wateringGuidanceSummer: "Water when the top few centimetres are dry.", substratePreferences: [i === 4 ? "cactus_succulent" : "aroid_mix"], propagationMethods: [i === 4 ? "offsets" : "stem_cutting"],
+      });
+      if (!g) continue;
+      await insert("GlobalPlantTypeName", { typeId: g.id, name: t.commonName, locale: "en", isPrimary: true, updatedAt: undefined });
+      await insert("GlobalPlantTypeName", { typeId: g.id, name: names[t.commonName] ?? t.commonName, locale: "de", isPrimary: false, updatedAt: undefined });
+      // Link plants of this type (every sixth plant shares a type, matching seedCollection).
+      if (linkColumn) for (const pl of plantsAll.filter((_, k) => k % TYPES.length === i)) await client.query(`UPDATE "Plant" SET "${linkColumn}" = $1 WHERE id = $2 AND "${linkColumn}" IS NULL`, [g.id, pl.id]).catch(() => {});
+    }
+  });
+  type = await first("GlobalPlantType");
+  type2 = type && (await first("GlobalPlantType", "WHERE id <> $1", [type.id]));
   await fill("PlantTypeProposal", async () => {
     if (type) await insert("PlantTypeProposal", { typeId: type.id, authorId: friend?.id ?? user.id, origin: "user", reason: "Care guide says more humidity and full sun.", sources: ["https://example.com/care-guide"], changes: JSON.stringify({ humidity: { from: 1, to: 3 }, sunRequirement: { from: 2, to: 4 } }) });
   });
@@ -399,6 +421,16 @@ async function main() {
   if (link && plant) {
     hints["/p/[token]"] = `/p/${link.token}`;
     hints["/p/[token]/plants/[plantId]"] = `/p/${link.token}/plants/${plant.id}`;
+  }
+  // Detail pages that only lists link to; on the day they were introduced, nothing did.
+  const globalType = await first("GlobalPlantType");
+  if (globalType) {
+    hints["/plant-types/[id]"] = `/plant-types/${globalType.id}`;
+    hints["/admin/plant-types/[id]"] = `/admin/plant-types/${globalType.id}`;
+  }
+  for (const [table, route] of [["Fertilizer", "/fertilizers/[id]"], ["Location", "/locations/[id]"], ["Pot", "/pots/[id]"], ["Soil", "/soils/[id]"], ["Recipient", "/recipients/[id]"]]) {
+    const row = user.anonymous ? await first(table) : await first(table, `WHERE "userId" = $1`, [user.id]).catch(() => null) ?? (await first(table));
+    if (row) hints[route] = route.replace("[id]", row.id);
   }
 
   fs.writeFileSync(path.join(resultDir, "route-hints.json"), JSON.stringify(hints, null, 2));

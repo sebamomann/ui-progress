@@ -1,7 +1,7 @@
 {
   "name": "ui-progress",
   "displayName": "UI Progress",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Track how a website's UI evolves: screenshots of every page, section and dialog across the git history, page lineage (splits, merges, renames), and a viewer to browse it all.",
   "author": { "name": "Sebastian Momann" },
   "license": "MIT",
