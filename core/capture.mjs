@@ -28,7 +28,12 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   const primaryScheme = schemeOf(primaryName);
   const schemes = [...new Set(viewportNames.map(schemeOf))];
   const unsafe = new RegExp(c.unsafe, "i");
-  const hideCss = c.hide.length ? `${c.hide.join(",")}{display:none!important}` : "";
+  // Playwright hides the caret by writing a style attribute onto every input for each
+  // screenshot. The settle loop shoots before the app may have hydrated, and a server-rendered
+  // app then sees attributes it did not render (a hydration mismatch). A stylesheet does the
+  // same without touching the elements, so screenshots keep the caret as it is (`caret: "initial"`).
+  const hideCss = `${c.hide.length ? `${c.hide.join(",")}{display:none!important}` : ""}input,textarea,[contenteditable]{caret-color:transparent!important}`;
+  const shotOptions = { scale: "css", caret: "initial" };
   fs.mkdirSync(outDir, { recursive: true });
   const started = Date.now();
 
@@ -49,7 +54,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       .catch(() => {});
     let previous = null;
     for (let i = 0; i < rounds; i++) {
-      const frame = await page.screenshot({ type: "jpeg", quality: 25, scale: "css" }).catch(() => null);
+      const frame = await page.screenshot({ ...shotOptions, type: "jpeg", quality: 25 }).catch(() => null);
       if (frame && previous && frame.equals(previous)) return;
       previous = frame;
       await page.waitForTimeout(220);
@@ -80,7 +85,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       const response = await page.goto(baseUrl + url, { waitUntil: "domcontentloaded", timeout: c.navTimeoutMs });
       status = response?.status() ?? null;
       await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
-      if (hideCss) await page.addStyleTag({ content: hideCss }).catch(() => {});
+      await page.addStyleTag({ content: hideCss }).catch(() => {});
       await settle(page);
     } catch (err) {
       failure = String(err.message ?? err).split("\n")[0];
@@ -125,7 +130,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         await settle(page, 4);
       }
       const file = `${name}.${viewportName}.png`;
-      await page.screenshot({ path: path.join(outDir, file), fullPage: true, scale: "css" });
+      await page.screenshot({ ...shotOptions, path: path.join(outDir, file), fullPage: true });
       files[viewportName] = file;
     }
     for (const page of Object.values(pages)) await page.setViewportSize({ width: viewports[primaryName].width, height: viewports[primaryName].height });
@@ -141,7 +146,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await settle(page, 4);
       const file = `${name}.${viewportName}.png`;
-      await page.screenshot({ path: path.join(outDir, file), scale: "css" });
+      await page.screenshot({ ...shotOptions, path: path.join(outDir, file) });
       files[viewportName] = file;
     }
     await page.setViewportSize({ width: viewports[primaryName].width, height: viewports[primaryName].height });
