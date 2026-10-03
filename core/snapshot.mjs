@@ -7,7 +7,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { capture } from "./capture.mjs";
-import { ingest, neighbours, takeOver, unchangedRoutes } from "./reuse.mjs";
+import { entryFiles, ingest, looksTheSame, neighbours, shotPath, takeOver, unchangedRoutes } from "./reuse.mjs";
+import { imageComparer } from "./imagediff.mjs";
 import { addFinding } from "./findings.mjs";
 import { unbuildableEntry } from "./unbuildable.mjs";
 import { assertIsolated, neutraliseCheckout, protectedDatabases, rewriteDatabaseUrls } from "./isolation.mjs";
@@ -225,8 +226,28 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
     const copied = new Set(manifest.routes.filter((r) => r.copiedFrom).map((r) => r.route));
     const errorPages = new Set(manifest.suspects.filter((s) => s.issues.includes("error page or overlay") && !copied.has(s.route)).map((s) => s.route));
     if (errorPages.size > (manifest.captured - manifest.reused) * config.run.fallback.errorPageShare) throw new Error(`${errorPages.size} of ${manifest.captured - manifest.reused} rendered pages show an error page or overlay; see server.log`);
+    // A page rendered because its source changed may still look exactly like it does in a
+    // neighbour (a comment, a refactor, a server-side change): it keeps the neighbour's
+    // screenshots, marked `sameAs`, and the new files are dropped.
+    if (config.capture.incremental.visualMatch) {
+      const { identical } = imageComparer(requireDep("sharp"));
+      let matched = 0;
+      for (const [i, entry] of manifest.routes.entries()) {
+        if (entry.copiedFrom || !Object.keys(entry.variants ?? {}).length) continue;
+        for (const other of [near.previous, near.next]) {
+          if (!other || JSON.stringify(other.manifest.viewports) !== JSON.stringify(manifest.viewports)) continue;
+          const before = other.manifest.routes.find((r) => r.route === entry.route);
+          if (!before || before.skipped || !(await looksTheSame(p, short, entry, other.short, before, identical))) continue;
+          for (const f of entryFiles(entry)) fs.rmSync(shotPath(p, short, f), { force: true });
+          manifest.routes[i] = takeOver(p, other.short, before, "sameAs");
+          matched++;
+          break;
+        }
+      }
+      if (matched) log(`${matched} rendered page(s) look exactly as in a neighbouring snapshot; they share its screenshots`);
+    }
     // What this commit rendered goes into the shared store (see reuse.mjs).
-    for (const entry of manifest.routes) if (!entry.copiedFrom) ingest(p, short, entry);
+    for (const entry of manifest.routes) if (!entry.copiedFrom && !entry.sameAs) ingest(p, short, entry);
     writeJson(path.join(out, "shots", "manifest.json"), manifest);
     writeJson(path.join(out, "snapshot.json"), {
       sha: full,

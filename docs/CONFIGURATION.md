@@ -57,6 +57,7 @@ your app; a button that matches is never clicked, so its dialog is not captured 
 | --- | --- | --- |
 | `enabled` | `true` | Reuse the previous snapshot's screenshots for pages whose source did not change in between. Needs `routeOfFile` in the adapter; the import graph is followed from each page file (relative and tsconfig-alias imports), plus layout/template/loading/error files above it |
 | `globalPaths` | package.json, `*.config.*`, global CSS, `public/**`, tailwind config | A change here recaptures everything |
+| `visualMatch` | `true` | A page rendered again (its source changed) that looks exactly as in a neighbouring snapshot keeps that snapshot's screenshots, marked `sameAs`: same size, and at full resolution at most a few anti-aliased pixels differ. Catches source changes nobody can see (comments, refactors, server code) |
 | `translationPaths` | `messages/**`, `locales/**`, `i18n/**` | JSON message files; only pages that use a changed top-level key are affected |
 
 Screenshots are stored once, in a shared store: `snapshots/_store/<hash>.png`, named by the hash of their bytes. Manifests refer to them (`"_store/<hash>.png"`), and no snapshot owns a file, so capturing a snapshot again or deleting one never affects another. A page taken over is marked `copiedFrom` and keeps the same references; browsing a snapshot still shows every page. Screenshots nothing refers to any more are deleted after every snapshot batch, or with `ui-progress gc`. A changed `viewports` setting disables reuse for that snapshot, since the pictures would not be comparable.

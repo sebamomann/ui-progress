@@ -254,3 +254,28 @@ export function relinkAfter(p, config, shorts = null) {
   for (const file of remove) fs.rmSync(file, { force: true });
   return out;
 }
+
+/** An entry's screenshots by what they show: variant, state and viewport. */
+function shape(entry) {
+  const out = new Map();
+  for (const [name, variant] of Object.entries(entry.variants ?? {})) {
+    for (const [viewport, f] of Object.entries(variant.files ?? {})) out.set(`${name}|page|${viewport}`, f);
+    for (const state of variant.states ?? []) for (const [viewport, f] of Object.entries(state.files ?? {})) out.set(`${name}|${state.kind}|${state.key ?? state.label}|${viewport}`, f);
+  }
+  return out;
+}
+
+/**
+ * Whether a page this snapshot rendered looks exactly like `before` (an entry of snapshot
+ * `from`): the same views, and every screenshot `identical` (see imagediff.mjs).
+ */
+export async function looksTheSame(p, short, entry, from, before, identical) {
+  const a = shape(entry), b = shape(before);
+  if (a.size !== b.size || a.size !== entryFiles(entry).length || b.size !== entryFiles(before).length) return false;
+  for (const [key, f] of a) {
+    if (!b.has(key)) return false;
+    const fa = shotPath(p, short, f), fb = shotPath(p, from, b.get(key));
+    if (!fs.existsSync(fa) || !fs.existsSync(fb) || !(await identical(fa, fb))) return false;
+  }
+  return true;
+}

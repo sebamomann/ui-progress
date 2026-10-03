@@ -35,7 +35,9 @@ export const DEFAULTS = {
     // Copy a page forward from the previous snapshot when none of its source files changed.
     // globalPaths: a change there recaptures everything. translationPaths: JSON message
     // files whose changed top-level keys (namespaces) decide which pages are affected.
-    incremental: { enabled: true, globalPaths: ["package.json", "*.config.*", "**/globals.css", "**/global.css", "public/**", "tailwind.config.*"], translationPaths: ["messages/**", "locales/**", "i18n/**", "**/translations/**"] },
+    // visualMatch: a page rendered again that looks exactly as in a neighbouring snapshot
+    // (at full resolution, at most a few anti-aliased pixels differ) keeps its screenshots.
+    incremental: { enabled: true, visualMatch: true, globalPaths: ["package.json", "*.config.*", "**/globals.css", "**/global.css", "public/**", "tailwind.config.*"], translationPaths: ["messages/**", "locales/**", "i18n/**", "**/translations/**"] },
     // labels never clicked while looking for dialogs and sections (regex, case-insensitive)
     // Destructive controls, and controls that do something rather than show something.
     unsafe:

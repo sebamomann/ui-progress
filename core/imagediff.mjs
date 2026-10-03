@@ -6,7 +6,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 
-/** compare(a, b) and difference(a, b) for screenshot files, with decoded samples cached. */
+/** compare(a, b) and difference(a, b) for screenshot files, with decoded samples cached; identical(a, b). */
 export function imageComparer(sharp) {
   // A changed date or counter touches a block or two; a new layout touches most of them.
   const WIDTH = 96, BLOCK = 8, MAX_ROWS = 1600;
@@ -57,5 +57,26 @@ export function imageComparer(sharp) {
     return { diff: changed / (rows * cols), mask: { cols, rows, runs } };
   }
   const difference = async (fileA, fileB) => (await compare(fileA, fileB)).diff;
-  return { compare, difference };
+  /**
+   * Whether two screenshots show the same thing, strictly: the same size, and at full
+   * resolution no more than `NOISE_PIXELS` pixels differ clearly (a channel by more than
+   * `NOISE_LEVEL`). Anti-aliasing flips a few edge pixels; a changed word changes hundreds.
+   */
+  async function identical(fileA, fileB) {
+    if (fileA === fileB) return true;
+    const bytesA = fs.readFileSync(fileA), bytesB = fs.readFileSync(fileB);
+    if (bytesA.equals(bytesB)) return true;
+    const [a, b] = await Promise.all([bytesA, bytesB].map((bytes) => sharp(bytes).removeAlpha().raw().toBuffer({ resolveWithObject: true })));
+    if (a.info.width !== b.info.width || a.info.height !== b.info.height) return false;
+    let off = 0;
+    for (let i = 0; i < a.data.length; i += 3) {
+      if (Math.abs(a.data[i] - b.data[i]) > NOISE_LEVEL || Math.abs(a.data[i + 1] - b.data[i + 1]) > NOISE_LEVEL || Math.abs(a.data[i + 2] - b.data[i + 2]) > NOISE_LEVEL) {
+        if (++off > NOISE_PIXELS) return false;
+      }
+    }
+    return true;
+  }
+  return { compare, difference, identical };
 }
+
+const NOISE_LEVEL = 32, NOISE_PIXELS = 10;
