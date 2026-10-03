@@ -184,6 +184,8 @@ that added snapshots with `ui-progress lineage check`, and resolve what it repor
 Several pages are captured at once (`capture.parallel`, default 3 tabs). A page whose
 source files did not change since the previous captured commit is copied forward instead of
 re-shot (`capture.incremental`); the log line `incremental: … pages unchanged` says how many.
+Its screenshots are not copied: the manifest refers to the snapshot that holds them, so each
+screenshot is stored once.
 That needs `routeOfFile` in the adapter and an import graph the resolver can follow (JS/TS
 with relative or tsconfig-alias imports). A change in `globalPaths` (package.json, config
 files, global CSS, public assets) recaptures everything; translation JSON files only affect
@@ -314,7 +316,9 @@ flagged: `suspects` in `snapshot.json` lists pages that were shot but look wrong
 overlay or framework error page, a hydration error, a sign-in form while signed in, a blank page, broken
 images), and `skipped` lists pages that were not shot (`not found` includes pages that
 rendered a not-found screen with status 200). Open those first, then a sample of the
-others, in `.ui-progress/snapshots/<sha>/shots/`, and check:
+others, in `.ui-progress/snapshots/<sha>/shots/`, and check (only the pages this commit
+rendered are there; a page taken over unchanged has `filesIn` in `shots/manifest.json`, the
+snapshot whose folder holds its screenshots):
 
 - it is the page, not an error page, a blank page or a login form
 - the data is there (lists are not empty, images are not broken)

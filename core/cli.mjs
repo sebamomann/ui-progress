@@ -12,6 +12,7 @@ import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, pendingState, renderPending, sessionStart, stop } from "./forward.mjs";
 import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
+import { release } from "./reuse.mjs";
 import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
 import { AGENT_TASKS, appendRun, duration, estimate, noteAgent, parseDuration, renderStats, summarize } from "./stats.mjs";
@@ -248,6 +249,14 @@ async function snapshot(flags, positional) {
     return;
   }
   ensureClone(p); // once, here: the parallel workers must not race to create or fetch it
+  // Capturing a snapshot again wipes its folder: first hand the screenshots later snapshots
+  // refer to over to them. Here, before any worker reads a manifest.
+  for (const sha of shas) {
+    const short = snapshotId(p, sha);
+    if (!fs.existsSync(snapshotDir(p, short))) continue;
+    const moved = release(p, short);
+    if (moved) console.log(`${short}: moved ${moved} screenshot(s) that later snapshots use into the earliest of them`);
+  }
   const wanted = Math.max(1, Number(flags.concurrency ?? config.run.concurrency));
   const concurrency = concurrencyFor(wanted, flags["ignore-memory"]);
   if (concurrency < wanted) console.log(`This machine has ${Math.round(os.totalmem() / 2 ** 30)} GB of memory: running ${concurrency} at a time instead of ${wanted} (override with --ignore-memory).`);

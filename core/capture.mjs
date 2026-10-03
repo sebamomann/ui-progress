@@ -18,6 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { requireDep } from "./deps.mjs";
+import { referTo } from "./reuse.mjs";
 import { isDynamic, patternOfPath, routeRegex, sectionOf, slug } from "./routes.mjs";
 
 const CLICKABLE = 'button, [role="button"], [role="tab"], [role="radio"], summary, [role="menuitem"]';
@@ -503,22 +504,17 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   }
   routes = routes.filter(allowed);
 
-  // Pages whose source did not change since the previous snapshot are copied forward.
+  // Pages whose source did not change since the previous snapshot are taken over as
+  // references to the screenshots they already have (see reuse.mjs).
   const results = {};
   const reused = [];
   if (reuse) {
     for (const entry of reuse.manifest.routes) {
       if (!reuse.routes.has(entry.route) || !routes.includes(entry.route) || !Object.keys(entry.variants).length) continue;
-      const copy = JSON.parse(JSON.stringify(entry));
-      for (const variant of Object.values(copy.variants)) {
-        const items = [variant, ...(variant.states ?? [])];
-        for (const item of items) for (const file of Object.values(item.files ?? {})) fs.copyFileSync(path.join(reuse.dir, file), path.join(outDir, file));
-      }
-      copy.copiedFrom = reuse.from;
-      results[entry.route] = copy;
+      results[entry.route] = referTo(entry, reuse.from);
       reused.push(entry.route);
     }
-    if (reused.length) log(`copied forward ${reused.length} unchanged page(s) from ${reuse.from}`);
+    if (reused.length) log(`copied forward ${reused.length} unchanged page(s) from ${reuse.from} (as references, no files copied)`);
   }
 
   // ---------- Per-route work, spread over several tabs ----------

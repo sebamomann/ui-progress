@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { capture } from "./capture.mjs";
+import { unchangedRoutes } from "./reuse.mjs";
 import { addFinding } from "./findings.mjs";
 import { unbuildableEntry } from "./unbuildable.mjs";
 import { assertIsolated, neutraliseCheckout, protectedDatabases, rewriteDatabaseUrls } from "./isolation.mjs";
@@ -58,8 +59,9 @@ function previousSnapshot(p, full) {
 }
 
 /**
- * Which routes can be copied from the previous snapshot: those whose source dependencies
- * are untouched by the commits in between. Also writes deps.json for the build's evidence.
+ * Which routes can be taken over from the previous snapshot: those whose source
+ * dependencies are untouched by the commits in between. Also writes deps.json for the
+ * build's evidence and for `relinkAfter`.
  * `why` gets the reason when everything is recaptured, for runs.jsonl.
  */
 function planReuse(p, config, adapter, ctx, full, why = {}) {
@@ -76,43 +78,20 @@ function planReuse(p, config, adapter, ctx, full, why = {}) {
   const prevDir = snapshotDir(p, previous.short);
   const prevManifest = readJson(path.join(prevDir, "shots", "manifest.json"));
   if (!prevManifest || JSON.stringify(prevManifest.viewports) !== JSON.stringify(config.capture.viewports)) return none({ reason: prevManifest ? "viewports changed" : "earlier snapshot has no manifest", from: previous.short });
-  const changed = git(p.repo, "diff", "--name-only", previous.sha, full).split("\n").filter(Boolean);
-  const globals = config.capture.incremental.globalPaths.map(routes.globToRegex);
-  const globalHit = changed.find((f) => globals.some((re) => re.test(f)));
-  if (globalHit) {
-    ctx.log(`incremental: ${globalHit} changed since ${previous.short}, everything is recaptured`);
-    return none({ reason: "global file changed", file: globalHit, from: previous.short, changed: changed.length });
+  const result = unchangedRoutes(p, config, { deps, from: previous.sha, to: full, read: (file) => fs.readFileSync(path.join(ctx.dir, file), "utf8") });
+  if (!result.routes) {
+    if (result.file) ctx.log(`incremental: ${result.file} changed since ${previous.short}, everything is recaptured`);
+    return none({ ...result, from: previous.short });
   }
-  // Translation files change in nearly every commit; only the pages that use a changed
-  // namespace (a top-level key) are affected by them.
-  const translations = (config.capture.incremental.translationPaths ?? []).map(routes.globToRegex);
-  const changedNamespaces = new Set();
-  const changedSet = new Set();
-  for (const f of changed) {
-    if (translations.some((re) => re.test(f)) && f.endsWith(".json")) {
-      const read = (ref) => { try { return JSON.parse(git(p.repo, "show", `${ref}:${f}`)); } catch { return null; } };
-      const before = read(previous.sha), after = read(full);
-      if (!before || !after) { changedSet.add(f); continue; }
-      for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changedNamespaces.add(key);
-    } else changedSet.add(f);
-  }
-  const sources = new Map();
-  const usesNamespace = (file) => {
-    if (!changedNamespaces.size) return false;
-    if (!sources.has(file)) { try { sources.set(file, fs.readFileSync(path.join(ctx.dir, file), "utf8")); } catch { sources.set(file, ""); } }
-    const text = sources.get(file);
-    return [...changedNamespaces].some((ns) => text.includes(`"${ns}"`) || text.includes(`'${ns}'`) || text.includes(`\`${ns}\``));
-  };
   const reusable = new Set();
-  for (const [route, list] of Object.entries(deps)) {
+  for (const route of result.routes) {
     const entry = prevManifest.routes.find((r) => r.route === route);
-    if (!entry || entry.skipped || !list.some(Boolean)) continue;
-    if (!list.some((f) => changedSet.has(f) || usesNamespace(f))) reusable.add(route);
+    if (entry && !entry.skipped) reusable.add(route);
   }
-  if (changedNamespaces.size) ctx.log(`incremental: translation namespaces changed: ${[...changedNamespaces].join(", ")}`);
-  ctx.log(`incremental: ${changed.length} files changed since ${previous.short}; ${reusable.size} of ${files.size} pages unchanged`);
-  Object.assign(why, { reason: "incremental", from: previous.short, changed: changed.length });
-  return { routes: reusable, from: previous.short, dir: path.join(prevDir, "shots"), manifest: prevManifest };
+  if (result.namespaces.length) ctx.log(`incremental: translation namespaces changed: ${result.namespaces.join(", ")}`);
+  ctx.log(`incremental: ${result.changed} files changed since ${previous.short}; ${reusable.size} of ${files.size} pages unchanged`);
+  Object.assign(why, { reason: "incremental", from: previous.short, changed: result.changed });
+  return { routes: reusable, from: previous.short, manifest: prevManifest };
 }
 
 export async function runSnapshot(p, config, adapter, sha, { port, force = false, refreshClone = true } = {}) {

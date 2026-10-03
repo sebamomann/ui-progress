@@ -51,7 +51,7 @@
 remove, log out, save, send, confirm, accept, pay, …). Extend it for your language and
 your app; a button that matches is never clicked, so its dialog is not captured either.
 
-## `capture.incremental`: copying unchanged pages forward
+## `capture.incremental`: taking unchanged pages over
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -59,7 +59,9 @@ your app; a button that matches is never clicked, so its dialog is not captured 
 | `globalPaths` | package.json, `*.config.*`, global CSS, `public/**`, tailwind config | A change here recaptures everything |
 | `translationPaths` | `messages/**`, `locales/**`, `i18n/**` | JSON message files; only pages that use a changed top-level key are affected |
 
-Copied pages are marked `copiedFrom` in the manifest. A changed `viewports` setting disables reuse for that snapshot, since the pictures would not be comparable.
+Screenshots are stored once. A page taken over is not copied: its manifest entry is marked `copiedFrom` (the snapshot it is unchanged since) and `filesIn` (the snapshot whose `shots/` folder holds its files, always the one that rendered it). Browsing a snapshot still shows every page; the build resolves the references. A changed `viewports` setting disables reuse for that snapshot, since the pictures would not be comparable.
+
+Capturing a snapshot again (`--force`) first moves the screenshots later snapshots use into the earliest of them, so the references stay valid.
 
 ## `run`: how snapshots are executed
 
