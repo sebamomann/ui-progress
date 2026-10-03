@@ -19,6 +19,10 @@ you set a project up.
 - **A viewer** (one static HTML file) with a structural graph, a thumbnail timeline, per-snapshot overviews, a before/after slider with change highlighting, playback, and a written Story
 - **Fast**: several tabs at once, and pages whose source did not change are copied forward instead of re-shot
 - **Seeded data and placeholder images** so old pages are not captured empty
+- **Only commits**: every snapshot is a commit in a throwaway checkout with a throwaway
+  database; after a batch of commits, one snapshot of HEAD covers them all
+- **Automatic checks** flag pages that rendered a not-found or error screen, a sign-in
+  form, a blank page or broken images, so a review starts where something is wrong
 - All of it stored in **`.ui-progress/` inside your repository**
 
 ## Quick start
