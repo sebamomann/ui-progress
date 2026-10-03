@@ -1,6 +1,6 @@
 /**
  * Route helpers for adapters. A route is written with bracketed parameters, whatever the
- * framework calls them: /plants/[id], /listings/[slug]/photos.
+ * framework calls them: /items/[id], /listings/[slug]/photos.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -31,7 +31,7 @@ export function normalizeRoute(route) {
     .join("/") || "/";
 }
 
-/** Next.js App Router: app/(group)/plants/[id]/page.tsx -> /plants/[id]. */
+/** Next.js App Router: app/(group)/items/[id]/page.tsx -> /items/[id]. */
 export function nextAppRouteOfFile(file, appDir = "app") {
   const prefix = appDir.replace(/\/$/, "") + "/";
   if (!file.startsWith(prefix)) return null;
@@ -43,7 +43,7 @@ export function nextAppRouteOfFile(file, appDir = "app") {
   return "/" + segments.filter((s) => !(s.startsWith("(") && s.endsWith(")"))).join("/");
 }
 
-/** Next.js Pages Router: pages/plants/[id].tsx -> /plants/[id]. */
+/** Next.js Pages Router: pages/items/[id].tsx -> /items/[id]. */
 export function nextPagesRouteOfFile(file, pagesDir = "pages") {
   const prefix = pagesDir.replace(/\/$/, "") + "/";
   if (!file.startsWith(prefix)) return null;

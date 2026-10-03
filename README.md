@@ -7,9 +7,9 @@ appeared, or which page another one grew out of. ui-progress rebuilds that from 
 history: it checks out old commits, runs them with seeded data, screenshots every page,
 and works out the lineage of pages. From then on it keeps the record current as you work.
 
-It is not tied to a framework or a subject. A Next.js plant tracker and a Django + React
-property site use the same core; the difference is one small adapter file that Claude
-writes for you when you set a project up.
+It is not tied to a framework or a subject. A Next.js app and a Django + React site use
+the same core; the difference is one small adapter file that Claude writes for you when
+you set a project up.
 
 ## What you get
 
@@ -66,8 +66,6 @@ they are listed so you know what exists.
 | `ui-progress plan [--mode M] [--max N] [--from D] [--to D] [--print]` | choose the commits |
 | `ui-progress snapshot --plan [--concurrency N] [--limit N] [--force]` | capture what is planned and missing |
 | `ui-progress snapshot <sha…>` / `snapshot HEAD` | capture specific commits |
-| `ui-progress snapshot --working-tree` | HEAD plus uncommitted changes, with a throwaway database |
-| `ui-progress snapshot --live <url> --use-live-data` | photograph a running app with its own data (opt-in) |
 | `ui-progress status` | planned, done, failed |
 | `ui-progress lineage candidates` / `lineage check` | evidence for lineage; validate `lineage.json` |
 | `ui-progress changelog candidates` / `changelog check` | material for the Story; validate `changelog.json` |
@@ -110,8 +108,8 @@ explicitly set `data.isolation` to `"shared"`.
    moved or copied between page folders, pages that shrank in the same commit).
 5. **Build**: thumbnails, visual change scores and the dataset for the viewer.
 
-The project-specific part is the adapter: [docs/ADAPTERS.md](docs/ADAPTERS.md). A complete
-one for Next.js, Prisma and Postgres is in
+The project-specific part is the adapter: [docs/ADAPTERS.md](docs/ADAPTERS.md). A worked
+example for Next.js, Prisma and Postgres is in
 [examples/nextjs-prisma-postgres/](examples/nextjs-prisma-postgres/).
 
 ## Reporting problems
@@ -146,7 +144,7 @@ viewer/           the viewer (copied into each project on build)
 templates/        files written by `init`
 skills/           the skill that tells Claude how to use all this
 hooks/            tell the agent a repository is tracked, and send it back to capture after UI changes
-examples/         a complete adapter
+examples/         a worked example adapter
 docs/             guides
 ```
 

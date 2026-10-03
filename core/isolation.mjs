@@ -48,7 +48,7 @@ function parseEnv(text) {
   return out;
 }
 
-/** "postgres:plantdb" for a database on this machine, matched whatever the port. */
+/** "postgres:appdb" for a database on this machine, matched whatever the port. */
 const localName = (id) => {
   const m = /^([a-z+]+):\/\/local:\d*\/(.+)$/.exec(id ?? "");
   return m ? `${m[1]}:${m[2]}` : null;

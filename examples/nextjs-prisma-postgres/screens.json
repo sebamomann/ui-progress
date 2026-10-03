@@ -1,25 +1,19 @@
 [
   {
-    "id": "browser-inactive",
-    "route": "/",
-    "label": "Inactive plants",
-    "url": "/?status=inactive"
+    "id": "items-archived",
+    "route": "/items",
+    "label": "Archived items",
+    "url": "/items?status=archived"
   },
   {
-    "id": "browser-all",
-    "route": "/",
-    "label": "All plants (active and inactive)",
-    "url": "/?status=all"
-  },
-  {
-    "id": "browser-search",
-    "route": "/",
-    "label": "Search for Monstera",
+    "id": "items-search",
+    "route": "/items",
+    "label": "Search results",
     "steps": [
       {
         "fill": {
-          "selector": "input[type=search], input[placeholder*='such' i], input[placeholder*='search' i]",
-          "value": "Monstera"
+          "selector": "input[type=search], input[placeholder*='search' i]",
+          "value": "sample"
         }
       },
       {
@@ -28,12 +22,12 @@
     ]
   },
   {
-    "id": "calendar-week",
-    "route": "/calendar",
-    "label": "Later this week",
+    "id": "settings-notifications",
+    "route": "/settings",
+    "label": "Notifications tab",
     "steps": [
       {
-        "click": "text=Diese Woche"
+        "click": "role=tab[name=/notifications/i]"
       },
       {
         "wait": 400

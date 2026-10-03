@@ -1,52 +1,22 @@
 {
   "entries": [
     {
-      "from": "2026-05-17", "to": "2026-05-23", "snapshot": "832eb7ed",
-      "title": "A plant list becomes an app in one week",
-      "text": "From a blank Create-Next-App page on 17 May to a working collection in six days: a browsable plant list with photos, grouping and a hierarchy of mother plants and cuttings, plant detail pages, watering and fertilizing pages, a login, an account page, sharing with other people and small managers for soils, plant types and fertilizers. Everything is light, English, and built around one green accent colour.",
-      "pages": ["/", "/plants/[id]", "/fertilize", "/water", "/calendar", "/login", "/sharing"]
+      "from": "2026-01-05", "to": "2026-01-20", "snapshot": "7b41d0aa",
+      "title": "From a starter page to a working app",
+      "text": "The framework's starter page gives way to an item list, a login with registration and password reset, and an account page. Items open on their own detail page instead of an inline panel.",
+      "pages": ["/", "/items", "/items/[id]", "/login", "/register", "/account"]
     },
     {
-      "from": "2026-05-24", "to": "2026-06-02", "snapshot": "63c79488",
-      "title": "German, gradients and the first redesign",
-      "text": "The interface switches to German with the arrival of translations, gets soft green gradients, and grows statistics, a pot manager and a changelog page. The plant browser is reworked into card groups with care information per plant.",
-      "pages": ["/", "/stats", "/pots", "/changelog"]
+      "from": "2026-02-01", "to": "2026-02-18", "snapshot": "e15f8d42",
+      "title": "Settings and activity",
+      "text": "Settings move out of the account page into their own tabbed page, and the feed is rebuilt as an activity page with filters.",
+      "pages": ["/settings", "/activity"]
     },
     {
-      "from": "2026-06-06", "to": "2026-06-13", "snapshot": "e80e0351",
-      "title": "Transfers become sales, and hubs appear",
-      "text": "The plant transfer feature is rebuilt as sales with offers and previews; the transfer pages are deleted the same day. A global history page arrives, and the growing number of pages is organised behind three hubs: care, community and insights.",
-      "pages": ["/sales", "/sales/[id]/preview", "/transfers", "/history", "/care", "/community", "/insights"]
-    },
-    {
-      "from": "2026-06-25", "to": "2026-07-05", "snapshot": "8b16e4a6",
-      "title": "Sprig: dark theme, public share links, vacation mode",
-      "text": "The app gets its name and its dark look. Signed-out visitors now see a landing page instead of the login form. Share links let anyone see a collection without an account, and vacation mode produces a care sheet for a plant sitter and shifts the schedule.",
-      "pages": ["/", "/p/[token]", "/p/[token]/plants/[plantId]", "/sharing", "/vacation"]
-    },
-    {
-      "from": "2026-07-27", "to": "2026-08-07", "snapshot": "1fa57988",
-      "title": "Reservoirs, locations, a wishlist and in-app help",
-      "text": "Watering is split: reservoir and water plants get their own page out of the watering and fertilizing pages. Locations become a managed library like soils and fertilizers, a wishlist appears under community, and a German user guide is served as in-app help pages.",
-      "pages": ["/reservoir", "/locations", "/community/wishlist", "/help"]
-    },
-    {
-      "from": "2026-09-15", "to": "2026-09-16", "snapshot": "5aaab3d2",
-      "title": "The global plant catalogue",
-      "text": "Per-user plant types give way to a shared, moderated catalogue: an admin catalogue with review queues, public type pages with care fact sheets, proposals and photo contributions from users, and a contributors page. The wishlist moves out of community to its own page, a notification centre arrives, and the admin page is split into user management and a dashboard.",
-      "pages": ["/plant-types", "/plant-types/[id]", "/admin/plant-types", "/admin/plant-types/[id]", "/plant-types/contributions", "/wishlist", "/notifications", "/admin/users", "/admin/stats"]
-    },
-    {
-      "from": "2026-09-17", "to": "2026-09-22", "snapshot": "208d80e3",
-      "title": "Community, settings drill-down and the mobile tab bar",
-      "text": "A busy week of restructuring. Community gets a feed with reactions and comments, friends and profiles, and the feed becomes the community landing page. Account settings move to their own page and then split into six areas. Stats becomes shelves of photo cards with records and milestones pages. On mobile a five-tab bar with a 'Mehr' hub replaces the old menu. Every library entry opens on its own page, the changelog gets day pages, and the watering and fertilizing pages are folded into the care plan.",
-      "pages": ["/community", "/community/friends", "/community/profile/[userId]", "/account/settings", "/stats", "/stats/records", "/more", "/changelog/[date]", "/calendar", "/pots/[id]"]
-    },
-    {
-      "from": "2026-09-24", "to": "2026-10-01", "snapshot": "e24520be",
-      "title": "Nudges, duplicates and the photo walk",
-      "text": "The app starts nudging: stale photos, incomplete plants and unresolved health issues get reminders, with an admin page to watch them. A duplicate-names page gives same-named plants nicknames, and a photo walk shoots the whole collection in one pass. The last days of September bring a sweep of popup and surface refinements across the app.",
-      "pages": ["/admin/nudges", "/plants/duplicates", "/plants/photos", "/"]
+      "from": "2026-03-01", "to": "2026-03-04", "snapshot": "a8d2c6f0",
+      "title": "One list instead of three",
+      "text": "Drafts and the archive stop being separate pages and become filters on the item list.",
+      "pages": ["/items"]
     }
   ]
 }

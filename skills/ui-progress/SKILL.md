@@ -78,10 +78,10 @@ matters to how the page looks:
 
 ```json
 [
-  { "id": "browser-inactive", "route": "/", "label": "Inactive plants", "url": "/?status=inactive" },
-  { "id": "browser-search", "route": "/", "label": "Search for Monstera",
-    "steps": [{ "fill": { "selector": "input[type=search]", "value": "Monstera" } }, { "wait": 500 }] },
-  { "id": "calendar-week", "route": "/calendar", "label": "This week", "steps": [{ "click": "text=Diese Woche" }] }
+  { "id": "list-archived", "route": "/items", "label": "Archived items", "url": "/items?status=archived" },
+  { "id": "list-search", "route": "/items", "label": "Search results",
+    "steps": [{ "fill": { "selector": "input[type=search]", "value": "sample" } }, { "wait": 500 }] },
+  { "id": "settings-notifications", "route": "/settings", "label": "Notifications tab", "steps": [{ "click": "text=Notifications" }] }
 ]
 ```
 
@@ -111,7 +111,8 @@ selectors before the long run. Add to it whenever a later session adds a filter 
   no seed for this" is never a reason to skip a feature: write the seed.
 - **Placeholder images.** Where the app shows photos, generate themed placeholder pictures
   for every record: different pictures for different records, and fitting the subject
-  (plants for a plant app, houses and floor plans for a property app, faces for avatars).
+  (products for a shop, rooms for a booking site, dishes for a recipe app, faces for
+  avatars). Look at what the app shows to decide.
   Draw them as SVG and convert with `ctx.sharp`; never download images.
 - **Dynamic routes.** `resolve(ctx)` must return a concrete URL for every route with a
   parameter that nothing links to, read from the seeded database.
@@ -170,10 +171,10 @@ After a session changed the UI and the work is committed (this is fast: unchange
 are copied forward from the last snapshot):
 
 - `ui-progress snapshot HEAD` builds and captures the commit from scratch, like a backfill.
-- `ui-progress snapshot --working-tree` captures HEAD plus the uncommitted changes, built
-  like any commit with a throwaway database.
-- `ui-progress snapshot --live <url> --use-live-data` photographs an app that is already
-  running, with its own data. Only when the user asks for exactly that.
+
+Snapshots are always of a commit, checked out and run with a throwaway database. There is
+no way to capture uncommitted changes or an app that is already running. If the work is
+not committed, tell the user a capture is due once they commit.
 
 Then, if a page was added, removed, split, merged or renamed in the session, add the edge
 to `.ui-progress/lineage.json` now, while you know exactly what happened and why. If a
@@ -232,7 +233,7 @@ After lineage, write the history as a short narrative the viewer shows as "Story
    { "entries": [
      { "from": "2026-05-17", "to": "2026-05-23", "title": "The first collection browser",
        "text": "Two to four sentences: what appeared, what it looked like, what drove it.",
-       "pages": ["/", "/plants/[id]"], "snapshot": "832eb7ed" } ] }
+       "pages": ["/", "/items/[id]"], "snapshot": "832eb7ed" } ] }
    ```
 
    `pages` are routes to link; `snapshot` is the id of the snapshot that best shows the
