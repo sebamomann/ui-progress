@@ -22,11 +22,13 @@
     "viewports": {
       "desktop": {
         "width": 1440,
-        "height": 900
+        "height": 900,
+        "colorScheme": "dark"
       },
       "mobile": {
         "width": 390,
-        "height": 844
+        "height": 844,
+        "colorScheme": "dark"
       }
     },
     "signedOut": true,
@@ -37,9 +39,10 @@
       "sectionChange": 0.2
     },
     "locale": "en-US",
-    "colorScheme": "light",
+    "colorScheme": "dark",
     "include": [],
-    "exclude": []
+    "exclude": [],
+    "parallel": 3
   },
   "run": {
     "concurrency": 4,

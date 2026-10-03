@@ -16,7 +16,8 @@ writes for you when you set a project up.
 - **Every page at every chosen commit**, on desktop and mobile, signed out and signed in
 - **Every view of a page**: sections you switch between, dialogs, menus, each tracked over time
 - **Lineage**: which page was split off, extracted, merged, replaced or renamed, each with the evidence
-- **A viewer** (one static HTML file) with a structural graph, a thumbnail timeline, per-snapshot overviews and a before/after slider
+- **A viewer** (one static HTML file) with a structural graph, a thumbnail timeline, per-snapshot overviews, a before/after slider with change highlighting, playback, and a written Story
+- **Fast**: several tabs at once, and pages whose source did not change are copied forward instead of re-shot
 - **Seeded data and placeholder images** so old pages are not captured empty
 - All of it stored in **`.ui-progress/` inside your repository**
 
@@ -68,6 +69,7 @@ they are listed so you know what exists.
 | `ui-progress snapshot --live <url>` | capture the app that is already running |
 | `ui-progress status` | planned, done, failed |
 | `ui-progress lineage candidates` / `lineage check` | evidence for lineage; validate `lineage.json` |
+| `ui-progress changelog candidates` / `changelog check` | material for the Story; validate `changelog.json` |
 | `ui-progress build` / `view` | rebuild the viewer; rebuild and open it |
 | `ui-progress instructions [--write]` | the capture rule for `AGENTS.md` / `CLAUDE.md`, for agents without the plugin |
 | `ui-progress finding add\|list\|export\|resolve` | problems with the plugin itself |
@@ -80,6 +82,8 @@ they are listed so you know what exists.
   adapter.mjs      how to run this project at any commit       commit
   plan.json        the commits chosen                          commit
   lineage.json     splits, merges, renames, with evidence      commit
+  screens.json     hand-picked views (filters, searches)       commit
+  changelog.json   the Story, a few written chapters           commit
   findings/        problems with the plugin, to send upstream  optional
   snapshots/       screenshots and manifests per commit        ignored by default (20-40 MB each)
   viewer/          index.html and its data                     ignored by default
@@ -115,12 +119,14 @@ automatically. See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common
 
 ## Limits worth knowing
 
-- A full capture is slow: expect a few minutes per snapshot for a small site and well over
-  ten for one with dozens of pages. Start with the pilot.
+- A full capture of a large site takes about five minutes per snapshot on a laptop; small
+  changes between snapshots are much faster because unchanged pages are copied forward.
+  Start with the pilot.
 - Screenshots show seeded data and placeholder images, not your real content.
 - Sections and dialogs are found by clicking; ones that need typed input, a hover, or two
-  clicks are not found. Views are matched across time by their button label, so a
-  relabelled button starts a new row.
+  clicks are not found. Views are matched across time by a stable key (test id, element id,
+  or place in the page), falling back to the label; a control that moves and is relabelled
+  at the same time starts a new row.
 - "Redesign" and "tweak" labels compare screenshots block by block; different seed data
   between two snapshots still counts as change.
 - Lineage is a judgement, recorded with its evidence and a confidence. Review it.

@@ -22,11 +22,15 @@
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `viewports` | desktop 1440×900, mobile 390×844 | Any number of named viewports. The first is the primary one |
+| `viewports` | desktop 1440×900, mobile 390×844 | Any number of named viewports. Each may carry `colorScheme: "light"` or `"dark"` (default: `capture.colorScheme`); the first viewport is the primary one, in whose scheme dialogs and sections are shot |
+| `parallel` | `3` | Tabs capturing at the same time against one app instance |
 | `signedOut` | `true` | Also capture each page without signing in, and keep it as a separate view where it differs |
 | `states.enabled` | `true` | Click through each page to find sections, dialogs and menus |
-| `states.maxClicks` | `14` | Controls tried per page |
-| `states.maxPerPage` | `10` | Views kept per page |
+| `states.maxClicks` | `20` | Controls tried per page |
+| `states.maxPerPage` | `12` | Views kept per page |
+| `states.depth` | `2` | `2` also tries tabs and buttons inside an opened dialog or menu |
+| `states.depthClicks` | `3` | Controls tried inside each overlay |
+| `states.budgetMs` | `45000` | Time limit for the click-through of one page |
 | `states.sectionChange` | `0.2` | Share of the page's text that must change for a click to count as a different section |
 | `unsafe` | see below | Regex of button labels that are never clicked |
 | `hide` | framework dev overlays | CSS selectors hidden before every screenshot |
@@ -41,6 +45,16 @@
 `unsafe` defaults to destructive and state-changing words in English and German (delete,
 remove, log out, save, send, confirm, accept, pay, …). Extend it for your language and
 your app; a button that matches is never clicked, so its dialog is not captured either.
+
+## `capture.incremental`: copying unchanged pages forward
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `true` | Reuse the previous snapshot's screenshots for pages whose source did not change in between. Needs `routeOfFile` in the adapter; the import graph is followed from each page file (relative and tsconfig-alias imports), plus layout/template/loading/error files above it |
+| `globalPaths` | package.json, `*.config.*`, global CSS, `public/**`, tailwind config | A change here recaptures everything |
+| `translationPaths` | `messages/**`, `locales/**`, `i18n/**` | JSON message files; only pages that use a changed top-level key are affected |
+
+Copied pages are marked `copiedFrom` in the manifest. A changed `viewports` setting disables reuse for that snapshot, since the pictures would not be comparable.
 
 ## `run`: how snapshots are executed
 

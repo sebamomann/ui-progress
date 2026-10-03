@@ -10,7 +10,7 @@ import { capture } from "./capture.mjs";
 import { addFinding } from "./findings.mjs";
 import { hasDep, requireDep } from "./deps.mjs";
 import * as routes from "./routes.mjs";
-import { background, git, sh, tail, waitForHttp, writeJson } from "./util.mjs";
+import { background, git, readJson, sh, tail, waitForHttp, writeJson } from "./util.mjs";
 
 /** A private clone owns the worktrees, so the project's own git metadata is never touched. */
 export function ensureClone(p, { refresh = true } = {}) {
@@ -29,6 +29,78 @@ export function snapshotDir(p, short) {
   return path.join(p.snapshots, short);
 }
 export const isDone = (p, short) => fs.existsSync(path.join(snapshotDir(p, short), "OK"));
+
+/** The finished snapshot nearest below this commit in history, if any. */
+function previousSnapshot(p, full) {
+  let best = null;
+  for (const short of fs.existsSync(p.snapshots) ? fs.readdirSync(p.snapshots) : []) {
+    const info = readJson(path.join(snapshotDir(p, short), "snapshot.json"));
+    if (!info || !isDone(p, short) || info.live || info.sha === full) continue;
+    try {
+      git(p.repo, "merge-base", "--is-ancestor", info.sha, full);
+    } catch {
+      continue;
+    }
+    const distance = Number(git(p.repo, "rev-list", "--count", `${info.sha}..${full}`).trim());
+    if (!best || distance < best.distance) best = { ...info, distance };
+  }
+  return best;
+}
+
+/**
+ * Which routes can be copied from the previous snapshot: those whose source dependencies
+ * are untouched by the commits in between. Also writes deps.json for the build's evidence.
+ */
+function planReuse(p, config, adapter, ctx, full) {
+  if (!adapter.routeOfFile) return null;
+  const files = routes.pageFiles(ctx.dir, adapter.routeOfFile, config.lineage.pagePaths);
+  const aliases = routes.readAliases(ctx.dir);
+  const deps = {};
+  for (const [route, file] of files) deps[route] = routes.routeDependencies(ctx.dir, file, aliases);
+  writeJson(path.join(ctx.out, "deps.json"), deps);
+  if (!config.capture.incremental.enabled) return null;
+  const previous = previousSnapshot(p, full);
+  if (!previous) return null;
+  const prevDir = snapshotDir(p, previous.short);
+  const prevManifest = readJson(path.join(prevDir, "shots", "manifest.json"));
+  if (!prevManifest || JSON.stringify(prevManifest.viewports) !== JSON.stringify(config.capture.viewports)) return null;
+  const changed = git(p.repo, "diff", "--name-only", previous.sha, full).split("\n").filter(Boolean);
+  const globals = config.capture.incremental.globalPaths.map(routes.globToRegex);
+  const globalHit = changed.find((f) => globals.some((re) => re.test(f)));
+  if (globalHit) {
+    ctx.log(`incremental: ${globalHit} changed since ${previous.short}, everything is recaptured`);
+    return null;
+  }
+  // Translation files change in nearly every commit; only the pages that use a changed
+  // namespace (a top-level key) are affected by them.
+  const translations = (config.capture.incremental.translationPaths ?? []).map(routes.globToRegex);
+  const changedNamespaces = new Set();
+  const changedSet = new Set();
+  for (const f of changed) {
+    if (translations.some((re) => re.test(f)) && f.endsWith(".json")) {
+      const read = (ref) => { try { return JSON.parse(git(p.repo, "show", `${ref}:${f}`)); } catch { return null; } };
+      const before = read(previous.sha), after = read(full);
+      if (!before || !after) { changedSet.add(f); continue; }
+      for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changedNamespaces.add(key);
+    } else changedSet.add(f);
+  }
+  const sources = new Map();
+  const usesNamespace = (file) => {
+    if (!changedNamespaces.size) return false;
+    if (!sources.has(file)) { try { sources.set(file, fs.readFileSync(path.join(ctx.dir, file), "utf8")); } catch { sources.set(file, ""); } }
+    const text = sources.get(file);
+    return [...changedNamespaces].some((ns) => text.includes(`"${ns}"`) || text.includes(`'${ns}'`) || text.includes(`\`${ns}\``));
+  };
+  const reusable = new Set();
+  for (const [route, list] of Object.entries(deps)) {
+    const entry = prevManifest.routes.find((r) => r.route === route);
+    if (!entry || entry.skipped || !list.some(Boolean)) continue;
+    if (!list.some((f) => changedSet.has(f) || usesNamespace(f))) reusable.add(route);
+  }
+  if (changedNamespaces.size) ctx.log(`incremental: translation namespaces changed: ${[...changedNamespaces].join(", ")}`);
+  ctx.log(`incremental: ${changed.length} files changed since ${previous.short}; ${reusable.size} of ${files.size} pages unchanged`);
+  return { routes: reusable, from: previous.short, dir: path.join(prevDir, "shots"), manifest: prevManifest };
+}
 
 export async function runSnapshot(p, config, adapter, sha, { port, force = false, refreshClone = true } = {}) {
   const full = git(p.repo, "rev-parse", sha).trim();
@@ -113,7 +185,9 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       } else if (spec.stop) server = { stop: spec.stop, exited: () => false };
       await waitForHttp(baseUrl + (spec.readyPath ?? config.run.readyPath), { timeoutMs: config.run.readyTimeoutMs, alive: () => !server?.exited() });
     });
-    const manifest = await timed("capture", () => capture({ baseUrl, outDir: path.join(out, "shots"), config, adapter, ctx, log }));
+    const reuse = planReuse(p, config, adapter, ctx, full);
+    const screens = readJson(path.join(p.root, "screens.json"), []);
+    const manifest = await timed("capture", () => capture({ baseUrl, outDir: path.join(out, "shots"), config, adapter, ctx, screens, reuse, log }));
     // A snapshot of error pages is not a snapshot.
     if (manifest.captured === 0) throw new Error(`no page could be captured (${manifest.routesTotal} routes, ${manifest.serverErrors.length} server errors${manifest.loginError ? ", sign-in failed: " + manifest.loginError : ""})`);
     if (manifest.serverErrors.length > manifest.routesTotal / 2) throw new Error(`${manifest.serverErrors.length} of ${manifest.routesTotal} pages answered with a server error; see server.log`);
@@ -125,6 +199,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       timings,
       pages: manifest.routesTotal,
       captured: manifest.captured,
+      reused: manifest.reused,
       states: manifest.states,
       skipped: manifest.skipped,
       notes: ctx.state.notes ?? [],
@@ -177,7 +252,8 @@ export async function captureLive(p, config, adapter, baseUrl, { states = false 
   const logFile = path.join(out, "run.log");
   const log = (message) => fs.appendFileSync(logFile, `${message}\n`);
   const ctx = { sha: full, short, date, subject, dir: p.repo, out, repo: p.repo, baseUrl, config, routes, state: {}, live: true, log, has: (f) => fs.existsSync(path.join(p.repo, f)), read: (f) => fs.readFileSync(path.join(p.repo, f), "utf8"), require: (name) => createRequire(path.join(p.repo, "package.json"))(name) };
-  const manifest = await capture({ baseUrl: baseUrl.replace(/\/$/, ""), outDir: path.join(out, "shots"), config, adapter, ctx, log });
+  const screens = readJson(path.join(p.root, "screens.json"), []);
+  const manifest = await capture({ baseUrl: baseUrl.replace(/\/$/, ""), outDir: path.join(out, "shots"), config, adapter, ctx, screens, log });
   writeJson(path.join(out, "snapshot.json"), { sha: full, short, date, subject, live: true, dirty, pages: manifest.routesTotal, captured: manifest.captured, states: manifest.states, skipped: manifest.skipped });
   fs.writeFileSync(path.join(out, "OK"), "");
   return { short, date, manifest, dirty };

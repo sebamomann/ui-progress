@@ -86,7 +86,22 @@ ui-progress instructions --write     # adds a marked section to AGENTS.md or CLA
 sections are found by clicking, which it will not do in your own data unless you add
 `--states`.
 
+Pages whose source did not change since the last snapshot are copied forward rather than
+re-shot, so a capture after a small change takes seconds, not minutes.
+
 You can also just ask: "capture the current UI".
+
+## Hand-picked screens and the story
+
+Two more files in `.ui-progress/` that Claude writes for you:
+
+- `screens.json`: views the automatic click-through cannot reach on its own, such as a
+  filter that lives in the URL (`/?status=inactive`) or a search result. Claude reads the
+  code for such states during setup and adds them; each entry is a route, a label, and a URL
+  or a few steps (click, fill, hover).
+- `changelog.json`: the history as a few written chapters, shown in the viewer as "Story".
+  Claude writes it from the lineage and the captured changes (`ui-progress changelog
+  candidates` gives it the material).
 
 ## Looking at it
 
@@ -104,6 +119,12 @@ opens `.ui-progress/viewer/index.html`. It is a plain file; no server is needed.
 - **Snapshots**: the whole site at one commit, with what was added, redesigned, removed.
 - **Unchanged snapshots are hidden**: a view only shows the snapshots where it first
   existed or changed. Tick "Show unchanged" to see every snapshot.
+- **Story**: the written chapters, each linking its pages and the snapshot that shows it.
+- **Highlight changes** (sidebar) tints the parts of a screenshot that differ from the
+  previous snapshot, in the enlarged view and in the compare slider.
+- **Play** (on a page, or in the enlarged view) steps through time automatically.
+- Under each screenshot in a page's strip, "N source files changed" lists the files behind
+  that change.
 - **A page**: pick any of its views on the left (whole page, signed out, each section,
   each dialog) and see that view across time, with a before/after slider.
 

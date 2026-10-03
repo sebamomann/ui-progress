@@ -258,6 +258,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .frame.skip { width: 150px; }
 .frame.skip header { color: var(--muted); }
 .frame .caption { color: var(--faint); font-size: 11.5px; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frame .sources { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+.frame .sources summary { cursor: pointer; list-style: none; text-decoration: underline dotted; }
+.frame .sources summary::-webkit-details-marker { display: none; }
+.frame .sources ul { margin: 4px 0 0; padding-left: 14px; max-height: 160px; overflow: auto; line-height: 1.5; white-space: normal; }
+.frame .sources li { overflow-wrap: anywhere; }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font-size: inherit; }
 .compare { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-width: 1100px; }
 .compare .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
@@ -270,6 +275,12 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .compare .handle .grip { position: sticky; top: 50%; left: 50%; display: block; width: 34px; height: 34px; margin: 0 0 0 -16px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 17px; line-height: 34px; text-align: center; box-shadow: var(--shadow); }
 
 /* ---------- Snapshots ---------- */
+.story { display: flex; flex-direction: column; gap: 12px; max-width: 86ch; }
+.chapter { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.chapter .when { color: var(--faint); font-size: 12px; letter-spacing: .04em; }
+.chapter h2 { font-size: 16px; margin: 2px 0 6px; letter-spacing: -.01em; }
+.chapter p { margin: 0 0 10px; line-height: 1.55; }
+.chapter .refs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .snaps { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
 .snap { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; color: var(--text); display: flex; flex-direction: column; gap: 5px; }
 .snap:hover { border-color: var(--accent); text-decoration: none; }
@@ -294,7 +305,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .lightbox button { height: 28px; border: 1px solid #555; background: #1d1e24; color: #eee; border-radius: 7px; padding: 0 11px; }
 .lightbox button:disabled { opacity: .35; cursor: default; }
 .lightbox .body { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 0 16px 24px; }
-.lightbox .body img { max-width: 100%; border-radius: 6px; background: #fff; }
+.lightbox .body img { max-width: 100%; border-radius: 6px; background: #fff; display: block; }
+.lightbox .stack { position: relative; display: inline-block; max-width: 100%; line-height: 0; }
+.lightbox .stack canvas, .compare .stage canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
+.tinted .lightbox .stack canvas, .tinted .compare .stage canvas { display: block; }
+.lightbox button[aria-pressed="true"] { background: #fff; color: #111; }
 .lightbox .steps { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; max-width: 40vw; }
 .lightbox .steps i { width: 8px; height: 8px; border-radius: 50%; background: #555; }
 .lightbox .steps i.on { background: #fff; }
@@ -322,12 +337,16 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     <a href="#/" data-view="graph" title="How pages were added, split off and merged, over time"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 4h5M2 8h12M2 12h8"/><circle cx="7" cy="4" r="1.6" fill="currentColor" stroke="none"/><circle cx="11" cy="8" r="1.6" fill="currentColor" stroke="none"/></svg>Graph</a>
     <a href="#/timeline" data-view="timeline" title="Every page as thumbnails, snapshot by snapshot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="4" height="4"/><rect x="10" y="3" width="4" height="4"/><rect x="2" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/></svg>Screens</a>
     <a href="#/snapshots" data-view="snapshots" title="The whole site at one point in time"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>Snapshots</a>
+    <a href="#/story" data-view="story" id="navStory" title="The history as a written changelog"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2.5h10v11H3zM5.5 6h5M5.5 8.5h5M5.5 11h3"/></svg>Story</a>
   </nav>
   <div class="tools">
     <input class="field" id="search" type="search" placeholder="Find a page…  ( / )" aria-label="Find a page">
     <div class="row">
       <label class="check" title="Also show the snapshots in which a page looked the same as before"><input type="checkbox" id="showSame"> Show unchanged</label>
       <label class="check" title="Hide pages that never changed"><input type="checkbox" id="onlyChanged"> Changed only</label>
+    </div>
+    <div class="row">
+      <label class="check" title="Tint the parts of a screenshot that differ from the previous snapshot (and from the other side in the compare view)"><input type="checkbox" id="tint"> Highlight changes</label>
     </div>
     <div class="row"><div class="seg" role="group" aria-label="Viewport" id="viewports"></div><span class="muted" style="font-size:12px">viewport</span></div>
   </div>
@@ -356,9 +375,9 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   <div class="bar">
     <span class="where" id="lbWhere"></span><span class="when" id="lbWhen"></span><span class="steps" id="lbSteps"></span>
     <span class="spacer"></span><span class="hint">← → through time · Esc to close</span>
-    <button id="lbPrev">← Older</button><button id="lbNext">Newer →</button><button id="lbClose">Close</button>
+    <button id="lbPlay" title="Step through time automatically">▶ Play</button><button id="lbPrev">← Older</button><button id="lbNext">Newer →</button><button id="lbClose">Close</button>
   </div>
-  <div class="body"><img id="lbImg" alt=""></div>
+  <div class="body"><div class="stack" id="lbStack"><img id="lbImg" alt=""><canvas id="lbTint"></canvas></div></div>
 </div>
 
 <script src="data/history.js"></script>
@@ -373,7 +392,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   const snapIndex = Object.fromEntries(snaps.map((s, i) => [s.id, i]));
   const pageById = Object.fromEntries(H.pages.map((p) => [p.id, p]));
   const viewportNames = H.viewports ?? ["desktop", "mobile"];
-  const state = { viewport: viewportNames[0], search: "", onlyChanged: false, showSame: false, expanded: new Set(), zoom: 1, graphLeft: 0, focus: new Set(), focusStructure: false, help: false };
+  const state = { viewport: viewportNames[0], search: "", onlyChanged: false, showSame: false, tint: false, expanded: new Set(), zoom: 1, graphLeft: 0, focus: new Set(), focusStructure: false, help: false };
   const MAX_ZOOM = 80;
   const KIND_LABEL = { page: "Whole page", "signed-out": "Signed out", section: "Sections", dialog: "Dialogs", menu: "Menus" };
   const EDGE_TEXT = {
@@ -470,7 +489,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     return b;
   }
   /** One view across all snapshots, for stepping through time in the lightbox. */
-  const seriesFor = (title, view) => ({ title, frames: snaps.map((s, i) => { const im = img(view?.shots[s.id]); return im ? { snap: s, image: im, same: viewStatus(view, i).kind === "same" } : null; }) });
+  const seriesFor = (title, view) => ({ title, frames: snaps.map((s, i) => { const shot = view?.shots[s.id]; const im = img(shot); return im ? { snap: s, image: im, same: viewStatus(view, i).kind === "same", mask: shot.masks?.[state.viewport] ?? null } : null; }) });
 
   function emptyState() {
     const box = el('<div class="empty">No page matches the current search or filters.<br><button class="btn" style="margin-top:10px">Clear search and filters</button></div>');
@@ -793,7 +812,8 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     focusBtn.addEventListener("click", () => { toggleFocus(id); if (state.focus.has(id)) location.hash = "#/"; });
     const prev = at > 0 ? el(`<a class="btn" href="${pageHref(order[at - 1].id)}" title="${esc(order[at - 1].id)}">←</a>`) : null;
     const next = at >= 0 && at < order.length - 1 ? el(`<a class="btn" href="${pageHref(order[at + 1].id)}" title="${esc(order[at + 1].id)}">→</a>`) : null;
-    header(page.id, `<a href="#/">Graph</a> › <a href="#/?section=${encodeURIComponent(page.section)}">${esc(page.section)}</a> › ${plural(page.views.length, "view")}`, [focusBtn, prev, next].filter(Boolean),
+    const playBtn = el('<button class="btn" title="Play this view through time">▶ Play</button>');
+    header(page.id, `<a href="#/">Graph</a> › <a href="#/?section=${encodeURIComponent(page.section)}">${esc(page.section)}</a> › ${plural(page.views.length, "view")}`, [playBtn, focusBtn, prev, next].filter(Boolean),
       "<p>The list on the left holds every view of this page: the page itself, its signed-out version where that differs, and each section, dialog and menu found on it. Pick one to see it across time. Snapshots where it looked the same as before, or where the view was not on the page, are folded into the small cards. Click a screenshot to enlarge it and step through time with the arrow keys; the slider at the bottom compares any two snapshots.</p>");
     const pad = el('<div class="pad"></div>');
 
@@ -839,6 +859,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     detail.append(el(`<div class="h2">${esc(view.label)} over time</div>`));
     const strip = el('<div class="strip"></div>');
     const series = seriesFor(`${page.id}${view.id === "page" ? "" : " · " + view.label}`, view);
+    playBtn.addEventListener("click", () => { const first = series.frames.findIndex(Boolean); if (first >= 0) openLightbox(series, first, true); });
     let run = null;
     const flush = () => {
       if (!run) return;
@@ -875,6 +896,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
         frame.append(el(`<div class="gap">${why}</div>`));
       }
       frame.append(el(`<div class="caption" title="${esc(s.subject)}">${esc(s.subject)}</div>`));
+      if (st.shot?.sources) {
+        const src = st.shot.sources;
+        const d = el(`<details class="sources"><summary>${plural(src.total, "source file")} changed in ${plural(src.commits, "commit")}</summary><ul>${src.changed.map((f) => `<li class="mono">${esc(f)}</li>`).join("")}${src.total > src.changed.length ? `<li class="muted">… and ${src.total - src.changed.length} more</li>` : ""}</ul></details>`);
+        frame.append(d);
+      }
       strip.append(frame);
     });
     flush();
@@ -891,12 +917,34 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   function compare(view, withShots) {
     const options = (sel) => withShots.map((s) => `<option value="${s.id}" ${s.id === sel ? "selected" : ""}>${esc(s.date)} · ${esc(s.id)}</option>`).join("");
     const box = el(`<div class="compare"><div class="controls"><select class="field">${options(withShots[0].id)}</select><span class="cmphint">Drag the line over the image</span><select class="field">${options(withShots[withShots.length - 1].id)}</select></div>
-      <div class="stage"><img class="before" alt=""><img class="after" alt=""><div class="handle" role="slider" aria-label="Reveal" aria-valuemin="0" aria-valuemax="100" tabindex="0"><span class="grip">⟷</span></div></div></div>`);
+      <div class="stage"><img class="before" alt=""><img class="after" alt=""><canvas class="tintc"></canvas><div class="handle" role="slider" aria-label="Reveal" aria-valuemin="0" aria-valuemax="100" tabindex="0"><span class="grip">⟷</span></div></div></div>`);
     const [a, b] = box.querySelectorAll("select");
     const stage = box.querySelector(".stage"), before = box.querySelector(".before"), after = box.querySelector(".after"), handle = box.querySelector(".handle");
     let split = 50;
     const paint = () => { after.style.clipPath = `inset(0 0 0 ${split}%)`; handle.style.left = split + "%"; handle.setAttribute("aria-valuenow", Math.round(split)); };
-    const load = () => { before.src = img(view.shots[a.value]).full; after.src = img(view.shots[b.value]).full; paint(); };
+    const tintc = box.querySelector(".tintc");
+    // The tint for an arbitrary pair is computed here from the two images, with the same
+    // block comparison the build uses.
+    const retint = async () => {
+      if (!state.tint) { tintc.style.display = "none"; return; }
+      const loadImg = (src) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+      const [A, B] = await Promise.all([loadImg(before.src), loadImg(after.src)]);
+      if (!A || !B) return;
+      const W = 96, BL = 8, cols = W / BL;
+      const sampleOf = (im) => { const h = Math.max(1, Math.round((im.naturalHeight * W) / im.naturalWidth)); const cv = document.createElement("canvas"); cv.width = W; cv.height = h; const g = cv.getContext("2d"); g.drawImage(im, 0, 0, W, h); return { d: g.getImageData(0, 0, W, h).data, h }; };
+      const [x, y] = [sampleOf(A), sampleOf(B)];
+      const rows = Math.ceil(Math.max(x.h, y.h) / BL), shared = Math.min(x.h, y.h);
+      const runs = []; let current = 0, run = 0;
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        let hit = r * BL >= shared;
+        if (!hit) { let sum = 0, n = 0; for (let yy = r * BL; yy < Math.min((r + 1) * BL, shared); yy++) for (let xx = c * BL; xx < (c + 1) * BL; xx++) { const i = (yy * W + xx) * 4; sum += Math.abs(x.d[i] - y.d[i]) + Math.abs(x.d[i + 1] - y.d[i + 1]) + Math.abs(x.d[i + 2] - y.d[i + 2]); n += 3; } hit = sum / n > 10; }
+        const bit = hit ? 1 : 0; if (bit === current) run++; else { runs.push(run); current = bit; run = 1; }
+      }
+      runs.push(run);
+      drawMask(tintc, { cols, rows, runs });
+      tintc.style.height = before.getBoundingClientRect().height + "px";
+    };
+    const load = () => { before.src = img(view.shots[a.value]).full; after.src = img(view.shots[b.value]).full; paint(); before.onload = retint; };
     [a, b].forEach((n) => n.addEventListener("input", load));
     const setFromPointer = (e) => { const r = stage.getBoundingClientRect(); split = Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)); paint(); };
     stage.addEventListener("pointerdown", (e) => {
@@ -910,6 +958,25 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     handle.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") { split = Math.max(0, split - 2); paint(); } if (e.key === "ArrowRight") { split = Math.min(100, split + 2); paint(); } });
     load();
     return box;
+  }
+
+  // ---------- Story ----------
+  function renderStory() {
+    const entries = H.changelog ?? [];
+    header("Story", `${plural(entries.length, "chapter")} · written from the snapshots and the commits`, [], "<p>A written account of how the UI evolved, one chapter per period. Each chapter links the pages and snapshots it talks about. The agent writes it from the lineage and the captured changes; edit <code>.ui-progress/changelog.json</code> to change it.</p>");
+    const pad = el('<div class="pad"></div>');
+    if (!entries.length) { pad.append(el('<div class="empty">No story yet. Ask the agent to write the changelog (<code>ui-progress changelog candidates</code> gives it the material).</div>')); content.replaceChildren(pad); return; }
+    const list = el('<div class="story"></div>');
+    for (const e of entries) {
+      const snap = e.snapshot && snapIndex[e.snapshot] != null ? snaps[snapIndex[e.snapshot]] : null;
+      const card = el(`<article class="chapter"><div class="when">${esc(e.from ?? e.date ?? "")}${e.to && e.to !== e.from ? ` → ${esc(e.to)}` : ""}</div><h2>${esc(e.title)}</h2><p>${esc(e.text)}</p><div class="refs"></div></article>`);
+      const refs = card.querySelector(".refs");
+      for (const id of e.pages ?? []) if (pageById[id]) refs.append(el(`<a class="chip" href="${pageHref(id)}">${esc(id)}</a>`));
+      if (snap) refs.append(el(`<a class="btn" href="#/snapshot/${snap.id}">See the site on ${esc(snap.date)}</a>`));
+      list.append(card);
+    }
+    pad.append(list);
+    content.replaceChildren(pad);
   }
 
   // ---------- Snapshots ----------
@@ -965,8 +1032,27 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   }
 
   // ---------- Lightbox ----------
-  const lb = { box: document.getElementById("lightbox"), series: null, index: 0 };
-  function openLightbox(series, index) { lb.series = series; lb.index = index; lb.box.classList.add("open"); paintLightbox(); }
+  const lb = { box: document.getElementById("lightbox"), series: null, index: 0, timer: null };
+  function openLightbox(series, index, play = false) { lb.series = series; lb.index = index; lb.box.classList.add("open"); paintLightbox(); if (play) setPlaying(true); }
+  function setPlaying(on) {
+    clearInterval(lb.timer); lb.timer = null;
+    document.getElementById("lbPlay").setAttribute("aria-pressed", String(on));
+    document.getElementById("lbPlay").textContent = on ? "❚❚ Pause" : "▶ Play";
+    if (!on) return;
+    lb.timer = setInterval(() => { const i = nextFrame(1); if (i == null) setPlaying(false); else { lb.index = i; paintLightbox(); } }, 1300);
+  }
+  /** Draw the changed blocks of a run-length mask onto a canvas laid over the image. */
+  function drawMask(canvas, mask) {
+    if (!mask) { canvas.style.display = "none"; return; }
+    canvas.width = mask.cols; canvas.height = mask.rows;
+    const g = canvas.getContext("2d");
+    g.clearRect(0, 0, mask.cols, mask.rows);
+    g.fillStyle = "rgba(255, 120, 0, 0.42)";
+    let i = 0, on = false;
+    for (const run of mask.runs) { if (on) for (let k = i; k < i + run; k++) g.fillRect(k % mask.cols, Math.floor(k / mask.cols), 1, 1); i += run; on = !on; }
+    canvas.style.imageRendering = "pixelated";
+    canvas.style.display = "";
+  }
   const nextFrame = (dir) => { for (let i = lb.index + dir; i >= 0 && i < lb.series.frames.length; i += dir) { const f = lb.series.frames[i]; if (f && (state.showSame || !f.same)) return i; } return null; };
   function step(dir) { const i = nextFrame(dir); if (i != null) { lb.index = i; paintLightbox(); } }
   function paintLightbox() {
@@ -974,20 +1060,27 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     document.getElementById("lbWhere").textContent = lb.series.title;
     document.getElementById("lbWhen").textContent = `${frame.snap.date} · ${frame.snap.id}`;
     document.getElementById("lbImg").src = frame.image.full;
+    const tintCanvas = document.getElementById("lbTint");
+    const prevIndex = nextFrame(-1);
+    const mask = state.tint && prevIndex != null ? frame.mask : null;
+    drawMask(tintCanvas, mask);
+    document.getElementById("lbWhen").textContent += mask ? " · changes since the previous snapshot are tinted" : "";
     document.getElementById("lbSteps").innerHTML = lb.series.frames.map((f, i) => (f && (state.showSame || !f.same || i === lb.index) ? `<i class="${i === lb.index ? "on" : ""}"></i>` : "")).join("");
     document.getElementById("lbPrev").disabled = nextFrame(-1) == null;
     document.getElementById("lbNext").disabled = nextFrame(1) == null;
   }
-  const closeLightbox = () => lb.box.classList.remove("open");
+  const closeLightbox = () => { setPlaying(false); lb.box.classList.remove("open"); };
   document.getElementById("lbPrev").addEventListener("click", () => step(-1));
   document.getElementById("lbNext").addEventListener("click", () => step(1));
   document.getElementById("lbClose").addEventListener("click", closeLightbox);
+  document.getElementById("lbPlay").addEventListener("click", () => setPlaying(!lb.timer));
   lb.box.addEventListener("click", (e) => { if (e.target === lb.box || e.target.classList.contains("body")) closeLightbox(); });
   document.addEventListener("keydown", (e) => {
     if (!lb.box.classList.contains("open")) return;
     if (e.key === "Escape") closeLightbox();
-    if (e.key === "ArrowLeft") step(-1);
-    if (e.key === "ArrowRight") step(1);
+    if (e.key === "ArrowLeft") { setPlaying(false); step(-1); }
+    if (e.key === "ArrowRight") { setPlaying(false); step(1); }
+    if (e.key === " ") { e.preventDefault(); setPlaying(!lb.timer); }
   });
 
   // ---------- Shell ----------
@@ -1001,23 +1094,27 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     document.body.classList.remove("side-open");
     state.focusSet = connected();
     renderFocusBar();
+    document.body.classList.toggle("tinted", state.tint);
     let active = "graph", current = null;
     if (hash.startsWith("#/page/")) {
       const [id, view] = hash.slice(7).split("/").map(decodeURIComponent);
       current = id; active = null; renderPage(id, view);
     } else if (hash.startsWith("#/snapshot/")) { active = "snapshots"; renderSnapshot(hash.slice(11)); }
     else if (hash === "#/snapshots") { active = "snapshots"; renderSnapshots(); }
+    else if (hash === "#/story") { active = "story"; renderStory(); }
     else if (hash === "#/timeline") { active = "timeline"; renderTimeline(); }
     else renderGraph();
     document.querySelectorAll("#nav a").forEach((a) => a.dataset.view === active ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
     renderTree(current);
     if (keep) { content.scrollLeft = keep[0]; content.scrollTop = keep[1]; } else content.scrollTop = 0;
   }
+  if (!(H.changelog ?? []).length) document.getElementById("navStory").style.display = "none";
   document.getElementById("project").textContent = `${H.project.name} · ${plural(snaps.length, "snapshot")} of ${H.project.commits} commits`;
   document.title = `UI History · ${H.project.name}`;
   document.getElementById("search").addEventListener("input", (e) => { state.search = e.target.value; render(); e.target.focus(); });
   document.getElementById("onlyChanged").addEventListener("change", (e) => { state.onlyChanged = e.target.checked; render(); });
   document.getElementById("showSame").addEventListener("change", (e) => { state.showSame = e.target.checked; render(); });
+  document.getElementById("tint").addEventListener("change", (e) => { state.tint = e.target.checked; render(); if (lb.box.classList.contains("open")) paintLightbox(); });
   document.getElementById("focusClear").addEventListener("click", () => { state.focus.clear(); render(); });
   document.getElementById("focusStructure").addEventListener("change", (e) => { state.focusStructure = e.target.checked; render(); });
   document.getElementById("helpBtn").addEventListener("click", () => { state.help = !state.help; document.getElementById("help").classList.toggle("open", state.help); document.getElementById("helpBtn").setAttribute("aria-pressed", String(state.help)); });

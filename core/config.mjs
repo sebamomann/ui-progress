@@ -22,9 +22,17 @@ export const DEFAULTS = {
     auto: { churn: 600, minGapDays: 1 },
   },
   capture: {
+    // A viewport may carry its own colorScheme ("light" | "dark"); the first one is primary.
     viewports: { desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } },
+    // Tabs capturing at the same time against one app instance.
+    parallel: 3,
     signedOut: true,
-    states: { enabled: true, maxClicks: 14, maxPerPage: 10, sectionChange: 0.2 },
+    // depth 2 also tries tabs and buttons inside an opened dialog or menu.
+    states: { enabled: true, maxClicks: 20, maxPerPage: 12, depth: 2, depthClicks: 3, sectionChange: 0.2, budgetMs: 45000 },
+    // Copy a page forward from the previous snapshot when none of its source files changed.
+    // globalPaths: a change there recaptures everything. translationPaths: JSON message
+    // files whose changed top-level keys (namespaces) decide which pages are affected.
+    incremental: { enabled: true, globalPaths: ["package.json", "*.config.*", "**/globals.css", "**/global.css", "public/**", "tailwind.config.*"], translationPaths: ["messages/**", "locales/**", "i18n/**", "**/translations/**"] },
     // labels never clicked while looking for dialogs and sections (regex, case-insensitive)
     // Destructive controls, and controls that do something rather than show something.
     unsafe:
@@ -77,6 +85,8 @@ export function paths(repo) {
     adapter: path.join(root, "adapter.mjs"),
     plan: path.join(root, "plan.json"),
     lineage: path.join(root, "lineage.json"),
+    changelog: path.join(root, "changelog.json"),
+    screens: path.join(root, "screens.json"),
     snapshots: path.join(root, "snapshots"),
     findings: path.join(root, "findings"),
     // Checkouts of old commits live OUTSIDE the repository. Inside it, build tools walk up

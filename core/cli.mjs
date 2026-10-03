@@ -8,6 +8,7 @@ import { build } from "./build.mjs";
 import { DEFAULTS, findRepo, loadAdapter, loadConfig, paths } from "./config.mjs";
 import { DEPS_DIR, PACKAGES, hasDep } from "./deps.mjs";
 import { addFinding, exportFindings, listFindings, resolveFinding } from "./findings.mjs";
+import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, sessionStart, stop } from "./forward.mjs";
 import { candidates, checkLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
@@ -43,9 +44,11 @@ Keeping it current
                                 changes, or write it into AGENTS.md / CLAUDE.md
   (with the plugin enabled, hooks do this on their own; see config "forward.mode")
 
-Lineage
+Lineage and story
   lineage candidates            evidence for splits, merges and renames, for the agent
   lineage check                 validate .ui-progress/lineage.json
+  changelog candidates          per snapshot: what changed, and the commits in between
+  changelog check               validate .ui-progress/changelog.json
 
 Viewing
   build                         rebuild the viewer's dataset
@@ -163,7 +166,7 @@ async function snapshot(flags, positional) {
   // A single commit runs in this process; several run as parallel child processes.
   if (shas.length === 1 && flags.port) {
     const result = await runSnapshot(p, config, adapter, shas[0], { port: Number(flags.port), force: true, refreshClone: false });
-    console.log(JSON.stringify({ short: result.short, date: result.date, failed: result.failed ?? null, error: result.error ?? null, timings: result.timings ?? null, pages: result.manifest ? `${result.manifest.captured}/${result.manifest.routesTotal}` : null, states: result.manifest?.states ?? null }));
+    console.log(JSON.stringify({ short: result.short, date: result.date, failed: result.failed ?? null, error: result.error ?? null, timings: result.timings ?? null, pages: result.manifest ? `${result.manifest.captured}/${result.manifest.routesTotal}` : null, reused: result.manifest?.reused ?? 0, states: result.manifest?.states ?? null }));
     if (result.failed) process.exitCode = 1;
     return;
   }
@@ -198,7 +201,7 @@ async function snapshot(flags, positional) {
       done++;
       if (result.failed) failed++;
       const seconds = result.timings ? Object.values(result.timings).reduce((a, b) => a + b, 0) : 0;
-      console.log(`[${done}/${shas.length}] ${result.date ?? ""} ${result.short}  ${result.failed ? `FAILED in ${result.failed}: ${result.error}` : `${result.pages} pages, ${result.states} states, ${seconds}s`}`);
+      console.log(`[${done}/${shas.length}] ${result.date ?? ""} ${result.short}  ${result.failed ? `FAILED in ${result.failed}: ${result.error}` : `${result.pages} pages${result.reused ? ` (${result.reused} copied forward)` : ""}, ${result.states} states, ${seconds}s`}`);
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, shas.length) }, (_, i) => worker(i)));
@@ -274,6 +277,11 @@ export async function main(argv) {
     else if (command === "hook") (positional[0] === "stop" ? stop : sessionStart)();
     else if (command === "instructions") instructions(flags);
     else if (command === "lineage") await lineage(flags, positional);
+    else if (command === "changelog") {
+      const { p, config } = context();
+      if (positional[0] === "check") { const r = checkChangelog(p); console.log(r.ok ? `changelog.json is valid: ${r.entries} chapters` : `Problems:\n${r.problems.map((x) => "  " + x).join("\n")}`); if (!r.ok) process.exitCode = 1; }
+      else console.log(changelogCandidates(p, config));
+    }
     else if (command === "build") await doBuild();
     else if (command === "view") {
       const result = await doBuild();

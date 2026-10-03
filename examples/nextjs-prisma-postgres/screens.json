@@ -1,0 +1,43 @@
+[
+  {
+    "id": "browser-inactive",
+    "route": "/",
+    "label": "Inactive plants",
+    "url": "/?status=inactive"
+  },
+  {
+    "id": "browser-all",
+    "route": "/",
+    "label": "All plants (active and inactive)",
+    "url": "/?status=all"
+  },
+  {
+    "id": "browser-search",
+    "route": "/",
+    "label": "Search for Monstera",
+    "steps": [
+      {
+        "fill": {
+          "selector": "input[type=search], input[placeholder*='such' i], input[placeholder*='search' i]",
+          "value": "Monstera"
+        }
+      },
+      {
+        "wait": 600
+      }
+    ]
+  },
+  {
+    "id": "calendar-week",
+    "route": "/calendar",
+    "label": "Later this week",
+    "steps": [
+      {
+        "click": "text=Diese Woche"
+      },
+      {
+        "wait": 400
+      }
+    ]
+  }
+]

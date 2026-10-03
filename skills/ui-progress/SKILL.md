@@ -40,9 +40,12 @@ example in `${CLAUDE_PLUGIN_ROOT}/examples/nextjs-prisma-postgres/`.
 3. `ui-progress init --preset <next-app|next-pages|crawl|blank>`.
 4. Write `.ui-progress/adapter.mjs` and adjust `.ui-progress/config.json`
    (`sampling.uiPaths` and `lineage.pagePaths` should name the folders that hold UI code).
-5. Ask the user only what the repository cannot tell you. Usually that is: which sampling
-   mode (offer the pilot first), and whether throwaway databases may be created on their
-   local database server. Use one question round, not a questionnaire.
+5. Ask the user only what the repository cannot tell you, in one question round: which
+   sampling mode (offer the pilot first); whether throwaway databases may be created on
+   their local database server; and **which colour scheme matters** (light, dark, or both;
+   the app's own default if they don't care). Store the answer as `colorScheme` on each
+   viewport in `capture.viewports`; "both" means two viewports per size. Never ask twice:
+   if the config already has it, use it.
 6. Ask the user, in the same question round, whether to add the capture rule to the
    project's instructions file. The user should never have to know or type the command:
    you ask, explain, and run `ui-progress instructions --write` yourself on a yes.
@@ -63,6 +66,30 @@ example in `${CLAUDE_PLUGIN_ROOT}/examples/nextjs-prisma-postgres/`.
    middle, and the oldest that has real pages. `ui-progress snapshot <sha> <sha> <sha>`.
    Then open several screenshots from each and look at them (see
    [Check the result](#check-the-result)).
+
+### Hand-picked screens: `.ui-progress/screens.json`
+
+The automatic click-through finds dialogs, menus, tabs and sections that one or two clicks
+away. Views that need a URL parameter, typed input or a precise sequence are listed in
+`screens.json`, and **you write that file**; the user never has to. After the three test
+commits, read the main pages' code for filters, view modes, search and URL parameters
+(`searchParams`, `?status=`, `aria-pressed` toggles), and add an entry for each state that
+matters to how the page looks:
+
+```json
+[
+  { "id": "browser-inactive", "route": "/", "label": "Inactive plants", "url": "/?status=inactive" },
+  { "id": "browser-search", "route": "/", "label": "Search for Monstera",
+    "steps": [{ "fill": { "selector": "input[type=search]", "value": "Monstera" } }, { "wait": 500 }] },
+  { "id": "calendar-week", "route": "/calendar", "label": "This week", "steps": [{ "click": "text=Diese Woche" }] }
+]
+```
+
+Steps: `click`, `hover`, `fill` (`{selector, value}`), `press`, `scroll` (pixels), `wait`
+(ms); selectors are Playwright locators. `kind` defaults to `section`; use `dialog` for an
+overlay. Prefer a `url` over clicks when the state is in the URL: it works in every era.
+Verify the file on one snapshot (`run.log` lists every screen that failed) and fix the
+selectors before the long run. Add to it whenever a later session adds a filter or a mode.
 
 ### Rules for the adapter
 
@@ -115,13 +142,25 @@ example in `${CLAUDE_PLUGIN_ROOT}/examples/nextjs-prisma-postgres/`.
 
 Going from a pilot to a denser history only captures the commits that are missing.
 
+### How long it takes
+
+Several pages are captured at once (`capture.parallel`, default 3 tabs). A page whose
+source files did not change since the previous captured commit is copied forward instead of
+re-shot (`capture.incremental`); the log line `incremental: … pages unchanged` says how many.
+That needs `routeOfFile` in the adapter and an import graph the resolver can follow (JS/TS
+with relative or tsconfig-alias imports). A change in `globalPaths` (package.json, config
+files, global CSS, public assets) recaptures everything; translation JSON files only affect
+the pages that use a changed namespace. Mention the measured time per snapshot from the
+three test commits when you quote a duration.
+
 ## Capture the current state
 
 A hook sends you here when a session changed UI files and is about to end without a
 capture. Decide first whether anything visible changed; if not, say so in one line and
 stop. Never commit on the user's behalf to make a capture possible.
 
-After a session changed the UI and the work is committed:
+After a session changed the UI and the work is committed (this is fast: unchanged pages
+are copied forward from the last snapshot):
 
 - `ui-progress snapshot HEAD` builds and captures the commit from scratch, like a backfill.
 - `ui-progress snapshot --live http://localhost:3000` captures the app the user already has
@@ -130,8 +169,10 @@ After a session changed the UI and the work is committed:
   means clicking around in the user's own data. Add `--states` only if they agree to that.
 
 Then, if a page was added, removed, split, merged or renamed in the session, add the edge
-to `.ui-progress/lineage.json` now, while you know exactly what happened and why. Finish
-with `ui-progress build`.
+to `.ui-progress/lineage.json` now, while you know exactly what happened and why. If a
+filter, mode or other URL-driven state was added, add it to `screens.json`. If the change
+is worth a sentence in the Story, append a chapter to `changelog.json`. Finish with
+`ui-progress build`.
 
 ## Lineage
 
@@ -170,6 +211,26 @@ Git cannot tell that a page was split in two. You can.
 4. `ui-progress lineage check`, then `ui-progress build`.
 
 Be conservative: a copied boilerplate file is not lineage. Record `confidence` honestly.
+
+## Story
+
+After lineage, write the history as a short narrative the viewer shows as "Story":
+
+1. `ui-progress build`, then `ui-progress changelog candidates`: per snapshot, what was
+   added, removed, redesigned or merged, and the commit messages in between.
+2. Write `.ui-progress/changelog.json`, one chapter per period that reads as one move
+   (a redesign, a feature area arriving, a restructuring), not one per snapshot:
+
+   ```json
+   { "entries": [
+     { "from": "2026-05-17", "to": "2026-05-23", "title": "The first collection browser",
+       "text": "Two to four sentences: what appeared, what it looked like, what drove it.",
+       "pages": ["/", "/plants/[id]"], "snapshot": "832eb7ed" } ] }
+   ```
+
+   `pages` are routes to link; `snapshot` is the id of the snapshot that best shows the
+   chapter. Write in plain language for the project's owner; name pages by what they do.
+3. `ui-progress changelog check`, then `ui-progress build`.
 
 ## Check the result
 

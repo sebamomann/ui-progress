@@ -85,29 +85,43 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
     }
     return sampleCache.get(file);
   }
-  async function difference(fileA, fileB) {
+  /** Returns the share of changed blocks and the mask of which blocks changed (row-major, run-length encoded). */
+  async function compare(fileA, fileB) {
     const [a, b] = await Promise.all([sample(fileA), sample(fileB)]);
-    if (a.hash === b.hash) return 0;
+    const cols = WIDTH / BLOCK;
+    if (a.hash === b.hash) return { diff: 0, mask: null };
     const rows = Math.ceil(Math.max(a.height, b.height) / BLOCK);
     const shared = Math.min(a.height, b.height);
     let changed = 0;
+    const bits = [];
     for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < WIDTH / BLOCK; col++) {
+      for (let col = 0; col < cols; col++) {
         // Blocks below the shorter page exist in one screenshot only.
-        if (row * BLOCK >= shared) { changed++; continue; }
-        let sum = 0, count = 0;
-        for (let y = row * BLOCK; y < Math.min((row + 1) * BLOCK, shared); y++) {
-          for (let x = col * BLOCK; x < (col + 1) * BLOCK; x++) {
-            const i = (y * WIDTH + x) * 3;
-            sum += Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2]);
-            count += 3;
+        let hit = false;
+        if (row * BLOCK >= shared) hit = true;
+        else {
+          let sum = 0, count = 0;
+          for (let y = row * BLOCK; y < Math.min((row + 1) * BLOCK, shared); y++) {
+            for (let x = col * BLOCK; x < (col + 1) * BLOCK; x++) {
+              const i = (y * WIDTH + x) * 3;
+              sum += Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2]);
+              count += 3;
+            }
           }
+          hit = sum / count > 10;
         }
-        if (sum / count > 10) changed++;
+        if (hit) changed++;
+        bits.push(hit ? 1 : 0);
       }
     }
-    return changed / (rows * (WIDTH / BLOCK));
+    // Run-length encode: alternating counts of unchanged and changed blocks.
+    const runs = [];
+    let current = 0, run = 0;
+    for (const bit of bits) { if (bit === current) run++; else { runs.push(run); current = bit; run = 1; } }
+    runs.push(run);
+    return { diff: changed / (rows * cols), mask: { cols, rows, runs } };
   }
+  const difference = async (fileA, fileB) => (await compare(fileA, fileB)).diff;
 
   const snapshots = [];
   for (const short of fs.existsSync(p.snapshots) ? fs.readdirSync(p.snapshots) : []) {
@@ -133,7 +147,9 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
   };
   const edges = [];
 
+  const broken = [];
   for (const snap of snapshots) {
+   try {
     const shotsDir = path.join(p.snapshots, snap.id, "shots");
     const imgDir = path.join(dataDir, "img", snap.id);
     fs.mkdirSync(imgDir, { recursive: true });
@@ -181,7 +197,18 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
           const prefix = variant === main ? "" : "Signed out · ";
           for (const state of variant.states ?? []) {
             const label = prefix + state.label;
-            await put(view(record, `${state.kind}|${label.toLowerCase()}`, state.kind, label), state.files, state.kind !== "section");
+            // The same control across snapshots: matched by its stable key where captured
+            // (test id, id, place in the document), else by its label.
+            const byKey = state.key ? record.views.get(`${state.kind}|k:${prefix}${state.key}`) : null;
+            const byLabel = record.views.get(`${state.kind}|${label.toLowerCase()}`);
+            let v = byKey ?? byLabel;
+            if (!v) {
+              v = view(record, `${state.kind}|${label.toLowerCase()}`, state.kind, label);
+              v.key = state.key ?? null;
+            }
+            if (state.key && !byKey) record.views.set(`${state.kind}|k:${prefix}${state.key}`, v);
+            v.label = label; // the latest wording wins
+            await put(v, state.files, state.kind !== "section");
             views++;
           }
         }
@@ -196,22 +223,53 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
     snap.captured = snap.manifest.captured;
     snap.views = views;
     log(`${snap.date} ${snap.id}: ${snap.captured}/${snap.pages} pages, ${views} views`);
+   } catch (err) {
+    // A snapshot being recaptured right now, or one with a missing file: left out of this build.
+    log(`${snap.date} ${snap.id}: skipped (${String(err.message).split("\n")[0]})`);
+    broken.push(snap);
+    for (const record of pages.values()) { delete record.presence[snap.id]; for (const v of record.views.values()) delete v.shots[snap.id]; }
+   }
   }
+  for (const snap of broken) snapshots.splice(snapshots.indexOf(snap), 1);
+  if (!snapshots.length) throw new Error("No usable snapshots.");
 
-  // How much each view changed since the previous snapshot it appears in.
+  // How much each view changed since the previous snapshot it appears in, which blocks
+  // changed, and (for the page itself) which source files changed in between.
+  const depsOf = new Map(snapshots.map((s) => [s.id, readJson(path.join(p.snapshots, s.id, "deps.json"))]));
+  const shaOf = new Map(snapshots.map((s) => [s.id, readJson(path.join(p.snapshots, s.id, "snapshot.json"))?.sha]));
+  const diffCache = new Map();
+  const changedBetween = (a, b) => {
+    const key = `${a}..${b}`;
+    if (!diffCache.has(key)) { try { diffCache.set(key, new Set(git(p.repo, "diff", "--name-only", a, b).split("\n").filter(Boolean))); } catch { diffCache.set(key, new Set()); } }
+    return diffCache.get(key);
+  };
   for (const record of pages.values()) {
-    for (const v of record.views.values()) {
+    for (const v of new Set(record.views.values())) {
       let previous = null;
       for (const snap of snapshots) {
         const shot = v.shots[snap.id];
         if (!shot) continue;
         if (previous) {
           shot.change = {};
+          shot.masks = {};
           for (const viewport of viewportNames) {
-            if (previous.src[viewport] && shot.src[viewport]) shot.change[viewport] = Number((await difference(previous.src[viewport], shot.src[viewport])).toFixed(4));
+            if (previous.src[viewport] && shot.src[viewport]) {
+              const { diff, mask } = await compare(previous.src[viewport], shot.src[viewport]);
+              shot.change[viewport] = Number(diff.toFixed(4));
+              if (mask) shot.masks[viewport] = mask;
+            }
+          }
+          if (v.id === "page") {
+            const deps = depsOf.get(snap.id)?.[record.id];
+            const a = shaOf.get(previous.snap), b = shaOf.get(snap.id);
+            if (deps && a && b) {
+              const changed = changedBetween(a, b);
+              const files = deps.filter((f) => changed.has(f));
+              if (files.length) shot.sources = { changed: files.slice(0, 40), total: files.length, commits: Number(git(p.repo, "rev-list", "--count", `${a}..${b}`).trim()) };
+            }
           }
         }
-        previous = shot;
+        previous = { ...shot, snap: snap.id };
       }
       for (const shot of Object.values(v.shots)) delete shot.src;
     }
@@ -288,11 +346,13 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
   }
 
   const list = [...pages.values()]
-    .map(({ views, twoFaced, ...rest }) => ({ ...rest, views: [...views.values()], seen: Object.keys(rest.presence).length > 0 }))
+    .map(({ views, twoFaced, ...rest }) => ({ ...rest, views: [...new Set(views.values())], seen: Object.keys(rest.presence).length > 0 }))
     .sort((a, b) => a.section.localeCompare(b.section) || a.id.localeCompare(b.id));
   const branch = config.sampling.branch ?? "HEAD";
+  const changelog = readJson(p.changelog, { entries: [] }).entries ?? [];
   const history = {
     tool: { name: "ui-progress", version: VERSION },
+    changelog,
     project: {
       name: config.project.name,
       commits: Number(git(p.repo, "rev-list", "--count", branch).trim()),
