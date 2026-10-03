@@ -513,7 +513,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       results[route] = entry;
       reused.push(route);
     }
-    if (reused.length) log(`took over ${reused.length} unchanged page(s) from ${reuse.from} (references to stored screenshots)`);
+    if (reused.length) log(`took over ${reused.length} unchanged page(s): ${reuse.from} (references to stored screenshots)`);
   }
 
   // ---------- Per-route work, spread over several tabs ----------
