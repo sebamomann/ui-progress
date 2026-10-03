@@ -67,7 +67,8 @@ they are listed so you know what exists.
 | `ui-progress snapshot --plan [--concurrency N] [--limit N] [--force]` | capture what is planned and missing |
 | `ui-progress snapshot <sha…>` / `snapshot HEAD` | capture specific commits |
 | `ui-progress status` | planned, done, failed |
-| `ui-progress lineage candidates` / `lineage check` | evidence for lineage; validate `lineage.json` |
+| `ui-progress pending` | is HEAD captured, and which commits one snapshot of HEAD would cover |
+| `ui-progress lineage candidates [--since <sha>]` / `lineage check` | evidence for lineage; validate `lineage.json` |
 | `ui-progress changelog candidates` / `changelog check` | material for the Story; validate `changelog.json` |
 | `ui-progress build` / `view` | rebuild the viewer; rebuild and open it |
 | `ui-progress instructions [--write]` | the capture rule for `AGENTS.md` / `CLAUDE.md`, for agents without the plugin |

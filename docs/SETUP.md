@@ -65,15 +65,18 @@ Nothing to configure. With the plugin enabled, two hooks run in every tracked re
 - **When Claude is about to finish** and UI files changed during the session without a
   capture, it is sent back once: capture, or state that nothing visible changed.
 
-So after a committed UI change Claude captures the new state on its own:
+So after committed UI changes Claude captures the new state on its own, once at the end
+of the task rather than after every commit:
 
 ```
-ui-progress snapshot HEAD             # the commit, built with a throwaway database
+ui-progress pending                   # is HEAD captured? which commits would it cover?
+ui-progress snapshot HEAD             # one snapshot for the whole batch of commits
 ui-progress build
 ```
 
 Every snapshot is of a commit. Uncommitted changes are not captured; Claude tells you a
-capture is due once you commit, and never commits on your behalf.
+capture is due once you commit. Small, focused commits make the history (and the lineage
+recorded for it) much more useful.
 
 Snapshots never use your development, test or production databases, and never photograph
 an app you are running: each checks out the commit, builds its own data in a throwaway

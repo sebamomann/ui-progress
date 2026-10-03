@@ -32,10 +32,12 @@ function owner(dirs, file) {
   return null;
 }
 
-export function candidates(repo, config, adapter) {
+/** `since`: only commits after this one (for the batch since the last snapshot). */
+export function candidates(repo, config, adapter, { since = null } = {}) {
   if (!adapter.routeOfFile) throw new Error("Lineage evidence needs adapter.routeOfFile(file) so files can be mapped to pages.");
   const branch = config.sampling.branch ?? "HEAD";
-  const shas = git(repo, "log", "--first-parent", "--reverse", "--diff-filter=ADR", "-M", "--format=%H", branch, "--", ...config.lineage.pagePaths).split("\n").filter(Boolean);
+  const range = since ? `${since}..${branch}` : branch;
+  const shas = git(repo, "log", "--first-parent", "--reverse", "--diff-filter=ADR", "-M", "--format=%H", range, "--", ...config.lineage.pagePaths).split("\n").filter(Boolean);
   const out = [];
   for (const sha of shas) {
     // Against the first parent, so a merge commit shows what it brought in.

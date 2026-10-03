@@ -9,7 +9,7 @@ import { DEFAULTS, findRepo, loadAdapter, loadConfig, paths } from "./config.mjs
 import { DEPS_DIR, PACKAGES, hasDep } from "./deps.mjs";
 import { addFinding, exportFindings, listFindings, resolveFinding } from "./findings.mjs";
 import { changelogCandidates, checkChangelog } from "./changelog.mjs";
-import { instructions, sessionStart, stop } from "./forward.mjs";
+import { instructions, pendingState, renderPending, sessionStart, stop } from "./forward.mjs";
 import { candidates, checkLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
 import { depsReady, ensureClone, isDone, runSnapshot, snapshotDir } from "./snapshot.mjs";
@@ -37,12 +37,14 @@ Capturing
   status                        what is planned, done and failed
 
 Keeping it current
+  pending [--json]              is HEAD captured? which commits would one snapshot of HEAD cover?
   instructions [--write [file]] print the section that tells any agent to capture after UI
                                 changes, or write it into AGENTS.md / CLAUDE.md
   (with the plugin enabled, hooks do this on their own; see config "forward.mode")
 
 Lineage and story
-  lineage candidates            evidence for splits, merges and renames, for the agent
+  lineage candidates [--since <sha>]
+                                evidence for splits, merges and renames, for the agent
   lineage check                 validate .ui-progress/lineage.json
   changelog candidates          per snapshot: what changed, and the commits in between
   changelog check               validate .ui-progress/changelog.json
@@ -227,7 +229,7 @@ async function lineage(flags, [sub]) {
     return;
   }
   const adapter = await loadAdapter(p);
-  const list = candidates(p.repo, config, adapter);
+  const list = candidates(p.repo, config, adapter, { since: flags.since ?? null });
   console.log(flags.json ? JSON.stringify(list, null, 1) : renderCandidates(list, readJson(p.lineage)));
 }
 
@@ -269,6 +271,11 @@ export async function main(argv) {
     else if (command === "plan") await plan(flags);
     else if (command === "snapshot") await snapshot(flags, positional);
     else if (command === "status") status(flags);
+    else if (command === "pending") {
+      const { p, config } = context();
+      const state = pendingState(p, config);
+      console.log(flags.json ? JSON.stringify(state, null, 1) : renderPending(state));
+    }
     else if (command === "hook") (positional[0] === "stop" ? stop : sessionStart)();
     else if (command === "instructions") instructions(flags);
     else if (command === "lineage") await lineage(flags, positional);

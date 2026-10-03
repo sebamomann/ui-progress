@@ -18,6 +18,7 @@ Common commands (run from the repository root):
 
 ```
 ui-progress status          # what is planned, done, failed
+ui-progress pending         # is HEAD captured? (capture once after a batch of commits)
 ui-progress snapshot --plan # capture what is still missing
 ui-progress view            # rebuild and open the viewer
 ```

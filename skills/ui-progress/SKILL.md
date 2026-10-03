@@ -163,24 +163,32 @@ three test commits when you quote a duration.
 
 ## Capture the current state
 
-A hook sends you here when a session changed UI files and is about to end without a
+Snapshots are always of a **commit**, checked out and run with a throwaway database.
+There is no way to capture uncommitted changes or an app that is already running.
+
+A hook sends you here when a session committed UI changes and is about to end without a
 capture. Decide first whether anything visible changed; if not, say so in one line and
-stop. Never commit on the user's behalf to make a capture possible.
+stop.
 
-After a session changed the UI and the work is committed (this is fast: unchanged pages
-are copied forward from the last snapshot):
+**Capture once per batch, at the end.** A task often spans several commits (a feature in
+steps, a refactor across many files). Do not capture after each of them: when the last
+commit of the task is made, one snapshot of HEAD covers the whole batch.
 
-- `ui-progress snapshot HEAD` builds and captures the commit from scratch, like a backfill.
-
-Snapshots are always of a commit, checked out and run with a throwaway database. There is
-no way to capture uncommitted changes or an app that is already running. If the work is
-not committed, tell the user a capture is due once they commit.
-
-Then, if a page was added, removed, split, merged or renamed in the session, add the edge
-to `.ui-progress/lineage.json` now, while you know exactly what happened and why. If a
-filter, mode or other URL-driven state was added, add it to `screens.json`. If the change
-is worth a sentence in the Story, append a chapter to `changelog.json`. Finish with
-`ui-progress build`.
+1. `ui-progress pending` says whether HEAD is captured, which commits since the last
+   snapshot a capture of HEAD would cover, and whether UI changes are still uncommitted.
+2. If UI work is still uncommitted and committing is part of the task, commit it first, in
+   small, focused commits (one change each), so the history shows what changed when. If
+   committing is not part of the task, do not commit on the user's behalf: tell them in one
+   line that a capture is due once they commit.
+3. `ui-progress snapshot HEAD`. This is fast: pages whose source did not change are copied
+   forward from the last snapshot.
+4. If a page was added, removed, split, merged or renamed anywhere in the batch,
+   `ui-progress lineage candidates --since <last snapshot sha>` lists those commits; add
+   each edge to `.ui-progress/lineage.json` now, with the `sha` of the commit that did it,
+   while you know exactly what happened and why.
+5. If a filter, mode or other URL-driven state was added, add it to `screens.json`. If the
+   change is worth a sentence in the Story, append a chapter to `changelog.json`.
+6. `ui-progress build`.
 
 ## Lineage
 
