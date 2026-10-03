@@ -8,6 +8,8 @@ Claude writes it during setup. This page is the contract.
 ## Shape
 
 ```js
+export const requires = "0.6.0";    // optional: the oldest ui-progress this adapter works with
+
 export default {
   async install(ctx) {},            // optional
   async seed(ctx) {},               // optional, but nearly always needed
@@ -19,6 +21,10 @@ export default {
   async teardown(ctx) {},           // optional
 };
 ```
+
+`requires` is checked when the adapter loads, before any checkout. The adapter's calls to
+`ctx` methods are checked at the same time, so an adapter written for a newer ui-progress
+fails at once with a clear message instead of halfway through a snapshot.
 
 Order per snapshot: `install` → `seed` → `start` → (`login`, `routes`, `resolve` during
 capture) → `teardown`. `teardown` always runs, also after a failure.

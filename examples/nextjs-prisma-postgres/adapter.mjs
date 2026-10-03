@@ -11,6 +11,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+export const requires = "0.6.0"; // ctx.rewriteDatabaseUrls
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PG = process.env.UI_PROGRESS_PG ?? "postgresql://postgres:postgres@localhost:5432";
 const EMAIL = "test@example.com";

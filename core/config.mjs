@@ -3,8 +3,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { git, readJson } from "./util.mjs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { VERSION, git, readJson } from "./util.mjs";
 
 export const DEFAULTS = {
   version: 1,
@@ -110,9 +110,36 @@ export function loadConfig(p, { required = true } = {}) {
   return config;
 }
 
+/** Methods ctx offers, with the version that added each one (for the skew check). */
+export const CTX_METHODS = { exec: "0.1.0", has: "0.1.0", read: "0.1.0", require: "0.1.0", log: "0.1.0", assertThrowaway: "0.5.0", rewriteDatabaseUrls: "0.6.0", sharp: "0.1.0" };
+
+const semver = (v) => String(v).split(".").map((n) => Number.parseInt(n, 10) || 0);
+export function versionAtLeast(have, want) {
+  const [a, b] = [semver(have), semver(want)];
+  for (let i = 0; i < 3; i++) if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  return true;
+}
+
+/**
+ * Fail before any checkout when the adapter needs a newer ui-progress than this one: by its
+ * `export const requires = "x.y.z"`, or by calling a ctx method this version lacks.
+ */
+function checkAdapterVersion(p, mod) {
+  const where = `ui-progress ${VERSION} at ${path.join(path.dirname(fileURLToPath(import.meta.url)), "..")}`;
+  const update = "Update the plugin (claude plugin update ui-progress), then restart Claude Code so the new version is on PATH.";
+  if (mod.requires && !versionAtLeast(VERSION, mod.requires)) throw new Error(`.ui-progress/adapter.mjs requires ui-progress ${mod.requires} or newer; this is ${where}. ${update}`);
+  const sources = [p.adapter];
+  const helpers = path.join(p.root, "adapter");
+  if (fs.existsSync(helpers)) for (const f of fs.readdirSync(helpers)) if (/\.(m|c)?js$/.test(f)) sources.push(path.join(helpers, f));
+  const missing = new Set();
+  for (const file of sources) for (const [, name] of fs.readFileSync(file, "utf8").matchAll(/\bctx\.([A-Za-z_]\w*)\s*\(/g)) if (!(name in CTX_METHODS)) missing.add(name);
+  if (missing.size) throw new Error(`The adapter calls ctx.${[...missing].join(", ctx.")}, which ${where} does not have. Either the adapter was written for a newer ui-progress, or the name is wrong (docs/ADAPTERS.md lists the ctx methods). ${update}`);
+}
+
 /** The project adapter: plain functions that know how to run this particular app. */
 export async function loadAdapter(p) {
   if (!fs.existsSync(p.adapter)) return {};
   const mod = await import(pathToFileURL(p.adapter).href + `?t=${fs.statSync(p.adapter).mtimeMs}`);
+  checkAdapterVersion(p, mod);
   return mod.default ?? mod;
 }

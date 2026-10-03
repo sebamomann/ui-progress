@@ -38,7 +38,8 @@ example in `${CLAUDE_PLUGIN_ROOT}/examples/nextjs-prisma-postgres/`.
    and how each of these **changed over the history** (`git log --diff-filter=A -- <file>`
    tells you when a seed script, a lockfile or a login page first appeared).
 3. `ui-progress init --preset <next-app|next-pages|crawl|blank>`.
-4. Write `.ui-progress/adapter.mjs` and adjust `.ui-progress/config.json`
+4. Write `.ui-progress/adapter.mjs` (with `export const requires = "<ui-progress version>"`,
+   from `ui-progress version`) and adjust `.ui-progress/config.json`
    (`sampling.uiPaths` and `lineage.pagePaths` should name the folders that hold UI code).
 5. Ask the user only what the repository cannot tell you, in one question round: which
    sampling mode (offer the pilot first); whether throwaway databases may be created on
