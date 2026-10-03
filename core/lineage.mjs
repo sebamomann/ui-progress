@@ -4,8 +4,9 @@
  * page folders and which existing pages shrank in the same commit. The agent reads this,
  * looks at the diffs that matter, and writes its conclusions to .ui-progress/lineage.json.
  */
+import fs from "node:fs";
 import path from "node:path";
-import { git, readJson } from "./util.mjs";
+import { git, readJson, writeJson } from "./util.mjs";
 
 export const EDGE_TYPES = ["split", "extract", "merge", "absorb", "rename", "replace", "clone"];
 
@@ -123,6 +124,37 @@ export function renderCandidates(list, lineage) {
   return lines.join("\n");
 }
 
+/**
+ * Placement corrections from the last build (edges the snapshots contradict), unless
+ * lineage.json changed since: then a build has to look again.
+ */
+function auditOf(p) {
+  const file = path.join(p.viewer, "data", "lineage-audit.json");
+  const audit = readJson(file);
+  if (!audit) return { corrections: [], stale: false, missing: true };
+  const stale = fs.existsSync(p.lineage) && fs.statSync(p.lineage).mtimeMs > Date.parse(audit.builtAt);
+  return { corrections: stale ? [] : audit.corrections ?? [], stale, missing: false };
+}
+
+/** Write the corrections of the last build into lineage.json, keeping what was recorded before. */
+export function fixLineage(p) {
+  const lineage = readJson(p.lineage);
+  const audit = auditOf(p);
+  if (!lineage) throw new Error("no lineage.json yet");
+  if (audit.missing || audit.stale) throw new Error("Run ui-progress build first: it checks lineage.json against the snapshots.");
+  let fixed = 0;
+  for (const c of audit.corrections) {
+    const entry = lineage.edges[c.index];
+    if (!entry || entry.type !== c.type || (entry.sha ?? null) !== c.recorded.sha || entry.date !== c.recorded.date || !c.sha) continue;
+    entry.corrected = { sha: c.recorded.sha, date: c.recorded.date, reason: c.reason, exact: c.exact, at: new Date().toISOString().slice(0, 10) };
+    entry.sha = c.sha;
+    entry.date = c.date;
+    fixed++;
+  }
+  if (fixed) writeJson(p.lineage, lineage);
+  return { fixed, corrections: audit.corrections };
+}
+
 export function checkLineage(p) {
   const lineage = readJson(p.lineage);
   if (!lineage) return { ok: false, problems: ["no lineage.json yet"] };
@@ -133,5 +165,12 @@ export function checkLineage(p) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date ?? "")) problems.push(`edge ${i}: date must be YYYY-MM-DD`);
     if (!e.evidence) problems.push(`edge ${i}: say what the evidence is`);
   });
-  return { ok: problems.length === 0, problems, edges: (lineage.edges ?? []).length, reviewed: Object.keys(lineage.reviewed ?? {}).length };
+  const audit = auditOf(p);
+  const where = (c) =>
+    !c.sha ? "no snapshot shows it done yet: check the edge, or capture a later commit"
+    : c.exact ? `it belongs at ${c.sha}`
+    : `it belongs at or before ${c.sha} (the snapshot that first shows it; git could not name the exact commit)`;
+  const warnings = audit.corrections.map((c) => `edge ${c.index} (${c.type} ${[c.from].flat().join(", ")} -> ${[c.to].flat().join(", ")}, ${c.recorded.sha ?? c.recorded.date}) ${c.reason}; ${where(c)}`);
+  if (audit.stale) warnings.push("lineage.json changed since the last build: run ui-progress build to check it against the snapshots again");
+  return { ok: problems.length === 0, problems, warnings, edges: (lineage.edges ?? []).length, reviewed: Object.keys(lineage.reviewed ?? {}).length };
 }

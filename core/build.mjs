@@ -50,6 +50,88 @@ export function pageEvents(repo, config, routeOfFile) {
   return events;
 }
 
+const writeJsonFile = (file, value) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n"); };
+
+/**
+ * The mainline (first-parent) history as an index: indexOf(sha) is the position of the
+ * commit, or of the mainline commit that brought it in (a merge), oldest first.
+ */
+export function commitLine(repo, branch) {
+  const shas = git(repo, "log", "--first-parent", "--reverse", "--format=%H", branch).split("\n").filter(Boolean);
+  const index = new Map(shas.map((s, i) => [s, i]));
+  const cache = new Map();
+  return {
+    shas,
+    indexOf(sha) {
+      if (!sha) return null;
+      if (cache.has(sha)) return cache.get(sha);
+      let i = null;
+      try {
+        const full = git(repo, "rev-parse", "--verify", "--quiet", `${sha}^{commit}`).trim();
+        i = index.get(full) ?? null;
+        if (i == null) {
+          const into = git(repo, "rev-list", "--first-parent", "--ancestry-path", "--reverse", `${full}..${branch}`).split("\n")[0];
+          i = into ? index.get(into) ?? null : null;
+        }
+      } catch {
+        i = null; // unknown commit
+      }
+      cache.set(sha, i);
+      return i;
+    },
+  };
+}
+
+// Types after which the `to` pages exist, and types after which the `from` pages stop
+// rendering. A replaced page may keep rendering for a while, so replace only counts as new.
+const CREATES = new Set(["split", "extract", "clone", "replace"]);
+const ENDS = new Set(["merge", "absorb", "rename"]);
+
+/**
+ * Check one lineage entry against the snapshots. Returns null when they agree, else where
+ * the edge belongs ({ at, sha, date, reason }), with the commit from git where it can tell.
+ *
+ * Too late: every `to` page of a split/extract/clone/replace is already in the code of the
+ * snapshots right before the placement (the unbroken run, so an older page of the same
+ * name that was deleted in between does not count). Too early: a `from` page of a merge/rename/replace still
+ * renders in a snapshot at or after the placement.
+ */
+export function auditEdge({ entry, placed, snapshots, pages, events, line }) {
+  const at = snapshots.findIndex((s) => s.id === placed);
+  const exists = (route, i) => { const here = pages.get(route)?.presence[snapshots[i].id]; return Boolean(here && !(here.missing === "not found")); };
+  const renders = (route, i) => Boolean(pages.get(route)?.presence[snapshots[i].id]?.auth);
+  const tos = [entry.to].flat();
+  const froms = [entry.from].flat();
+  const commitOf = (kinds, route, lo, hi) => {
+    // The latest git event of this kind for the route between two mainline positions.
+    const hits = events.filter((e) => kinds.includes(e.kind) && (e.route === route || e.to === route || e.from === route)).map((e) => ({ ...e, i: line.indexOf(e.sha) })).filter((e) => e.i != null && e.i > lo && e.i <= hi);
+    return hits[hits.length - 1] ?? null;
+  };
+  if (CREATES.has(entry.type) && at !== 0) {
+    const limit = at < 0 ? snapshots.length : at;
+    let first = -1;
+    for (let i = limit - 1; i >= 0 && tos.every((r) => exists(r, i)); i--) first = i;
+    if (first >= 0) {
+      const snap = snapshots[first];
+      const prevIndex = first > 0 ? snapshots[first - 1].index ?? -1 : -1;
+      // The commit that added the last of the new pages, between the two snapshots.
+      const added = tos.map((r) => commitOf(["add", "rename"], r, prevIndex, snap.index ?? Infinity)).filter(Boolean).sort((a, b) => a.i - b.i).pop();
+      // Without a git event, the snapshot's own commit: the split happened at or before it.
+      return { at: snap.id, sha: added?.sha ?? snap.id, exact: Boolean(added), date: added?.date ?? snap.date, reason: `is placed too late: ${tos.join(", ")} already exist${tos.length > 1 ? "" : "s"} in snapshot ${snap.id} (${snap.date})` };
+    }
+  }
+  if (ENDS.has(entry.type) && at >= 0) {
+    let last = -1;
+    for (let i = at; i < snapshots.length; i++) if (froms.some((r) => renders(r, i))) last = i;
+    if (last >= 0) {
+      const next = snapshots[last + 1];
+      const gone = next ? froms.map((r) => commitOf(["delete", "rename"], r, snapshots[last].index ?? -1, next.index ?? Infinity)).filter(Boolean).sort((a, b) => a.i - b.i).pop() : null;
+      return { at: next?.id ?? null, sha: gone?.sha ?? next?.id ?? null, exact: Boolean(gone), date: gone?.date ?? next?.date ?? entry.date, reason: `is placed too early: ${froms.join(", ")} still render${froms.length > 1 ? "" : "s"} in snapshot ${snapshots[last].id} (${snapshots[last].date})` };
+    }
+  }
+  return null;
+}
+
 export async function build(p, config, adapter, { log = () => {} } = {}) {
   const sharp = requireDep("sharp");
   const dataDir = path.join(p.viewer, "data");
@@ -130,12 +212,14 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
     const info = readJson(path.join(dir, "snapshot.json"));
     const manifest = readJson(path.join(dir, "shots", "manifest.json"));
     if (!fs.existsSync(path.join(dir, "OK")) || !info || !manifest || !isCommitSnapshot(info)) continue;
-    snapshots.push({ id: short, date: info.date, subject: info.subject, notes: info.notes ?? [], manifest });
+    snapshots.push({ id: short, sha: info.sha, date: info.date, subject: info.subject, notes: info.notes ?? [], manifest });
   }
   if (!snapshots.length) throw new Error("No finished snapshots yet. Run: ui-progress snapshot --plan");
-  // Same-day snapshots keep their commit order.
-  const order = new Map(git(p.repo, "log", "--format=%h", "--abbrev=8", config.sampling.branch ?? "HEAD").split("\n").reverse().map((s, i) => [s, i]));
-  snapshots.sort((a, b) => a.date.localeCompare(b.date) || (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  // Snapshots are ordered by their place in the mainline history, not by date: commit dates
+  // can go backwards (rebases, cherry-picks), and several snapshots can share a day.
+  const line = commitLine(p.repo, config.sampling.branch ?? "HEAD");
+  for (const snap of snapshots) snap.index = snap.sha ? line.indexOf(snap.sha) : null;
+  snapshots.sort((a, b) => (a.index != null && b.index != null ? a.index - b.index : a.date.localeCompare(b.date)));
 
   const pages = new Map();
   const page = (route) => {
@@ -279,13 +363,19 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
 
   // Lifecycle facts from the full git history, where the adapter can map files to routes.
   const snapshotAtOrAfter = (date) => snapshots.find((s) => s.date >= date)?.id ?? null;
+  /** The first snapshot whose commit contains `sha` (by ancestry), else the first on or after `date`. */
+  const placeAt = ({ sha, date }) => {
+    const i = sha ? line.indexOf(sha) : null;
+    if (i != null) return snapshots.find((s) => s.index != null && s.index >= i)?.id ?? null;
+    return snapshotAtOrAfter(date);
+  };
   if (adapter.routeOfFile) {
     for (const event of pageEvents(p.repo, config, adapter.routeOfFile)) {
       const commit = { sha: event.sha, date: event.date, subject: event.subject };
       if (event.kind === "rename") {
         page(event.from).history.push({ kind: "renamed-to", other: event.to, ...commit });
         page(event.to).history.push({ kind: "renamed-from", other: event.from, ...commit });
-        edges.push({ type: "rename", from: event.from, to: event.to, at: snapshotAtOrAfter(event.date), date: event.date, sha: event.sha, source: "git" });
+        edges.push({ type: "rename", from: event.from, to: event.to, at: placeAt(event), date: event.date, sha: event.sha, source: "git" });
       } else {
         page(event.route).history.push({ kind: event.kind === "add" ? "added" : "deleted", ...commit });
       }
@@ -301,21 +391,44 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
     }
   }
 
-  // Lineage the agent worked out by reading the diffs.
+  // Lineage the agent worked out by reading the diffs. Each edge is placed at the first
+  // snapshot that contains its commit, then checked against what the snapshots show: when
+  // a snapshot added later (for example between two existing ones) proves the edge is
+  // placed too late or too early, the placement is corrected here and the correction is
+  // written to lineage-audit.json for `ui-progress lineage check --fix`.
   const lineage = readJson(p.lineage, { edges: [] });
+  const events = adapter.routeOfFile ? pageEvents(p.repo, config, adapter.routeOfFile) : [];
+  const corrections = [];
   const stated = new Set();
-  for (const entry of lineage.edges ?? []) {
+  (lineage.edges ?? []).forEach((entry, index) => {
     const type = LINEAGE_TYPES[entry.type];
-    if (!type) continue;
+    if (!type) return;
+    const placed = placeAt({ sha: entry.sha, date: entry.date });
+    const fix = auditEdge({ entry, placed, snapshots, pages, events, line });
+    if (fix) {
+      corrections.push({ index, type: entry.type, from: entry.from, to: entry.to, recorded: { sha: entry.sha ?? null, date: entry.date }, ...fix });
+      log(`lineage: ${entry.type} ${[entry.from].flat().join(", ")} -> ${[entry.to].flat().join(", ")} (${entry.sha ?? entry.date}) ${fix.reason}; ${fix.at ? `placed at ${fix.at}${fix.sha ? `, commit ${fix.sha}` : ""}` : "no snapshot shows it done yet; left out of the snapshot views"}`);
+    }
     for (const from of [entry.from].flat()) {
       for (const to of [entry.to].flat()) {
         page(from);
         page(to);
         stated.add(`${from}>${to}`);
-        edges.push({ type, from, to, at: snapshotAtOrAfter(entry.date), date: entry.date, sha: entry.sha ?? null, note: entry.evidence ?? null, confidence: entry.confidence ?? null, source: "agent" });
+        edges.push({
+          type, from, to,
+          at: fix ? fix.at : placed,
+          date: fix?.date ?? entry.date,
+          sha: fix?.sha ?? entry.sha ?? null,
+          note: entry.evidence ?? null,
+          confidence: entry.confidence ?? null,
+          source: "agent",
+          ...(fix ? { corrected: { sha: entry.sha ?? null, date: entry.date, reason: fix.reason } } : {}),
+        });
       }
     }
-  }
+  });
+  writeJsonFile(path.join(dataDir, "lineage-audit.json"), { builtAt: new Date().toISOString(), snapshots: snapshots.map((s) => s.id), corrections });
+  if (corrections.length) log(`${corrections.length} lineage edge(s) disagree with the snapshots and were re-placed; write the fixes with: ui-progress lineage check --fix`);
 
   // A page that used to render and now redirects was folded into its target.
   for (const record of pages.values()) {
@@ -340,7 +453,8 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
       const parent = pages.get("/" + segments.slice(0, depth).join("/"));
       const parentBorn = parent && born(parent);
       if (parentBorn && parentBorn < date) {
-        edges.push({ type: "branch", from: parent.id, to: record.id, at: snapshotAtOrAfter(date), date, source: "path" });
+        const added = record.history.find((h) => h.kind === "added" || h.kind === "renamed-from");
+        edges.push({ type: "branch", from: parent.id, to: record.id, at: placeAt({ sha: added?.date === date ? added.sha : null, date }), date, source: "path" });
         break;
       }
     }
@@ -363,7 +477,7 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
     generatedAt: new Date().toISOString(),
     viewports: viewportNames,
     thresholds: config.thresholds,
-    snapshots: snapshots.map(({ manifest, ...rest }) => rest),
+    snapshots: snapshots.map(({ manifest, index, ...rest }) => rest),
     pages: list,
     edges,
   };
@@ -371,5 +485,5 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
   fs.writeFileSync(path.join(dataDir, "history.js"), `window.UI_HISTORY = ${JSON.stringify(history)};\n`);
   fs.copyFileSync(VIEWER_SOURCE, path.join(p.viewer, "index.html"));
   const types = edges.reduce((n, e) => ({ ...n, [e.type]: (n[e.type] ?? 0) + 1 }), {});
-  return { snapshots: snapshots.length, pages: list.length, captured: list.filter((x) => x.seen).length, views: list.reduce((n, x) => n + x.views.length, 0), edges: types, index: path.join(p.viewer, "index.html") };
+  return { corrections: corrections.length, snapshots: snapshots.length, pages: list.length, captured: list.filter((x) => x.seen).length, views: list.reduce((n, x) => n + x.views.length, 0), edges: types, index: path.join(p.viewer, "index.html") };
 }

@@ -10,7 +10,7 @@ import { DEPS_DIR, PACKAGES, hasDep } from "./deps.mjs";
 import { addFinding, exportFindings, listFindings, resolveFinding } from "./findings.mjs";
 import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, pendingState, renderPending, sessionStart, stop } from "./forward.mjs";
-import { candidates, checkLineage, renderCandidates } from "./lineage.mjs";
+import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
 import { acquireLock } from "./lock.mjs";
 import { depsReady, ensureClone, isDone, runSnapshot, snapshotDir } from "./snapshot.mjs";
@@ -46,7 +46,8 @@ Keeping it current
 Lineage and story
   lineage candidates [--since <sha>]
                                 evidence for splits, merges and renames, for the agent
-  lineage check                 validate .ui-progress/lineage.json
+  lineage check [--fix]         validate .ui-progress/lineage.json and compare it with the
+                                snapshots; --fix re-dates edges the snapshots contradict
   changelog candidates          per snapshot: what changed, and the commits in between
   changelog check               validate .ui-progress/changelog.json
 
@@ -252,8 +253,13 @@ function status(flags) {
 async function lineage(flags, [sub]) {
   const { p, config } = context();
   if (sub === "check") {
+    if (flags.fix) {
+      const { fixed } = fixLineage(p);
+      console.log(fixed ? `Corrected ${fixed} edge(s) in lineage.json (the old values are kept under "corrected"). Run ui-progress build.` : "Nothing to correct.");
+    }
     const result = checkLineage(p);
     console.log(result.ok ? `lineage.json is valid: ${result.edges} edges, ${result.reviewed} commits reviewed without lineage` : `Problems:\n${result.problems.map((x) => "  " + x).join("\n")}`);
+    if (result.warnings?.length) console.log(`\nDisagrees with the snapshots (fix with --fix, or correct by hand after looking at the diffs):\n${result.warnings.map((x) => "  " + x).join("\n")}`);
     if (!result.ok) process.exitCode = 1;
     return;
   }
@@ -267,6 +273,7 @@ async function doBuild() {
   const adapter = await loadAdapter(p);
   const result = await build(p, config, adapter, { log: (m) => console.log("  " + m) });
   console.log(`\n${result.snapshots} snapshots, ${result.captured} pages captured (${result.pages} known), ${result.views} views, lineage ${JSON.stringify(result.edges)}`);
+  if (result.corrections) console.log(`${result.corrections} lineage edge(s) disagree with the snapshots and were re-placed in the viewer. See: ui-progress lineage check`);
   console.log(`Viewer: ${result.index}`);
   return result;
 }

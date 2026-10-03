@@ -157,7 +157,14 @@ selectors before the long run. Add to it whenever a later session adds a filter 
    with every commit listed. Do not leave a failed snapshot unexplained.
 5. Do the [lineage](#lineage) pass, then `ui-progress view`.
 
-Going from a pilot to a denser history only captures the commits that are missing.
+Going from a pilot to a denser history only captures the commits that are missing. A
+snapshot added between two existing ones changes where lineage belongs: `ui-progress build`
+places every edge at the first snapshot whose commit contains the edge's commit, so edges
+with the right `sha` move on their own. It also checks each edge against what the snapshots
+show, and re-places edges the new snapshot contradicts (the pages of a split already exist
+before the recorded commit, or a merged page still renders after it). Follow every build
+that added snapshots with `ui-progress lineage check`, and resolve what it reports (see
+[Lineage](#lineage)).
 
 ### How long it takes
 
@@ -234,6 +241,14 @@ Git cannot tell that a page was split in two. You can.
    one or two sentences. List every commit you judged to have **no** lineage under
    `reviewed`, with the reason, so the next pass does not redo it.
 4. `ui-progress lineage check`, then `ui-progress build`.
+
+`sha` is the commit that made the change, never the snapshot where you first noticed it:
+snapshots get added later (between existing ones), and the viewer places each edge by its
+commit. When `ui-progress lineage check` says an edge disagrees with the snapshots, look at
+the commits it names (`git show <sha> --stat`). `ui-progress lineage check --fix` writes the
+commit git found into `lineage.json` and keeps the old values under `corrected`; do that
+when it agrees with the diff, and correct the edge by hand when it does not. Then
+`ui-progress build`.
 
 Be conservative: a copied boilerplate file is not lineage. Record `confidence` honestly.
 
