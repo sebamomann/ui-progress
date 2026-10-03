@@ -12,7 +12,7 @@ import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, pendingState, renderPending, sessionStart, stop } from "./forward.mjs";
 import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
-import { release } from "./reuse.mjs";
+import { gc } from "./reuse.mjs";
 import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
 import { AGENT_TASKS, appendRun, duration, estimate, noteAgent, parseDuration, renderStats, summarize } from "./stats.mjs";
@@ -41,6 +41,8 @@ Capturing
                                 a commit that does not build is replaced by the next one
                                 that does (config run.fallback) and kept in unbuildable.json
   status                        what is planned, done and failed
+  gc                            delete stored screenshots no snapshot refers to any more
+                                (runs after every snapshot batch on its own)
   unbuildable [list]            commits recorded as not building, and what stands in for them
   unbuildable add <sha> --reason "..." [--replaced-by <sha>]
   unbuildable remove <sha>      try the commit again next time
@@ -249,14 +251,6 @@ async function snapshot(flags, positional) {
     return;
   }
   ensureClone(p); // once, here: the parallel workers must not race to create or fetch it
-  // Capturing a snapshot again wipes its folder: first hand the screenshots later snapshots
-  // refer to over to them. Here, before any worker reads a manifest.
-  for (const sha of shas) {
-    const short = snapshotId(p, sha);
-    if (!fs.existsSync(snapshotDir(p, short))) continue;
-    const moved = release(p, short);
-    if (moved) console.log(`${short}: moved ${moved} screenshot(s) that later snapshots use into the earliest of them`);
-  }
   const wanted = Math.max(1, Number(flags.concurrency ?? config.run.concurrency));
   const concurrency = concurrencyFor(wanted, flags["ignore-memory"]);
   if (concurrency < wanted) console.log(`This machine has ${Math.round(os.totalmem() / 2 ** 30)} GB of memory: running ${concurrency} at a time instead of ${wanted} (override with --ignore-memory).`);
@@ -333,10 +327,15 @@ async function snapshot(flags, positional) {
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, shas.length) }, (_, i) => worker(i)));
+  // Screenshots of snapshots captured again, and of failed attempts, are no longer referred to.
+  const freed = gc(p);
+  if (freed.files) console.log(`Removed ${freed.files} screenshot(s) nothing refers to any more (${megabytes(freed.bytes)}).`);
   appendRun(p, { kind: "batch", command: `ui-progress snapshot ${process.argv.slice(3).join(" ")}`.trim(), started: new Date(started).toISOString(), seconds: Math.round((Date.now() - started) / 1000), snapshots: shas.length, ok: done - failed, failed, standIns, concurrency: Math.min(concurrency, shas.length) });
   console.log(`\nDone in ${Math.round((Date.now() - started) / 60000)} min: ${done - failed} captured, ${failed} failed.`);
   if (failed) console.log("Failures are recorded as findings: ui-progress finding list");
 }
+
+const megabytes = (bytes) => `${(bytes / 2 ** 20).toFixed(1)} MB`;
 
 /** Put the stand-in where the broken commit was in plan.json (once, keeping its reason). */
 function standIn(p, brokenSha, sha) {
@@ -471,6 +470,12 @@ export async function main(argv) {
       const { p } = context();
       const summary = summarize(p);
       console.log(flags.json ? JSON.stringify(summary, null, 1) : renderStats(summary));
+    }
+    else if (command === "gc") {
+      const { p } = context();
+      acquireLock(p, "ui-progress gc");
+      const freed = gc(p);
+      console.log(`Removed ${freed.files} screenshot(s) nothing refers to (${megabytes(freed.bytes)}).`);
     }
     else if (command === "build") await doBuild();
     else if (command === "view") {

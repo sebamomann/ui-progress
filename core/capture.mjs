@@ -18,7 +18,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { requireDep } from "./deps.mjs";
-import { referTo } from "./reuse.mjs";
 import { isDynamic, patternOfPath, routeRegex, sectionOf, slug } from "./routes.mjs";
 
 const CLICKABLE = 'button, [role="button"], [role="tab"], [role="radio"], summary, [role="menuitem"]';
@@ -504,17 +503,17 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   }
   routes = routes.filter(allowed);
 
-  // Pages whose source did not change since the previous snapshot are taken over as
-  // references to the screenshots they already have (see reuse.mjs).
+  // Pages whose source did not change since the previous snapshot are taken over with the
+  // screenshots they already have (see reuse.mjs).
   const results = {};
   const reused = [];
   if (reuse) {
-    for (const entry of reuse.manifest.routes) {
-      if (!reuse.routes.has(entry.route) || !routes.includes(entry.route) || !Object.keys(entry.variants).length) continue;
-      results[entry.route] = referTo(entry, reuse.from);
-      reused.push(entry.route);
+    for (const [route, entry] of reuse.entries) {
+      if (!routes.includes(route)) continue;
+      results[route] = entry;
+      reused.push(route);
     }
-    if (reused.length) log(`copied forward ${reused.length} unchanged page(s) from ${reuse.from} (as references, no files copied)`);
+    if (reused.length) log(`took over ${reused.length} unchanged page(s) from ${reuse.from} (references to stored screenshots)`);
   }
 
   // ---------- Per-route work, spread over several tabs ----------

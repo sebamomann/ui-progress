@@ -3,8 +3,8 @@
  *   .ui-progress/viewer/index.html
  *   .ui-progress/viewer/data/history.js    window.UI_HISTORY = {...}
  *   .ui-progress/viewer/data/img/<sha>/    thumbnails and mid-size images (webp)
- * Full-size PNGs stay in .ui-progress/snapshots and are referenced relatively, from the
- * snapshot that holds them (a page taken over unchanged points at an earlier snapshot).
+ * Full-size PNGs stay in .ui-progress/snapshots (the shared store, snapshots/_store) and
+ * are referenced relatively.
  *
  * A page has several "views": the page itself, its signed-out version where that differs,
  * and every section, dialog and menu found on it. Each view is tracked over time.
@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireDep } from "./deps.mjs";
 import { imageComparer } from "./imagediff.mjs";
+import { STORE, isStored, shotPath } from "./reuse.mjs";
 import { routeRegex, sectionOf } from "./routes.mjs";
 import { isCommitSnapshot } from "./snapshot.mjs";
 import { summarize } from "./stats.mjs";
@@ -186,22 +187,22 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
   const produced = new Set();
   for (const snap of snapshots) {
    try {
-    // A page taken over from an earlier snapshot keeps its files, and their thumbnails, in
-    // the snapshot that rendered it (`filesIn`, see reuse.mjs).
-    const images = async (files, cardOnly, holder) => {
-      const shotsDir = path.join(p.snapshots, holder, "shots");
-      const imgDir = path.join(dataDir, "img", holder);
-      fs.mkdirSync(imgDir, { recursive: true });
-      const fullBase = `../snapshots/${holder}/shots`;
-      const imgBase = `data/img/${holder}`;
+    // Stored screenshots (see reuse.mjs) get their thumbnails once, in img/_store; those of
+    // manifests older than the store stay per snapshot.
+    const images = async (files, cardOnly) => {
       const out = {};
       for (const [viewport, file] of Object.entries(files)) {
-        const src = path.join(shotsDir, file);
-        if (!fs.existsSync(src)) throw new Error(`${path.relative(p.snapshots, src)} is missing${holder !== snap.id ? ` (snapshot ${snap.id} refers to it)` : ""}`);
-        const stem = file.replace(/\.png$/, "");
+        const src = shotPath(p, snap.id, file);
+        if (!fs.existsSync(src)) throw new Error(`${path.relative(p.snapshots, src)} is missing`);
+        const stored = isStored(file);
+        const imgDir = path.join(dataDir, "img", stored ? STORE : snap.id);
+        const imgBase = `data/img/${stored ? STORE : snap.id}`;
+        fs.mkdirSync(imgDir, { recursive: true });
+        const stem = path.basename(file, ".png");
         await derive(src, path.join(imgDir, `${stem}.card.webp`), { ...cardSize(viewport), fit: "cover", position: "top" });
         produced.add(path.join(imgDir, `${stem}.card.webp`));
-        out[viewport] = { full: `${fullBase}/${encodeURIComponent(file)}`, card: `${imgBase}/${encodeURIComponent(stem)}.card.webp` };
+        const full = stored ? `../snapshots/${STORE}/${encodeURIComponent(path.basename(file))}` : `../snapshots/${snap.id}/shots/${encodeURIComponent(file)}`;
+        out[viewport] = { full, card: `${imgBase}/${encodeURIComponent(stem)}.card.webp` };
         if (!cardOnly) {
           await derive(src, path.join(imgDir, `${stem}.mid.webp`), { width: midWidth(viewport), withoutEnlargement: true });
           produced.add(path.join(imgDir, `${stem}.mid.webp`));
@@ -210,29 +211,27 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
       }
       return out;
     };
-    const put = async (target, files, cardOnly, holder) => {
-      target.shots[snap.id] = { images: await images(files, cardOnly, holder), src: Object.fromEntries(Object.entries(files).map(([k, f]) => [k, path.join(p.snapshots, holder, "shots", f)])) };
+    const put = async (target, files, cardOnly) => {
+      target.shots[snap.id] = { images: await images(files, cardOnly), src: Object.fromEntries(Object.entries(files).map(([k, f]) => [k, shotPath(p, snap.id, f)])) };
     };
 
     const routesHere = snap.manifest.routes.map((r) => r.route);
     let views = 0;
     for (const entry of snap.manifest.routes) {
       const record = page(entry.route);
-      const holder = entry.filesIn ?? snap.id;
-      const shotsDir = path.join(p.snapshots, holder, "shots");
       const variants = { ...entry.variants };
       if (variants.user && variants.public) {
-        const same = await difference(path.join(shotsDir, variants.user.files[mainViewport]), path.join(shotsDir, variants.public.files[mainViewport]));
+        const same = await difference(shotPath(p, snap.id, variants.user.files[mainViewport]), shotPath(p, snap.id, variants.public.files[mainViewport]));
         if (same < SAME_PAGE) delete variants.public;
       }
       const main = variants.user ?? variants.public;
       if (main) {
         record.presence[snap.id] = { auth: variants.user ? "user" : "public", url: entry.url };
-        await put(view(record, "page", "page", "Page"), main.files, false, holder);
+        await put(view(record, "page", "page", "Page"), main.files, false);
         views++;
         if (variants.user && variants.public) {
           record.twoFaced = true;
-          await put(view(record, "signed-out", "signed-out", "Signed out"), variants.public.files, false, holder);
+          await put(view(record, "signed-out", "signed-out", "Signed out"), variants.public.files, false);
           views++;
         }
         for (const variant of Object.values(variants)) {
@@ -250,7 +249,7 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
             }
             if (state.key && !byKey) record.views.set(`${state.kind}|k:${prefix}${state.key}`, v);
             v.label = label; // the latest wording wins
-            await put(v, state.files, state.kind !== "section", holder);
+            await put(v, state.files, state.kind !== "section");
             views++;
           }
         }

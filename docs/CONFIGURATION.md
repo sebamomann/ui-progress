@@ -59,9 +59,7 @@ your app; a button that matches is never clicked, so its dialog is not captured 
 | `globalPaths` | package.json, `*.config.*`, global CSS, `public/**`, tailwind config | A change here recaptures everything |
 | `translationPaths` | `messages/**`, `locales/**`, `i18n/**` | JSON message files; only pages that use a changed top-level key are affected |
 
-Screenshots are stored once. A page taken over is not copied: its manifest entry is marked `copiedFrom` (the snapshot it is unchanged since) and `filesIn` (the snapshot whose `shots/` folder holds its files, always the one that rendered it). Browsing a snapshot still shows every page; the build resolves the references. A changed `viewports` setting disables reuse for that snapshot, since the pictures would not be comparable.
-
-Capturing a snapshot again (`--force`) first moves the screenshots later snapshots use into the earliest of them, so the references stay valid.
+Screenshots are stored once, in a shared store: `snapshots/_store/<hash>.png`, named by the hash of their bytes. Manifests refer to them (`"_store/<hash>.png"`), and no snapshot owns a file, so capturing a snapshot again or deleting one never affects another. A page taken over is marked `copiedFrom` and keeps the same references; browsing a snapshot still shows every page. Screenshots nothing refers to any more are deleted after every snapshot batch, or with `ui-progress gc`. A changed `viewports` setting disables reuse for that snapshot, since the pictures would not be comparable.
 
 ## `run`: how snapshots are executed
 

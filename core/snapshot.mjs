@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { capture } from "./capture.mjs";
-import { unchangedRoutes } from "./reuse.mjs";
+import { ingest, takeOver, unchangedRoutes } from "./reuse.mjs";
 import { addFinding } from "./findings.mjs";
 import { unbuildableEntry } from "./unbuildable.mjs";
 import { assertIsolated, neutraliseCheckout, protectedDatabases, rewriteDatabaseUrls } from "./isolation.mjs";
@@ -59,8 +59,8 @@ function previousSnapshot(p, full) {
 }
 
 /**
- * Which routes can be taken over from the previous snapshot: those whose source
- * dependencies are untouched by the commits in between. Also writes deps.json for the
+ * The manifest entries to take over from the previous snapshot, by route: of the pages
+ * whose source dependencies are untouched by the commits in between. Also writes deps.json for the
  * build's evidence and for `relinkAfter`.
  * `why` gets the reason when everything is recaptured, for runs.jsonl.
  */
@@ -83,15 +83,15 @@ function planReuse(p, config, adapter, ctx, full, why = {}) {
     if (result.file) ctx.log(`incremental: ${result.file} changed since ${previous.short}, everything is recaptured`);
     return none({ ...result, from: previous.short });
   }
-  const reusable = new Set();
+  const entries = new Map();
   for (const route of result.routes) {
     const entry = prevManifest.routes.find((r) => r.route === route);
-    if (entry && !entry.skipped) reusable.add(route);
+    if (entry && !entry.skipped && Object.keys(entry.variants ?? {}).length) entries.set(route, takeOver(p, previous.short, entry));
   }
   if (result.namespaces.length) ctx.log(`incremental: translation namespaces changed: ${result.namespaces.join(", ")}`);
-  ctx.log(`incremental: ${result.changed} files changed since ${previous.short}; ${reusable.size} of ${files.size} pages unchanged`);
+  ctx.log(`incremental: ${result.changed} files changed since ${previous.short}; ${entries.size} of ${files.size} pages unchanged`);
   Object.assign(why, { reason: "incremental", from: previous.short, changed: result.changed });
-  return { routes: reusable, from: previous.short, manifest: prevManifest };
+  return { entries, from: previous.short };
 }
 
 export async function runSnapshot(p, config, adapter, sha, { port, force = false, refreshClone = true } = {}) {
@@ -226,6 +226,9 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
     const copied = new Set(manifest.routes.filter((r) => r.copiedFrom).map((r) => r.route));
     const errorPages = new Set(manifest.suspects.filter((s) => s.issues.includes("error page or overlay") && !copied.has(s.route)).map((s) => s.route));
     if (errorPages.size > (manifest.captured - manifest.reused) * config.run.fallback.errorPageShare) throw new Error(`${errorPages.size} of ${manifest.captured - manifest.reused} rendered pages show an error page or overlay; see server.log`);
+    // What this commit rendered goes into the shared store (see reuse.mjs).
+    for (const entry of manifest.routes) if (!entry.copiedFrom) ingest(p, short, entry);
+    writeJson(path.join(out, "shots", "manifest.json"), manifest);
     writeJson(path.join(out, "snapshot.json"), {
       sha: full,
       short,

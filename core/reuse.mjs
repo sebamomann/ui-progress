@@ -1,39 +1,79 @@
 /**
- * Screenshots are stored once. A page whose source did not change since the previous
- * snapshot is not rendered again, and its files are not copied: its manifest entry is taken
- * over from the previous snapshot with
- *   copiedFrom  the snapshot it is unchanged since
- *   filesIn     the snapshot whose shots/ folder holds its screenshots
- * filesIn always names the snapshot that rendered the page, never another reference, so
- * finding a file takes one step. An entry without filesIn keeps its files in its own folder
- * (so do pages copied forward before 1.3.0, which copied the files).
+ * Screenshots live in one shared store, snapshots/_store/<hash>.png, named by the hash of
+ * their bytes. A manifest refers to them as "_store/<hash>.png"; no snapshot owns a file,
+ * so capturing a snapshot again or deleting one never touches another.
  *
- * Capturing a snapshot again first hands the screenshots others use over to one of them
- * (`release`), so the references stay valid.
+ * Whether a page needs rendering at all is decided from its source, not its pixels (two
+ * renders of the same page are rarely byte-identical): a page whose source did not change
+ * since the previous snapshot takes over that snapshot's manifest entry, marked
+ * `copiedFrom`, with the same references.
+ *
+ * Manifests written before the store keep file names relative to their own shots/ folder;
+ * `shotPath` resolves both. Files nothing refers to any more are removed by `gc`.
  */
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import * as routes from "./routes.mjs";
-import { git, readJson, writeJson } from "./util.mjs";
+import { git, readJson } from "./util.mjs";
 
-const dirOf = (p, short) => path.join(p.snapshots, short);
-const manifestFile = (p, short) => path.join(dirOf(p, short), "shots", "manifest.json");
+export const STORE = "_store";
+const storeDir = (p) => path.join(p.snapshots, STORE);
+const manifestFile = (p, short) => path.join(p.snapshots, short, "shots", "manifest.json");
 
-/** The folder that holds the screenshots of a manifest entry of snapshot `short`. */
-export const filesDir = (p, short, entry) => path.join(dirOf(p, entry.filesIn ?? short), "shots");
+export const isStored = (file) => file.startsWith(`${STORE}/`);
+/** Where a screenshot of snapshot `short`'s manifest is on disk. */
+export const shotPath = (p, short, file) => (isStored(file) ? path.join(p.snapshots, file) : path.join(p.snapshots, short, "shots", file));
 
-/** Every screenshot file name of a manifest entry. */
+/** Every screenshot reference of a manifest entry. */
 export function entryFiles(entry) {
   const out = [];
   for (const variant of Object.values(entry.variants ?? {})) for (const item of [variant, ...(variant.states ?? [])]) out.push(...Object.values(item.files ?? {}));
   return out;
 }
 
-/** `entry` of snapshot `from`, as a reference to its screenshots where they are. */
-export function referTo(entry, from) {
+/** Rewrite every screenshot reference of an entry in place. */
+function mapFiles(entry, fn) {
+  for (const variant of Object.values(entry.variants ?? {})) {
+    for (const item of [variant, ...(variant.states ?? [])]) for (const [k, f] of Object.entries(item.files ?? {})) item.files[k] = fn(f);
+  }
+}
+
+/**
+ * Put a file into the store and return its reference. `move` takes the file away (a fresh
+ * render); otherwise it is copied (a file another snapshot's folder still lists).
+ */
+export function storeFile(p, src, { move = false } = {}) {
+  const hash = crypto.createHash("sha256").update(fs.readFileSync(src)).digest("hex").slice(0, 32);
+  const ref = `${STORE}/${hash}.png`;
+  const dest = path.join(p.snapshots, ref);
+  fs.mkdirSync(storeDir(p), { recursive: true });
+  if (fs.existsSync(dest)) { if (move) fs.rmSync(src); }
+  else if (move) fs.renameSync(src, dest);
+  else {
+    // Parallel captures may store the same file: only a complete file ever has the name.
+    const temp = `${dest}.${process.pid}.tmp`;
+    fs.copyFileSync(src, temp);
+    fs.renameSync(temp, dest);
+  }
+  return ref;
+}
+
+/** Move the screenshots a capture rendered into the store and point the entry at them. */
+export function ingest(p, short, entry) {
+  mapFiles(entry, (f) => (isStored(f) ? f : storeFile(p, shotPath(p, short, f), { move: true })));
+}
+
+/**
+ * Entry `entry` of snapshot `from`, taken over by another snapshot (`field` names where it
+ * came from). An entry from a manifest older than the store gets its files copied in.
+ */
+export function takeOver(p, from, entry, field = "copiedFrom") {
   const copy = structuredClone(entry);
-  copy.copiedFrom = from;
-  copy.filesIn = entry.filesIn ?? from;
+  delete copy.copiedFrom;
+  delete copy.sameAs;
+  mapFiles(copy, (f) => (isStored(f) ? f : storeFile(p, shotPath(p, from, f))));
+  copy[field] = from;
   return copy;
 }
 
@@ -75,65 +115,26 @@ export function unchangedRoutes(p, config, { deps, from, to, read }) {
   return { routes: unchanged, changed: changed.length, namespaces: [...changedNamespaces] };
 }
 
-/** Every snapshot folder with a manifest, by id. Changes are written by `save`. */
-function load(p) {
-  const all = new Map();
-  for (const short of fs.existsSync(p.snapshots) ? fs.readdirSync(p.snapshots) : []) {
-    const manifest = readJson(manifestFile(p, short));
-    const info = readJson(path.join(dirOf(p, short), "snapshot.json"));
-    if (manifest) all.set(short, { short, sha: info?.sha ?? null, info, manifest, done: fs.existsSync(path.join(dirOf(p, short), "OK")), dirty: false });
-  }
-  return all;
-}
-
-function save(p, all) {
-  for (const s of all.values()) {
-    if (!s.dirty) continue;
-    s.manifest.reused = s.manifest.routes.filter((r) => r.copiedFrom).length;
-    writeJson(manifestFile(p, s.short), s.manifest);
-    if (s.info) writeJson(path.join(dirOf(p, s.short), "snapshot.json"), { ...s.info, reused: s.manifest.reused });
-    s.dirty = false;
-  }
-}
-
-/** Ancestors first: the number of commits reachable from each snapshot's commit. */
-function depthOf(p) {
-  const cache = new Map();
-  return (sha) => {
-    if (!sha) return Infinity;
-    if (!cache.has(sha)) { try { cache.set(sha, Number(git(p.repo, "rev-list", "--count", sha).trim())); } catch { cache.set(sha, Infinity); } }
-    return cache.get(sha);
-  };
-}
-
 /**
- * Before snapshot `short` is captured again (its folder is wiped): move the screenshots
- * other snapshots refer to into the earliest of them, page by page, and point the rest
- * there. Returns the number of files moved.
+ * Delete the stored screenshots no manifest refers to: those of snapshots captured again
+ * or deleted. Every manifest counts, finished or not. Run under the repository lock only,
+ * so no capture is between storing a file and writing the manifest that lists it.
  */
-export function release(p, short) {
-  const all = load(p);
-  const users = new Map();
-  for (const s of all.values()) {
-    if (s.short === short) continue;
-    for (const entry of s.manifest.routes ?? []) if (entry.filesIn === short) (users.get(entry.route) ?? users.set(entry.route, []).get(entry.route)).push({ s, entry });
+export function gc(p) {
+  if (!fs.existsSync(storeDir(p))) return { files: 0, bytes: 0 };
+  const used = new Set();
+  for (const short of fs.readdirSync(p.snapshots)) {
+    if (short === STORE) continue;
+    const manifest = readJson(manifestFile(p, short));
+    for (const entry of manifest?.routes ?? []) for (const f of entryFiles(entry)) if (isStored(f)) used.add(path.basename(f));
   }
-  if (!users.size) return 0;
-  const depth = depthOf(p);
-  const source = path.join(dirOf(p, short), "shots");
-  let moved = 0;
-  for (const list of users.values()) {
-    list.sort((a, b) => depth(a.s.sha) - depth(b.s.sha));
-    const [keeper, ...rest] = list;
-    const target = path.join(dirOf(p, keeper.s.short), "shots");
-    for (const file of entryFiles(keeper.entry)) {
-      const from = path.join(source, file), to = path.join(target, file);
-      if (fs.existsSync(from) && !fs.existsSync(to)) { fs.renameSync(from, to); moved++; }
-    }
-    delete keeper.entry.filesIn;
-    keeper.s.dirty = true;
-    for (const { s, entry } of rest) { entry.filesIn = keeper.s.short; s.dirty = true; }
+  let files = 0, bytes = 0;
+  for (const file of fs.readdirSync(storeDir(p))) {
+    if (used.has(file)) continue;
+    const full = path.join(storeDir(p), file);
+    bytes += fs.statSync(full).size;
+    fs.rmSync(full);
+    files++;
   }
-  save(p, all);
-  return moved;
+  return { files, bytes };
 }
