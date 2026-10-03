@@ -166,7 +166,9 @@ selectors before the long run. Add to it whenever a later session adds a filter 
 6. `ui-progress stats` summarises the run from `.ui-progress/runs.jsonl`: every attempt per
    commit, the time it took, setup fixes (the adapter, config or screens changed between two
    attempts), failures by phase, and why pages were recaptured instead of copied forward.
-   Give the user its totals and conclusions; do not add up the numbers yourself.
+   Give the user its totals and conclusions; do not add up the numbers yourself. Snapshots
+   made before runs.jsonl existed are read back from their folders on the first `stats` or
+   `build` and marked "imported": their final run counts, their earlier attempts are unknown.
 
 Going from a pilot to a denser history only captures the commits that are missing. A
 snapshot added between two existing ones changes where lineage belongs: `ui-progress build`

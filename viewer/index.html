@@ -1160,7 +1160,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       ${tile(dur(t.attemptSeconds), "all attempts", `${plural(t.attempts, "attempt")}${t.failedAttempts ? `, ${t.failedAttempts} failed` : ""}`)}
       ${tile(num(t.pagesCaptured), "pages shot", t.reused ? `${num(t.reused)} copied forward` : "")}
       ${tile(num(t.shots), "screenshots", `${num(t.states)} states`)}
-      ${tile(String(t.fixes), t.fixes === 1 ? "setup fix" : "setup fixes", `${t.firstTry} of ${t.commits} clean first try`)}
+      ${tile(String(t.fixes), t.fixes === 1 ? "setup fix" : "setup fixes", `${t.firstTry} of ${t.commits - (t.imported ?? 0)} clean first try${t.imported ? ` · ${t.imported} imported` : ""}`)}
       ${tile(String(t.suspects), "suspect pages", t.skipped ? `${t.skipped} skipped` : "")}
       ${S.agent ? tile(S.agent.tokens != null ? num(S.agent.tokens) : dur(S.agent.seconds), S.agent.tokens != null ? "agent tokens" : "agent time", `reported by the agent${S.agent.toolCalls != null ? ` · ${num(S.agent.toolCalls)} tool calls` : ""}`) : ""}
     </div>`));
@@ -1176,7 +1176,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       const known = snapIndex[c.sha] != null;
       const bars = c.attempts.map((a, ai) => `<span class="try ${a.ok ? "" : "fail"}" data-c="${ci}" data-a="${ai}" style="width:${Math.max(3, Math.round(((a.seconds ?? 0) / longest) * 120))}px"></span>`).join("");
       const last = c.attempts[c.attempts.length - 1];
-      const result = c.ok ? (c.firstTry ? "ok, first try" : "ok") + (c.standsInFor.length ? ` · for ${esc(c.standsInFor.join(", "))}` : "") : `<span class="x">✗</span> failed in ${esc(last.phase ?? "?")}`;
+      const result = c.ok ? (c.firstTry ? "ok, first try" : c.imported ? '<span title="Read back from the snapshot folder: made before run records existed">ok · imported</span>' : "ok") + (c.standsInFor.length ? ` · for ${esc(c.standsInFor.join(", "))}` : "") : `<span class="x">✗</span> failed in ${esc(last.phase ?? "?")}`;
       return `<tr>
         <td>${esc(c.date)}</td>
         <td>${known ? `<a class="mono" href="#/snapshot/${esc(c.sha)}">${esc(c.sha)}</a>` : `<span class="mono">${esc(c.sha)}</span>`}<span class="subj" title="${esc(c.subject)}">${esc(c.subject)}</span></td>

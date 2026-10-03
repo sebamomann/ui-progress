@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { readUnbuildable } from "./unbuildable.mjs";
-import { VERSION, table } from "./util.mjs";
+import { VERSION, git, readJson, table } from "./util.mjs";
 
 export const runsFile = (p) => path.join(p.root, "runs.jsonl");
 
@@ -32,6 +32,116 @@ export function readRuns(p) {
     }
   }
   return out.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+}
+
+// ---------- Older snapshots ----------
+
+/** "[18:24:09] === install" lines of a run.log: seconds per phase, and the whole run. */
+function phasesOfLog(file) {
+  if (!fs.existsSync(file)) return { timings: {}, seconds: null };
+  const marks = [];
+  let first = null, last = null, offset = 0, prev = null;
+  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+    const m = /^\[(\d\d):(\d\d):(\d\d)\]\s?(.*)$/.exec(line);
+    if (!m) continue;
+    let t = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) + offset;
+    if (prev != null && t < prev) { offset += 86400; t += 86400; } // past midnight
+    prev = t;
+    first ??= t;
+    last = t;
+    const phase = /^=== (\S+)/.exec(m[4])?.[1];
+    if (phase) marks.push({ phase, t });
+  }
+  const timings = {};
+  marks.forEach((mk, i) => (timings[mk.phase] = (marks[i + 1]?.t ?? last) - mk.t));
+  return { timings, seconds: first == null ? null : last - first };
+}
+
+/** What a snapshot folder still says about the attempt that made it: shots, crawling, skips. */
+function folderFacts(dir) {
+  const manifest = readJson(path.join(dir, "shots", "manifest.json"));
+  const snap = readJson(path.join(dir, "snapshot.json"));
+  const skipped = snap?.skipped ?? manifest?.skipped ?? [];
+  return {
+    ...(manifest ? { shots: shotCount(manifest), crawled: Boolean(manifest.crawled) } : {}),
+    ...(Array.isArray(skipped) ? { skippedWhy: skipped.reduce((n, x) => ({ ...n, [x.why]: (n[x.why] ?? 0) + 1 }), {}) } : {}),
+  };
+}
+
+/**
+ * Snapshots made before runs.jsonl existed (or whose record was lost) get a record built
+ * from their folder: snapshot.json or FAILED, run.log, the capture manifest and the file
+ * dates. Only the last attempt of a commit survives in its folder, so earlier attempts and
+ * setup fixes stay unknown; such records say `source: "imported"`. Records are appended,
+ * never rewritten, so a snapshot running at the same time loses nothing. Returns how many.
+ */
+export function importSnapshotFolders(p) {
+  if (!fs.existsSync(p.snapshots)) return 0;
+  const known = new Set(readRuns(p).filter((r) => r.kind === "snapshot").map((r) => r.sha));
+  const records = [];
+  for (const short of fs.readdirSync(p.snapshots).sort()) {
+    const dir = path.join(p.snapshots, short);
+    const okFile = path.join(dir, "OK"), failFile = path.join(dir, "FAILED");
+    if (known.has(short) || !(fs.existsSync(okFile) || fs.existsSync(failFile))) continue;
+    const log = phasesOfLog(path.join(dir, "run.log"));
+    const base = { kind: "snapshot", source: "imported", imported: VERSION, sha: short };
+    if (fs.existsSync(okFile)) {
+      const snap = readJson(path.join(dir, "snapshot.json"));
+      if (!snap) continue;
+      const timings = snap.timings ?? log.timings;
+      const seconds = sum(Object.values(timings)) || log.seconds;
+      const at = fs.statSync(okFile).mtime;
+      records.push({
+        ...base, at: at.toISOString(), started: new Date(at - seconds * 1000).toISOString(), date: snap.date, subject: snap.subject, seconds, timings, ok: true,
+        pages: snap.pages, captured: snap.captured, reused: snap.reused ?? 0, states: snap.states,
+        skipped: (snap.skipped ?? []).length, suspects: (snap.suspects ?? []).length, ...folderFacts(dir),
+      });
+    } else {
+      const [phase, ...message] = fs.readFileSync(failFile, "utf8").split("\n");
+      const at = fs.statSync(failFile).mtime;
+      let date = null, subject = null;
+      try {
+        [date, subject] = git(p.repo, "log", "-1", "--format=%cs%x00%s", short).split("\0");
+      } catch {
+        // the commit is gone from this clone
+      }
+      records.push({
+        ...base, at: at.toISOString(), started: new Date(at - (log.seconds ?? 0) * 1000).toISOString(), date, subject,
+        seconds: log.seconds, timings: log.timings, ok: false, phase: phase.trim() || null, error: message.join(" ").trim().slice(0, 300) || null,
+      });
+    }
+  }
+  if (!records.length) return 0;
+  fs.mkdirSync(p.root, { recursive: true });
+  fs.appendFileSync(runsFile(p), records.map((r) => JSON.stringify({ version: VERSION, ...r })).join("\n") + "\n");
+  return records.length;
+}
+
+/**
+ * Records from older versions, in today's shape: fields added since (screenshot count, why
+ * pages were skipped, whether the app was crawled) are filled in from the snapshot folder
+ * when the folder still holds that attempt's result.
+ */
+export function upgradeRuns(p, runs) {
+  const latestOk = new Map();
+  for (const r of runs) if (r.kind === "snapshot" && r.ok) latestOk.set(r.sha, r);
+  return runs.map((r) => {
+    if (r.kind !== "snapshot") return r;
+    const out = { ...r };
+    if (Array.isArray(out.skipped)) out.skipped = out.skipped.length;
+    if (Array.isArray(out.suspects)) out.suspects = out.suspects.length;
+    if (r.ok && latestOk.get(r.sha) === r && ["shots", "skippedWhy", "crawled"].some((k) => !(k in r))) {
+      const dir = path.join(p.snapshots, r.sha);
+      if (fs.existsSync(path.join(dir, "OK"))) for (const [k, v] of Object.entries(folderFacts(dir))) if (!(k in out)) out[k] = v;
+    }
+    return out;
+  });
+}
+
+/** Every record, older snapshots and older formats included: what stats are made from. */
+export function loadRuns(p) {
+  importSnapshotFolders(p);
+  return upgradeRuns(p, readRuns(p));
 }
 
 const hashOf = (file) => (fs.existsSync(file) ? crypto.createHash("sha1").update(fs.readFileSync(file)).digest("hex").slice(0, 10) : null);
@@ -111,7 +221,7 @@ const count = (n, word, many = word + "s") => `${n} ${n === 1 ? word : many}`;
  * Everything runs.jsonl says, per commit and in total, with plain-language conclusions.
  * The result is plain data: the CLI prints it, the viewer's Runs page draws it.
  */
-export function summarize(p, runs = readRuns(p)) {
+export function summarize(p, runs = loadRuns(p)) {
   const attempts = runs.filter((r) => r.kind === "snapshot");
   const batches = runs.filter((r) => r.kind === "batch");
   const agents = runs.filter((r) => r.kind === "agent");
@@ -134,7 +244,9 @@ export function summarize(p, runs = readRuns(p)) {
       attempts: list.map((r, i) => ({ at: r.started ?? r.at, ok: Boolean(r.ok), phase: r.phase ?? null, error: r.error ?? null, seconds: r.seconds ?? null, changed: changed[i] })),
       fixes: changed.filter((c) => c.length).length,
       ok: Boolean(final.ok),
-      firstTry: list.length === 1 && Boolean(final.ok),
+      // Only the last attempt of an imported snapshot is known, so "first try" is not.
+      imported: list.every((r) => r.source === "imported"),
+      firstTry: list.length === 1 && Boolean(final.ok) && final.source !== "imported",
       final: final.ok ? Object.fromEntries(FINAL_FIELDS.filter((k) => k in final).map((k) => [k, final[k]])) : null,
       // A report that covers several commits is split evenly between them.
       agent: agentSum(agents.filter((a) => a.task === "snapshot" && (a.shas ?? []).some((x) => sha.startsWith(x) || x.startsWith(sha))).map(share)),
@@ -177,6 +289,7 @@ export function summarize(p, runs = readRuns(p)) {
     firstTry: commits.filter((c) => c.firstTry).length,
     standIns: commits.filter((c) => c.standsInFor.length).length,
     setups: new Set(attempts.map((a) => a.setup?.adapter).filter(Boolean)).size,
+    imported: attempts.filter((a) => a.source === "imported").length,
   };
   const rates = { secondsPerPage: perPage, overheadSeconds: overhead, savedSeconds: perPage != null ? Math.round(totals.reused * perPage) : null };
   const byTask = {};
@@ -206,6 +319,7 @@ function conclusions({ totals: t, agent, phases, rates, failedByPhase, fullRecap
   if (!commits.length) return out;
   const reruns = t.attempts - t.commits;
   out.push(`${count(t.captured, "snapshot")} took ${duration(t.finalSeconds)} in their final runs${reruns ? `; counting ${count(reruns, "earlier attempt")}, ${duration(t.attemptSeconds)} in all` : ""}.`);
+  if (t.imported) out.push(`${count(t.imported, "snapshot")} predate run records and were read back from their folders: their final run is known, earlier attempts and setup fixes are not.`);
   const parallel = batches.filter((b) => b.concurrency > 1 && b.started);
   if (parallel.length) {
     const inside = (a) => parallel.some((b) => a.at >= b.started && a.at <= b.at);
@@ -229,6 +343,7 @@ function conclusions({ totals: t, agent, phases, rates, failedByPhase, fullRecap
     const cleanAfter = order.slice(lastFix + 1).filter((c) => c.firstTry).length;
     out.push(`${count(t.fixes, "setup fix", "setup fixes")} (adapter, config or screens changed between two attempts on one commit), all within the first ${count(lastFix + 1, "commit")} tried${cleanAfter ? `; the ${count(cleanAfter, "commit")} after that ran clean first time` : ""}.`);
   } else if (t.firstTry === t.commits) out.push(`Every commit was captured on the first try.`);
+  else if (t.firstTry && t.firstTry === t.commits - t.imported) out.push(`Every commit with a full record was captured on the first try.`);
   const fails = Object.entries(failedByPhase).sort((a, b) => b[1] - a[1]);
   if (fails.length) out.push(`${count(t.failedAttempts, "failed attempt")}: ${fails.map(([ph, n]) => `${n} in ${ph}`).join(", ")}.${t.failed ? ` ${count(t.failed, "commit")} still ${t.failed === 1 ? "has" : "have"} no snapshot.` : ""}`);
   if (t.standIns) out.push(`${count(t.standIns, "snapshot")} stand${t.standIns === 1 ? "s" : ""} in for commits that do not build.`);
@@ -275,7 +390,7 @@ export function renderStats(summary) {
       f ? `${f.captured}/${f.pages}${f.reused ? ` (${f.reused} copied)` : ""}` : "",
       f?.shots ?? "", f?.states ?? "", f?.skipped ?? "", f?.suspects ?? "", c.fixes || "",
       ...(withAgent ? [c.agent ? [c.agent.tokens != null && `${Math.round(c.agent.tokens / 1000)}k tok`, c.agent.seconds != null && duration(c.agent.seconds)].filter(Boolean).join(", ") : ""] : []),
-      c.ok ? (c.firstTry ? "ok, first try" : "ok") + (c.standsInFor.length ? `, for ${c.standsInFor.join(", ")}` : "") : `FAILED in ${c.attempts[c.attempts.length - 1].phase}`,
+      c.ok ? (c.firstTry ? "ok, first try" : c.imported ? "ok (imported)" : "ok") + (c.standsInFor.length ? `, for ${c.standsInFor.join(", ")}` : "") : `FAILED in ${c.attempts[c.attempts.length - 1].phase}`,
     ]);
   }
   const lines = [table(rows), ""];
