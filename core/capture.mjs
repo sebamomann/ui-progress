@@ -498,7 +498,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         }
       }
     } else if (!entry.variants.public && !entry.skipped) {
-      entry.skipped = notFound ? "not found" : probe.redirect ? "redirected" : "needs sign-in";
+      entry.skipped = notFound || probe.status === 404 || probe.status === 410 ? "not found" : probe.redirect ? "redirected" : "needs sign-in";
       entry.finalPath = probe.redirect ?? null;
     }
     const statesOver = statesSpent >= (c.states.totalBudgetMs ?? Infinity);
