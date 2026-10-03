@@ -37,6 +37,7 @@ capture) → `teardown`. `teardown` always runs, also after a failure.
 | `ctx.require(name)` | A module from the checkout's `node_modules`, else from the live repository's |
 | `ctx.sharp` | The sharp image library, for placeholder pictures |
 | `ctx.assertThrowaway(url)` | Throws if `url` is one of the project's own databases. Call it before connecting with a database client directly; `ctx.exec` and `start` are checked automatically |
+| `ctx.rewriteDatabaseUrls(url)` | Points every literal connection string in the checkout that ui-progress neutralised (or that still names one of the project's databases) at `url`, the throwaway database. Returns the files it changed |
 | `ctx.routes` | Helpers: `routesFromFiles`, `nextAppRouteOfFile`, `nextPagesRouteOfFile`, `normalizeRoute`, `patternOfPath` |
 | `ctx.state` | Scratch object shared by the functions of one snapshot. `ctx.state.notes = [...]` ends up in `snapshot.json` |
 | `ctx.log(msg)` | Write to `run.log` |
@@ -57,9 +58,13 @@ Create a **throwaway** database named after the commit, bring it to this commit'
 and fill it.
 
 - Never connect to a real database. ui-progress enforces this for `ctx.exec` and `start`
-  (see `data.isolation` in CONFIGURATION.md); direct clients call `ctx.assertThrowaway`. Search the checkout for hardcoded connection strings
-  and env files that old commits read, and neutralise them. Verify afterwards that the
-  throwaway database has tables; if not, the migration went somewhere else: throw.
+  (see `data.isolation` in CONFIGURATION.md); direct clients call `ctx.assertThrowaway`.
+  Right after checkout, ui-progress replaces every copy of the project's own connection
+  strings in the checkout's tracked files with an address that points nowhere. When old
+  commits hardcode the connection in a file the app reads, call
+  `ctx.rewriteDatabaseUrls(throwawayUrl)` in `seed`, before the first command. Verify
+  afterwards that the throwaway database has tables; if not, the migration went somewhere
+  else: throw.
 - Use the project's own seed if the commit has one, then fill every table it leaves empty.
   Write inserts that only use the columns the schema has at this commit, so one seed serves
   every era. See `examples/nextjs-prisma-postgres/adapter/enrich.mjs`.

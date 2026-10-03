@@ -8,7 +8,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { capture } from "./capture.mjs";
 import { addFinding } from "./findings.mjs";
-import { assertIsolated, protectedDatabases } from "./isolation.mjs";
+import { assertIsolated, neutraliseCheckout, protectedDatabases, rewriteDatabaseUrls } from "./isolation.mjs";
 import { hasDep, requireDep } from "./deps.mjs";
 import * as routes from "./routes.mjs";
 import { background, git, readJson, sh, tail, waitForHttp, writeJson } from "./util.mjs";
@@ -145,6 +145,12 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
     },
     /** For adapters that connect directly (a database client): throws for a protected database. */
     assertThrowaway: (url) => assertIsolated({ config, protectedDbs, env: { url }, where: "connect" }),
+    /** Point literal connection strings in the checkout at the throwaway database `url`. */
+    rewriteDatabaseUrls: (url) => {
+      const files = rewriteDatabaseUrls({ config, protectedDbs, checkout: dir, url });
+      if (files.length) log(`pointed connection strings at the throwaway database in: ${files.join(", ")}`);
+      return files;
+    },
     /** A module from the checked-out commit's own node_modules, else from the live repo's. */
     require: (name) => {
       for (const base of [dir, p.repo]) {
@@ -183,6 +189,8 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       }
       fs.rmSync(dir, { recursive: true, force: true });
       git(clone, "worktree", "add", "--detach", "--quiet", dir, full);
+      const neutralised = neutraliseCheckout({ config, protectedDbs, checkout: dir });
+      if (neutralised.length) log(`neutralised the project's own connection strings in: ${neutralised.join(", ")}`);
     });
     if (adapter.install) await timed("install", () => adapter.install(ctx));
     if (adapter.seed) await timed("seed", () => adapter.seed(ctx));

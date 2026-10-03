@@ -51,13 +51,9 @@ export default {
     ctx.assertThrowaway(vars.DATABASE_URL); // never the project's own database
     fs.writeFileSync(path.join(ctx.dir, ".env"), Object.entries(vars).map(([k, v]) => `${k}="${v}"`).join("\n") + "\n");
     if (!ctx.has("prisma/schema.prisma")) return; // commits before the app had a database
-    // Old commits sometimes hardcode a connection string in a config file. Point it at the
-    // throwaway database, and refuse to continue if any literal connection string is left.
-    if (ctx.has("prisma.config.ts")) {
-      const file = path.join(ctx.dir, "prisma.config.ts");
-      fs.writeFileSync(file, ctx.read("prisma.config.ts").replace(/"postgres(?:ql)?:\/\/[^"]+"/g, "process.env.DATABASE_URL"));
-      if (/postgres(?:ql)?:\/\//.test(fs.readFileSync(file, "utf8"))) throw new Error("prisma.config.ts still contains a literal database URL");
-    }
+    // Old commits sometimes hardcode a connection string in a config file. ui-progress has
+    // already pointed those at nowhere; point them at this snapshot's database instead.
+    ctx.rewriteDatabaseUrls(vars.DATABASE_URL);
     const db = `uiprog_${ctx.short}`;
     await sql(ctx, "postgres", `DROP DATABASE IF EXISTS "${db}" WITH (FORCE)`);
     await sql(ctx, "postgres", `CREATE DATABASE "${db}"`);

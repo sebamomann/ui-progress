@@ -99,8 +99,10 @@ selectors before the long run. Add to it whenever a later session adds a filter 
   databases (every connection string in its env files and tracked files, container
   database names, the user's shell) and refuses to run a seed command or start the app
   when the environment, an env file or a config file in the checkout points at one of them.
-  Old commits often hardcode a connection string: rewrite it in the checkout before the
-  first command. Direct database clients in the adapter call `ctx.assertThrowaway(url)`.
+  Copies of those connection strings in the checkout are replaced with an address that
+  points nowhere right after checkout. Old commits often hardcode the connection in a file
+  the app reads: call `ctx.rewriteDatabaseUrls(throwawayUrl)` in `seed` before the first
+  command. Direct database clients in the adapter call `ctx.assertThrowaway(url)`.
   Make `seed` fail if the throwaway database ends up without tables. Only when the user
   explicitly asks for their real data to be used, set `"data": { "isolation": "shared" }`;
   never do it to get past a refusal.

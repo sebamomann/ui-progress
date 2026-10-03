@@ -7,6 +7,11 @@
  * adapter runs through ctx.exec, and the app it starts, is checked against them: its
  * environment, the env files in the checkout, and config files in the checkout that hold a
  * literal connection string (old commits often hardcode one).
+ *
+ * Right after checkout, every protected connection string in the checkout's tracked files
+ * is replaced by one that points nowhere (NEUTRAL_HOST), so a stray copy in a file no
+ * command reads (an editor or agent config, an example env file) cannot trip the guard,
+ * and code that does read it fails to connect instead of reaching real data.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -102,15 +107,67 @@ function walk(dir, base, depth, out) {
   return out;
 }
 
+/** A function that returns the protected database a connection string points at, if any. */
+function matcher(protectedDbs) {
+  const ids = new Map(protectedDbs.map((d) => [d.id, d]));
+  const names = new Map(protectedDbs.filter((d) => localName(d.id)).map((d) => [localName(d.id), d]));
+  return (id) => ids.get(id) ?? names.get(localName(id));
+}
+
+export const NEUTRAL_HOST = "ui-progress-protected.invalid";
+const neutralFor = (s) => (/^(file|sqlite):/i.test(s) ? "file:./ui-progress-neutralised.db" : `${s.split("://")[0]}://ui-progress:neutralised@${NEUTRAL_HOST}:1/neutralised`);
+const isNeutral = (s) => s.includes(NEUTRAL_HOST) || s.endsWith("ui-progress-neutralised.db");
+
+/**
+ * Rewrite connection strings in the checkout's tracked text files. `pick(s)` says whether
+ * to replace a string, `to(s)` what with. Returns the files that changed.
+ */
+function rewriteCheckout(checkout, pick, to) {
+  let files;
+  try {
+    files = git(checkout, "grep", "-l", "-I", "-E", "(postgres(ql)?|mysql|mariadb|mongodb(\\+srv)?|redis|rediss|mssql|sqlserver|cockroachdb)://|(file|sqlite):[^[:space:]]+\\.(db|sqlite3?)", "--", ".").split("\n").filter(Boolean);
+  } catch {
+    return []; // nothing matched
+  }
+  const changed = [];
+  for (const file of files) {
+    const full = path.join(checkout, file);
+    if (!fs.existsSync(full) || fs.statSync(full).size > 2_000_000) continue;
+    const text = fs.readFileSync(full, "utf8");
+    let next = text;
+    for (const s of new Set(connectionStrings(text))) if (pick(s)) next = next.split(s).join(to(s));
+    if (next !== text) {
+      fs.writeFileSync(full, next);
+      changed.push(file);
+    }
+  }
+  return changed;
+}
+
+/** Point every protected connection string in a fresh checkout at nowhere. Returns the files changed. */
+export function neutraliseCheckout({ config, protectedDbs, checkout }) {
+  if ((config.data?.isolation ?? "throwaway") === "shared" || !protectedDbs.length) return [];
+  const match = matcher(protectedDbs);
+  return rewriteCheckout(checkout, (s) => Boolean(match(identity(s))), neutralFor);
+}
+
+/**
+ * For adapters: point the connection strings in the checkout that were neutralised (or are
+ * still protected) at `url`, the snapshot's throwaway database. Throws if `url` is protected.
+ */
+export function rewriteDatabaseUrls({ config, protectedDbs, checkout, url }) {
+  assertIsolated({ config, protectedDbs, env: { url }, where: "rewrite connection strings" });
+  const match = matcher(protectedDbs);
+  return rewriteCheckout(checkout, (s) => isNeutral(s) || Boolean(match(identity(s))), () => url);
+}
+
 /**
  * Throws when the environment, or a config/env file in the checkout, points at a protected
  * database. `where` names the step for the message.
  */
 export function assertIsolated({ config, protectedDbs, env = {}, checkout = null, where }) {
   if ((config.data?.isolation ?? "throwaway") === "shared" || !protectedDbs.length) return;
-  const ids = new Map(protectedDbs.map((d) => [d.id, d]));
-  const names = new Map(protectedDbs.filter((d) => localName(d.id)).map((d) => [localName(d.id), d]));
-  const match = (id) => ids.get(id) ?? names.get(localName(id));
+  const match = matcher(protectedDbs);
   const hits = [];
   for (const [key, value] of Object.entries(env)) {
     for (const s of connectionStrings(String(value ?? ""))) {
@@ -135,7 +192,7 @@ export function assertIsolated({ config, protectedDbs, env = {}, checkout = null
     `Refusing to ${where}: it would use one of the project's own databases (${db.value}, from ${db.source}).\n` +
       hits.map((h) => `  - ${h.text}`).join("\n") +
       `\nSnapshots build their own data in a throwaway database. Point the adapter at a database named after the snapshot ` +
-      `(for example uiprog_<short sha>), rewrite literal connection strings in the checkout before running commands, ` +
+      `(for example uiprog_<short sha>); ctx.rewriteDatabaseUrls(throwawayUrl) points literal connection strings in the checkout at it; ` +
       `and drop it in teardown. Only if the user explicitly wants their real data used, set "data": { "isolation": "shared" } in .ui-progress/config.json.`,
   );
 }
