@@ -37,7 +37,10 @@ example in `${CLAUDE_PLUGIN_ROOT}/examples/nextjs-prisma-postgres/`.
    database and how it is migrated and seeded, how sign-in works, where page files live,
    and how each of these **changed over the history** (`git log --diff-filter=A -- <file>`
    tells you when a seed script, a lockfile or a login page first appeared).
-3. `ui-progress init --preset <next-app|next-pages|crawl|blank>`.
+3. `ui-progress init --preset <next-app|next-pages|crawl|blank>`. If it lists the project's
+   own tools (linters, formatters, dead-code or duplicate checkers, `tsconfig`) that would
+   scan `.ui-progress/`, add the exclusions it names, so the project's checks keep passing;
+   mention them to the user with the setup questions.
 4. Write `.ui-progress/adapter.mjs` (with `export const requires = "<ui-progress version>"`,
    from `ui-progress version`) and adjust `.ui-progress/config.json`
    (`sampling.uiPaths` and `lineage.pagePaths` should name the folders that hold UI code).

@@ -103,6 +103,31 @@ async function doctor(flags) {
   }
 }
 
+/**
+ * Tools of the host project that would scan .ui-progress/ (the adapter is plain JS that
+ * logs to the console; checkouts and screenshots are large), with the entry that excludes it.
+ */
+function hostToolExcludes(repo) {
+  const has = (pattern) => fs.readdirSync(repo).find((f) => pattern.test(f));
+  const pkg = readJson(path.join(repo, "package.json"), {});
+  const out = [];
+  const add = (file, how) => out.push(`  ${file}: ${how}`);
+  const eslintFlat = has(/^eslint\.config\.(c|m)?(j|t)s$/);
+  if (eslintFlat) add(eslintFlat, `add ".ui-progress/**" to globalIgnores([...]) (or an { ignores: [...] } entry)`);
+  else if (has(/^\.eslintrc/) || pkg.eslintConfig) add(".eslintignore", "add a line .ui-progress/");
+  if (has(/^\.prettierrc|^prettier\.config\./) || pkg.prettier) add(".prettierignore", "add a line .ui-progress/");
+  const knip = has(/^\.?knip\.(json|jsonc|(c|m)?(j|t)s)$/) ?? (pkg.knip ? "package.json (knip)" : null);
+  if (knip) add(knip, `add ".ui-progress/**" to "ignore"`);
+  const jscpd = has(/^\.jscpd\.json$/);
+  if (jscpd) add(jscpd, `add "**/.ui-progress/**" to "ignore"`);
+  const biome = has(/^biome\.jsonc?$/);
+  if (biome) add(biome, `add ".ui-progress/**" to the files to ignore`);
+  if (has(/^\.stylelintrc|^stylelint\.config\./)) add(".stylelintignore", "add a line .ui-progress/");
+  if (has(/^tsconfig\.json$/)) add("tsconfig.json", `add ".ui-progress" to "exclude" if "include" would cover it`);
+  for (const file of ["pyproject.toml", "setup.cfg", ".flake8", "ruff.toml"]) if (has(new RegExp(`^${file.replace(".", "\\.")}$`))) add(file, "add .ui-progress to the linter's exclude list");
+  return out;
+}
+
 function init(flags) {
   const p = paths(findRepo());
   const preset = flags.preset ?? "blank";
@@ -121,6 +146,8 @@ function init(flags) {
   place(path.join(p.root, "README.md"), fs.readFileSync(path.join(ROOT, "templates", "project-readme.md"), "utf8"));
   place(p.lineage, JSON.stringify({ edges: [], reviewed: {} }, null, 2) + "\n");
   console.log(created.length ? `Created:\n${created.map((f) => "  " + f).join("\n")}` : "Everything already exists (use --force to overwrite).");
+  const excludes = hostToolExcludes(p.repo);
+  if (excludes.length) console.log(`\nThis project's own tools will also scan .ui-progress/. Exclude it there:\n${excludes.join("\n")}`);
   console.log(`\nNext: fill in .ui-progress/adapter.mjs, then run  ui-progress plan --mode pilot`);
 }
 
