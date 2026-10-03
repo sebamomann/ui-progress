@@ -1,5 +1,5 @@
 /**
- * ui-progress adapter, Next.js App Router preset. Routes come from app/**/page.* files.
+ * ui-progress adapter, Next.js App Router preset. Routes come from the page.* files under app/.
  * Fill in seed() and login(); see templates/adapter.blank.mjs for every available function.
  */
 const APP_DIR = "app"; // or "src/app"
