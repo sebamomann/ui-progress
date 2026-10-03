@@ -121,6 +121,12 @@ a:hover { text-decoration: underline; }
 .pill.same { color: var(--faint); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .legend { display: flex; gap: 14px; row-gap: 4px; color: var(--muted); font-size: 12px; flex-wrap: wrap; align-items: center; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend.links { gap: 4px; }
+.lgtitle { color: var(--faint); font-size: 11.5px; margin-right: 4px; }
+.lkey { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--muted); font-size: 12px; }
+.lkey:hover { border-color: var(--line-strong); }
+.lkey[aria-pressed="false"] { color: var(--faint); text-decoration: line-through; }
+.lkey[aria-pressed="false"] .key { opacity: .3; }
 .key { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
 .key.new { border: 2.5px solid var(--new); }
 .key.major { background: var(--major); }
@@ -136,7 +142,7 @@ a:hover { text-decoration: underline; }
 .intro { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; background: var(--accent-soft); border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.5; }
 .intro > div:first-child { max-width: 100ch; }
 .introactions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.graphbar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
+.graphbar { display: flex; align-items: center; gap: 8px 24px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
 .zoom { display: flex; align-items: center; gap: 8px; }
 .zoom .seg button { min-width: 32px; justify-content: center; }
 .zoomlvl { color: var(--muted); font-size: 12px; min-width: 70px; }
@@ -396,7 +402,6 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   <div class="help" id="help"></div>
   <div class="focusbar" id="focusbar" hidden>
     <span class="muted" id="focuslabel"></span><span id="focuschips"></span>
-    <label class="check" title="Also follow the grey structure links (a page added under another)"><input type="checkbox" id="focusStructure"> include structure links</label>
     <button class="btn" id="focusClear">Show everything</button>
   </div>
   <div class="content" id="content"></div>
@@ -425,7 +430,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   const snapIndex = Object.fromEntries(snaps.map((s, i) => [s.id, i]));
   const pageById = Object.fromEntries(H.pages.map((p) => [p.id, p]));
   const viewportNames = H.viewports ?? ["desktop", "mobile"];
-  const state = { viewport: viewportNames[0], search: "", onlyChanged: false, showSame: false, tint: false, expanded: new Set(), zoom: 1, graphLeft: 0, focus: new Set(), focusStructure: false, help: false };
+  const state = { viewport: viewportNames[0], search: "", onlyChanged: false, showSame: false, tint: false, expanded: new Set(), zoom: 1, graphLeft: 0, focus: new Set(), help: false,
+    // Which kinds of relation the graph draws and focus follows; toggled from the legend.
+    links: { split: true, merge: true, move: true, clone: true, branch: true } };
+  const LINK_GROUP = { split: "split", merged: "merge", replaced: "merge", rename: "move", redirect: "move", clone: "clone", branch: "branch" };
+  const linkOn = (e) => state.links[LINK_GROUP[e.type] ?? "move"] !== false;
   const MAX_ZOOM = 80;
   const KIND_LABEL = { page: "Whole page", "signed-out": "Signed out", section: "Sections", dialog: "Dialogs", menu: "Menus" };
   const EDGE_TEXT = {
@@ -469,19 +478,25 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   const changesOf = (view) => snaps.reduce((n, _, i) => n + (["new", "major", "minor"].includes(viewStatus(view, i).kind) ? 1 : 0), 0);
   const everChanged = (page) => !page.seen || snaps.some((_, i) => ["new", "major", "minor", "redirect"].includes(status(page, i).kind)) || lifespan(page).last < snaps.length - 1;
 
-  /** Every page reachable from the focused ones through lineage edges, in either direction. */
+  /**
+   * Every page reachable from the focused ones through the relations switched on, in either
+   * direction. "Added under" is followed one step only (the parent and the direct children):
+   * followed further it would pull in the whole site.
+   */
   function connected() {
     if (!state.focus.size) return null;
     const seen = new Set(state.focus);
     const queue = [...state.focus];
+    const step = (e, id) => (e.from === id ? e.to : e.to === id ? e.from : null);
     while (queue.length) {
       const id = queue.shift();
       for (const e of H.edges) {
-        if (e.type === "branch" && !state.focusStructure) continue;
-        const other = e.from === id ? e.to : e.to === id ? e.from : null;
+        if (e.type === "branch" || !linkOn(e)) continue;
+        const other = step(e, id);
         if (other && !seen.has(other)) { seen.add(other); queue.push(other); }
       }
     }
+    if (state.links.branch) for (const e of H.edges) if (e.type === "branch") for (const id of state.focus) { const other = step(e, id); if (other) seen.add(other); }
     return seen;
   }
   const matches = (page) => {
@@ -583,9 +598,14 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       intro.querySelector("[data-dismiss]").addEventListener("click", () => { try { localStorage.setItem("ui-history-intro", "1"); } catch { /* ignore */ } intro.remove(); });
       wrap.append(intro);
     }
-    wrap.append(el(`<div class="graphbar"><div class="legend">
-      <span><i class="key new"></i> first seen</span><span><i class="key major"></i> redesigned</span><span><i class="key minor"></i> small change</span><span><i class="key same"></i> unchanged</span>
-      <span><i class="key split"></i> split off</span><span><i class="key merge"></i> merged or replaced</span><span><i class="key move"></i> renamed or redirected</span><span><i class="key clone"></i> built from a copy</span><span><i class="key line"></i> added under a parent</span></div></div>`));
+    // The relation keys double as switches: off hides those curves, and focus stops following them.
+    const bar = el(`<div class="graphbar"><div class="legend">
+      <span><i class="key new"></i> first seen</span><span><i class="key major"></i> redesigned</span><span><i class="key minor"></i> small change</span><span><i class="key same"></i> unchanged</span></div>
+      <div class="legend links" role="group" aria-label="Relations to show"><span class="lgtitle">Relations</span>
+      ${[["split", "split", "split off"], ["merge", "merge", "merged or replaced"], ["move", "move", "renamed or redirected"], ["clone", "clone", "built from a copy"], ["branch", "line", "added under"]]
+        .map(([k, cls, text]) => `<button class="lkey" data-link="${k}" aria-pressed="${state.links[k]}" title="${state.links[k] ? "Hide" : "Show"} these relations${state.focus.size ? " and stop following them in focus" : ""}"><i class="key ${cls}"></i> ${text}</button>`).join("")}</div></div>`);
+    bar.querySelectorAll("[data-link]").forEach((b) => b.addEventListener("click", () => { state.links[b.dataset.link] = !state.links[b.dataset.link]; render(); }));
+    wrap.append(bar);
     if (!pages.length) { wrap.append(emptyState()); content.replaceChildren(wrap); return; }
 
     const ROW = 24, SEC = 22, AXIS = 44, LEFT = 18, RIGHT = 28;
@@ -719,7 +739,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 
     for (const e of H.edges) {
       const a = rows[e.from], b = rows[e.to];
-      if (!a || !b || !e.date) continue;
+      if (!a || !b || !e.date || !linkOn(e)) continue;
       const ex = x(e.date);
       const path = svgEl("path", { class: `edge ${e.type}` });
       const outOf = e.type === "branch" || e.type === "split" || e.type === "clone";
@@ -1294,7 +1314,6 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   document.getElementById("showSame").addEventListener("change", (e) => { state.showSame = e.target.checked; render(); });
   document.getElementById("tint").addEventListener("change", (e) => { state.tint = e.target.checked; render(); if (lb.box.classList.contains("open")) paintLightbox(); });
   document.getElementById("focusClear").addEventListener("click", () => { state.focus.clear(); render(); });
-  document.getElementById("focusStructure").addEventListener("change", (e) => { state.focusStructure = e.target.checked; render(); });
   document.getElementById("helpBtn").addEventListener("click", () => { state.help = !state.help; document.getElementById("help").classList.toggle("open", state.help); document.getElementById("helpBtn").setAttribute("aria-pressed", String(state.help)); });
   const seg = document.getElementById("viewports");
   viewportNames.forEach((name, i) => {
