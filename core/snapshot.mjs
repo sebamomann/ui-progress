@@ -33,6 +33,11 @@ export function snapshotDir(p, short) {
 /** Older versions could also capture a running app or uncommitted changes; those are not commits. */
 export const isCommitSnapshot = (info) => !info.live && !info.workingTree;
 export const isDone = (p, short) => fs.existsSync(path.join(snapshotDir(p, short), "OK"));
+/**
+ * The folder name of a commit's snapshot. Plans keep git's own abbreviation, which can be
+ * shorter than the folder's, so anything that starts from a plan entry goes through this.
+ */
+export const snapshotId = (p, sha) => git(p.repo, "rev-parse", "--short=8", sha).trim();
 
 /** The finished snapshot nearest below this commit in history, if any. */
 function previousSnapshot(p, full) {

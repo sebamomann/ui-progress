@@ -13,7 +13,7 @@ import { instructions, pendingState, renderPending, sessionStart, stop } from ".
 import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
 import { acquireLock } from "./lock.mjs";
-import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir } from "./snapshot.mjs";
+import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
 import { clearUnbuildable, markUnbuildable, readUnbuildable, unbuildableEntry } from "./unbuildable.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
@@ -174,7 +174,7 @@ async function plan(flags) {
   if (!result) throw new Error("Mode is manual and there is no plan.json. Write one, or pick another --mode.");
   if (!flags.print && mode !== "manual") writeJson(p.plan, result);
   console.log(`${result.entries.length} snapshots planned (${result.mode}) out of ${result.commitsInRange ?? "?"} commits${flags.print ? " — not saved" : ""}\n`);
-  console.log(table(result.entries.map((e) => [isDone(p, e.short) ? "done" : "todo", e.date, e.short, e.reason.slice(0, 70)])));
+  console.log(table(result.entries.map((e) => [isDone(p, snapshotId(p, e.sha)) ? "done" : "todo", e.date, e.short, e.reason.slice(0, 70)])));
 }
 
 async function snapshot(flags, positional) {
@@ -188,7 +188,7 @@ async function snapshot(flags, positional) {
   if (flags.plan) {
     const planned = readJson(p.plan);
     if (!planned) throw new Error("No plan.json. Run: ui-progress plan --mode pilot");
-    shas = planned.entries.filter((e) => flags.force || !isDone(p, e.short)).map((e) => e.sha);
+    shas = planned.entries.filter((e) => flags.force || !isDone(p, snapshotId(p, e.sha))).map((e) => e.sha);
     if (flags.limit) shas = shas.slice(0, Number(flags.limit));
   }
   // Commits recorded as unbuildable are not tried again: their stand-in is taken instead.
@@ -198,7 +198,7 @@ async function snapshot(flags, positional) {
       const entry = unbuildableEntry(p, sha);
       if (!entry) kept.push(sha);
       else {
-        const stand = entry.replacedBySha && !isDone(p, entry.replacedBy) && !kept.includes(entry.replacedBySha) ? entry.replacedBySha : null;
+        const stand = entry.replacedBySha && !isDone(p, snapshotId(p, entry.replacedBySha)) && !kept.includes(entry.replacedBySha) ? entry.replacedBySha : null;
         console.log(`${entry.short} is recorded as unbuildable${entry.phase ? ` (${entry.phase}: ${entry.cause})` : ""}${stand ? `; capturing its stand-in ${entry.replacedBy} instead` : entry.replacedBy ? `; its stand-in ${entry.replacedBy} is already captured` : ""}. To try it anyway: --force`);
         if (stand) kept.push(stand);
       }
@@ -257,7 +257,7 @@ async function snapshot(flags, positional) {
    */
   const fallBack = async (sha, first, slot) => {
     const broken = [{ ...first, sha: fullOf(sha) }];
-    const stop = (c) => taken.has(c) || isDone(p, git(p.repo, "rev-parse", "--short=8", c).trim());
+    const stop = (c) => taken.has(c) || isDone(p, snapshotId(p, c));
     for (const candidate of fixUpCandidates(p.repo, broken[0].sha, { ...config.run.fallback, branch: config.sampling.branch ?? "HEAD", stop })) {
       if (unbuildableEntry(p, candidate.sha)) continue;
       taken.add(candidate.sha);
@@ -318,7 +318,7 @@ function status(flags) {
   const { p, config } = context();
   const planned = readJson(p.plan, { entries: [] });
   const rows = planned.entries.map((e) => {
-    const dir = snapshotDir(p, e.short);
+    const dir = snapshotDir(p, snapshotId(p, e.sha));
     const state = fs.existsSync(path.join(dir, "OK")) ? "done" : fs.existsSync(path.join(dir, "FAILED")) ? `FAILED (${fs.readFileSync(path.join(dir, "FAILED"), "utf8").split("\n")[0]})` : "todo";
     return [state, e.date, e.short, e.reason.slice(0, 60)];
   });
