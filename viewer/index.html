@@ -238,25 +238,28 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .cell .pill.gone, .cell .pill.link { position: relative; z-index: 1; }
 
 /* ---------- Page ---------- */
-.pagehead { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; }
-.pagehead .life { color: var(--muted); font-size: 12.5px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-.pagehead .life > span { display: inline-flex; align-items: center; gap: 6px; }
-.pagehead .rel { display: flex; flex-direction: column; gap: 2px; }
-.pagehead .rel details { font-size: 12.5px; }
-.pagehead .rel summary { display: flex; align-items: center; gap: 8px; row-gap: 2px; cursor: pointer; list-style: none; min-height: 24px; flex-wrap: wrap; }
-.pagehead .rel summary > * { white-space: nowrap; }
-.pagehead .rel summary::-webkit-details-marker { display: none; }
-.pagehead .rel summary .why { color: var(--faint); font-size: 11.5px; text-decoration: underline dotted; }
-.pagehead .rel .ev { color: var(--muted); padding: 2px 0 6px 2px; max-width: 90ch; }
-.pagewrap { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; align-items: start; }
-.views { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px; position: sticky; top: 0; max-height: calc(100vh - var(--bar-h) - 32px); overflow: auto; }
-.views .group { font-size: 10.5px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 8px 8px 4px; }
-.views a { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px; color: var(--text); }
-.views a .lbl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.views a .n { color: var(--faint); font-size: 11px; white-space: nowrap; }
-.views a:hover { background: var(--raised); text-decoration: none; }
-.views a[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.views a[aria-current="true"] .n { color: inherit; opacity: .75; }
+.pagehead { margin: 0 0 16px; display: flex; flex-direction: column; gap: 10px; max-width: 1100px; }
+.pagehead .life { margin: 0; font-size: 13px; color: var(--text); }
+.rels { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px; margin: 0; align-items: start; }
+.rels dt { padding-top: 3px; }
+.rels dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.relchips { display: flex; flex-wrap: wrap; gap: 4px; }
+.relchips .chip { padding: 0 9px; color: var(--text); }
+.relchips .chip:hover { border-color: var(--accent); text-decoration: none; }
+.reldate { font-size: 12px; }
+.why { font-size: 12.5px; }
+.why[open] { flex-basis: 100%; }
+.why summary { cursor: pointer; color: var(--muted); width: max-content; list-style: none; text-decoration: underline dotted; font-size: 12px; }
+.why summary::-webkit-details-marker { display: none; }
+.why ul { margin: 6px 0 0; padding-left: 16px; color: var(--muted); line-height: 1.5; max-width: 90ch; }
+.why li + li { margin-top: 6px; }
+.pagewrap { display: flex; flex-direction: column; gap: 14px; }
+.views { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.vgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.vkind { color: var(--faint); font-size: 11.5px; margin-right: 2px; }
+.views a { display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 999px; color: var(--muted); border: 1px solid var(--line); font-size: 12.5px; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.views a:hover { color: var(--text); border-color: var(--line-strong); text-decoration: none; }
+.views a[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 .strip { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 12px; align-items: stretch; }
 .frame { flex: 0 0 auto; width: 300px; display: flex; flex-direction: column; }
 .frame.narrow { width: 180px; }
@@ -266,7 +269,8 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .frame .shot { display: block; height: 380px; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--surface); cursor: zoom-in; padding: 0; line-height: 0; box-shadow: var(--shadow); }
 .frame .shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
 .frame .gap { height: 380px; border: 1px dashed var(--line-strong); border-radius: 8px; padding: 12px; color: var(--muted); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; line-height: 1.5; }
-.frame.skip { width: 150px; }
+.frame.skip { width: 116px; }
+.frame.skip .gap { font-size: 12px; padding: 10px 8px; border-style: dashed; background: none; }
 .frame.skip header { color: var(--muted); }
 .frame .caption { color: var(--faint); font-size: 11.5px; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .frame .sources { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
@@ -275,7 +279,10 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .frame .sources ul { margin: 4px 0 0; padding-left: 14px; max-height: 160px; overflow: auto; line-height: 1.5; white-space: normal; }
 .frame .sources li { overflow-wrap: anywhere; }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font-size: inherit; }
-.compare { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-width: 1100px; }
+.compare { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-width: 1100px; margin-top: 8px; }
+.cmptitle { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.compare.full { position: fixed; inset: 0; z-index: 45; max-width: none; margin: 0; border-radius: 0; border: 0; display: flex; flex-direction: column; }
+.compare.full .stage { flex: 1; max-height: none; }
 .compare .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
 .compare .controls .field { width: auto; }
 .compare .cmphint { flex: 1; text-align: center; color: var(--faint); font-size: 12px; }
@@ -373,12 +380,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   .side { position: fixed; inset: 0 auto 0 0; z-index: 30; transform: translateX(-100%); transition: transform .18s; box-shadow: var(--shadow); max-width: 86vw; }
   body.side-open .side { transform: none; }
   .menu-btn { display: inline-flex; }
-  .pagewrap { grid-template-columns: minmax(0, 1fr); }
-  .views { position: static; max-height: 240px; }
   :root { --label-w: 150px; --col-w: 110px; }
   .hint { display: none; }
   .top .sub { display: none; }
-  .pagehead .rel summary .mono.muted, .pagehead .life .muted { display: none; }
+  .pagehead .life .muted { display: none; }
+  .rels { grid-template-columns: minmax(0, 1fr); }
   .frame { width: 240px; }
   .frame .shot, .frame .gap { height: 300px; }
 }
@@ -922,27 +928,41 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     const next = at >= 0 && at < order.length - 1 ? el(`<a class="btn" href="${pageHref(order[at + 1].id)}" title="${esc(order[at + 1].id)}">→</a>`) : null;
     const playBtn = el('<button class="btn" title="Play this view through time">▶ Play</button>');
     header(page.id, `<a href="#/">Graph</a> › <a href="#/?section=${encodeURIComponent(page.section)}">${esc(page.section)}</a> › ${plural(page.views.length, "view")}`, [playBtn, focusBtn, prev, next].filter(Boolean),
-      "<p>The list on the left holds every view of this page: the page itself, its signed-out version where that differs, and each section, dialog and menu found on it. Pick one to see it across time. Snapshots where it looked the same as before, or where the view was not on the page, are folded into the small cards. Click a screenshot to enlarge it and step through time with the arrow keys; the slider at the bottom compares any two snapshots.</p>");
+      "<p>The tabs hold every view of this page: the page itself, its signed-out version where that differs, and each section, dialog and menu found on it. Pick one to see it across time. Snapshots where it looked the same as before, or where the view was not on the page, are folded into the small dashed cards. Click a screenshot to enlarge it and step through time with the arrow keys; the slider at the bottom compares any two snapshots, and Full screen gives it the whole window.</p>");
     const pad = el('<div class="pad"></div>');
 
+    // Summary: when the page came and went, then its relations grouped by kind.
     const head = el('<div class="pagehead"></div>');
     const added = page.history.find((h) => h.kind === "added");
     const gone = page.life?.length && page.life[page.life.length - 1].to ? [...page.history].reverse().find((h) => h.kind === "deleted") : null;
-    const life = el('<div class="life"></div>');
-    if (added) life.append(el(`<span><span class="pill new">added</span> ${esc(added.date)} <span class="mono">${esc(added.sha)}</span> <span class="muted">${esc(added.subject)}</span></span>`));
-    else life.append(el(`<span>First captured ${esc(snaps.find((s) => page.presence[s.id])?.date ?? "–")}</span>`));
-    if (gone) life.append(el(`<span><span class="pill gone">deleted</span> ${esc(gone.date)} <span class="mono">${esc(gone.sha)}</span></span>`));
+    const life = el('<p class="life"></p>');
+    life.innerHTML = added
+      ? `Added on <b>${esc(added.date)}</b> <span class="muted">in <span class="mono">${esc(added.sha)}</span> · ${esc(added.subject)}</span>`
+      : `First captured on <b>${esc(snaps.find((s) => page.presence[s.id])?.date ?? "–")}</b>`;
+    if (gone) life.innerHTML += ` · <span class="pill gone">deleted</span> <b>${esc(gone.date)}</b> <span class="mono muted">${esc(gone.sha)}</span>`;
     head.append(life);
     const rels = H.edges.filter((e) => e.source !== "git" && (e.from === id || e.to === id));
     if (rels.length) {
-      const rel = el('<div class="rel"></div>');
+      const groups = new Map();
       for (const e of rels) {
         const out = e.from === id;
         const text = (EDGE_TEXT[e.kind === "extract" ? "extract" : e.type] ?? ["Linked to", "Linked from"])[out ? 0 : 1];
-        const cls = e.type === "split" || e.type === "branch" || e.type === "clone" ? "new" : e.type === "merged" || e.type === "replaced" ? "gone" : "link";
-        rel.append(el(`<details><summary><span class="pill ${cls}">${text}</span><a class="mono" href="${pageHref(out ? e.to : e.from)}">${esc(out ? e.to : e.from)}</a><span class="muted">${esc(e.date)}</span>${e.sha ? `<span class="mono muted">${esc(e.sha)}</span>` : ""}${e.note ? `<span class="why">${e.confidence ? esc(e.confidence) + " confidence · " : ""}why?</span>` : ""}</summary>${e.note ? `<div class="ev">${esc(e.note)}</div>` : ""}</details>`));
+        const cls = isOutOf(e) ? "new" : e.type === "merged" || e.type === "replaced" ? "gone" : "link";
+        (groups.get(text) ?? groups.set(text, { cls, items: [] }).get(text)).items.push({ e, other: out ? e.to : e.from });
       }
-      head.append(rel);
+      const dl = el('<dl class="rels"></dl>');
+      for (const [text, { cls, items }] of groups) {
+        const dates = [...new Set(items.map((x) => x.e.date))];
+        dl.append(el(`<dt><span class="pill ${cls}">${esc(text)}</span></dt>`));
+        const dd = el(`<dd><span class="relchips">${items.map(({ other }) => `<a class="chip" href="${pageHref(other)}" title="${esc(other)}">${routeHtml(other)}</a>`).join("")}</span><span class="muted reldate">${dates.map(esc).join(", ")}</span></dd>`);
+        const notes = items.filter((x) => x.e.note);
+        if (notes.length) {
+          const why = el(`<details class="why"><summary>Why?</summary><ul>${notes.map(({ e, other }) => `<li><span class="mono">${esc(other)}</span>${e.confidence ? ` <span class="muted">· ${esc(e.confidence)} confidence</span>` : ""}<br>${esc(e.note)}</li>`).join("")}</ul></details>`);
+          dd.append(why);
+        }
+        dl.append(dd);
+      }
+      head.append(dl);
     }
     pad.append(head);
 
@@ -950,21 +970,20 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       pad.append(el('<div class="empty">There are no screenshots of this page: it existed only between two snapshots, only ever redirected, or could not be captured.</div>'));
       content.replaceChildren(pad); return;
     }
+    // The page's views as tabs: the page itself first, then sections, dialogs and menus.
     const view = page.views.find((v) => v.id === viewId) ?? mainView(page) ?? page.views[0];
     const wrap = el('<div class="pagewrap"><nav class="views" aria-label="Views of this page"></nav><div class="detail"></div></div>');
     const nav = wrap.querySelector(".views");
     for (const kind of ["page", "signed-out", "section", "dialog", "menu"]) {
       const group = page.views.filter((v) => v.kind === kind);
       if (!group.length) continue;
-      if (kind === "page") nav.append(el('<div class="group">Whole page</div>'));
-      else if (kind !== "signed-out") nav.append(el(`<div class="group">${KIND_LABEL[kind]} · ${group.length}</div>`));
-      for (const v of group) {
-        nav.append(el(`<a href="${pageHref(page.id, v.id)}" aria-current="${v === view}" title="${esc(v.label)}"><span class="lbl">${esc(v.label)}</span><span class="n" title="snapshots in which this view changed">${changesOf(v)}×</span></a>`));
-      }
+      const box = el(`<div class="vgroup">${kind === "page" || kind === "signed-out" ? "" : `<span class="vkind">${KIND_LABEL[kind]}</span>`}</div>`);
+      for (const v of group) box.append(el(`<a href="${pageHref(page.id, v.id)}" aria-current="${v === view}" title="${esc(v.label)} · changed in ${plural(changesOf(v), "snapshot")}">${esc(kind === "page" ? "Whole page" : v.label)}</a>`));
+      nav.append(box);
     }
 
     const detail = wrap.querySelector(".detail");
-    detail.append(el(`<div class="h2">${esc(view.label)} over time</div>`));
+
     const strip = el('<div class="strip"></div>');
     const series = seriesFor(`${page.id}${view.id === "page" ? "" : " · " + view.label}`, view);
     playBtn.addEventListener("click", () => { const first = series.frames.findIndex(Boolean); if (first >= 0) openLightbox(series, first, true); });
@@ -1015,7 +1034,6 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     detail.append(strip);
     const withShots = snaps.filter((s, i) => img(view.shots[s.id]) && (state.showSame || viewStatus(view, i).kind !== "same"));
     if (withShots.length >= 2) {
-      detail.append(el('<div class="h2" style="margin-top:10px">Compare two points in time</div>'));
       detail.append(compare(view, withShots));
     }
     pad.append(wrap);
@@ -1024,7 +1042,8 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 
   function compare(view, withShots) {
     const options = (sel) => withShots.map((s) => `<option value="${s.id}" ${s.id === sel ? "selected" : ""}>${esc(s.date)} · ${esc(s.id)}</option>`).join("");
-    const box = el(`<div class="compare"><div class="controls"><select class="field">${options(withShots[0].id)}</select><span class="cmphint">Drag the line over the image</span><select class="field">${options(withShots[withShots.length - 1].id)}</select></div>
+    const box = el(`<div class="compare"><div class="cmptitle"><h2 class="h2big">Compare two points in time</h2><span class="spacer"></span><button class="btn" data-full title="Fill the window (Esc to leave)">Full screen</button></div>
+      <div class="controls"><select class="field">${options(withShots[0].id)}</select><span class="cmphint">Drag the line over the image</span><select class="field">${options(withShots[withShots.length - 1].id)}</select></div>
       <div class="stage"><img class="before" alt=""><img class="after" alt=""><canvas class="tintc"></canvas><div class="handle" role="slider" aria-label="Reveal" aria-valuemin="0" aria-valuemax="100" tabindex="0"><span class="grip">⟷</span></div></div></div>`);
     const [a, b] = box.querySelectorAll("select");
     const stage = box.querySelector(".stage"), before = box.querySelector(".before"), after = box.querySelector(".after"), handle = box.querySelector(".handle");
@@ -1063,6 +1082,21 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
       window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
     });
+    const fullBtn = box.querySelector("[data-full]");
+    const setFull = (on) => {
+      state.compareFull = on;
+      box.classList.toggle("full", on);
+      fullBtn.textContent = on ? "Exit full screen" : "Full screen";
+      if (on) { document.addEventListener("keydown", onEsc, true); stage.focus?.(); } else document.removeEventListener("keydown", onEsc, true);
+      requestAnimationFrame(retint);
+    };
+    const onEsc = (e) => {
+      if (!box.isConnected) { document.removeEventListener("keydown", onEsc, true); return; } // replaced by a re-render
+      if (e.key === "Escape" && !lb.box.classList.contains("open")) { e.preventDefault(); e.stopPropagation(); setFull(false); }
+    };
+    fullBtn.addEventListener("click", () => setFull(!box.classList.contains("full")));
+    if (state.compareFull) setFull(true); // kept across re-renders (a resize), dropped when leaving the page
+    window.addEventListener("hashchange", () => setFull(false), { once: true });
     handle.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") { split = Math.max(0, split - 2); paint(); } if (e.key === "ArrowRight") { split = Math.min(100, split + 2); paint(); } });
     load();
     return box;
