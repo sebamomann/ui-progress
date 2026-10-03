@@ -13,7 +13,7 @@ import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, pendingState, renderPending, sessionStart, stop } from "./forward.mjs";
 import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
-import { STORE, dedupe, gc, relinkAfter } from "./reuse.mjs";
+import { STORE, dedupe, gc, migrateStore, relinkAfter } from "./reuse.mjs";
 import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
 import { AGENT_TASKS, appendRun, duration, estimate, noteAgent, parseDuration, renderStats, summarize } from "./stats.mjs";
@@ -42,9 +42,9 @@ Capturing
                                 a commit that does not build is replaced by the next one
                                 that does (config run.fallback) and kept in unbuildable.json
   status                        what is planned, done and failed
-  dedupe [--no-visual]          move the screenshots of snapshots made before 1.3.0 into the
-                                shared store and share what can be shared: copies, pages
+  dedupe [--no-visual]          share what can be shared across the whole history: pages
                                 with unchanged source, pages that look exactly the same
+                                (older snapshots move into the store on their own)
   gc                            delete stored screenshots no snapshot refers to any more
                                 (runs after every snapshot batch on its own)
   unbuildable [list]            commits recorded as not building, and what stands in for them
@@ -255,6 +255,7 @@ async function snapshot(flags, positional) {
     return;
   }
   ensureClone(p); // once, here: the parallel workers must not race to create or fetch it
+  migrated(p);
   const wanted = Math.max(1, Number(flags.concurrency ?? config.run.concurrency));
   const concurrency = concurrencyFor(wanted, flags["ignore-memory"]);
   if (concurrency < wanted) console.log(`This machine has ${Math.round(os.totalmem() / 2 ** 30)} GB of memory: running ${concurrency} at a time instead of ${wanted} (override with --ignore-memory).`);
@@ -342,6 +343,12 @@ async function snapshot(flags, positional) {
   appendRun(p, { kind: "batch", command: `ui-progress snapshot ${process.argv.slice(3).join(" ")}`.trim(), started: new Date(started).toISOString(), seconds: Math.round((Date.now() - started) / 1000), snapshots: shas.length, ok: done - failed, failed, standIns, concurrency: Math.min(concurrency, shas.length) });
   console.log(`\nDone in ${Math.round((Date.now() - started) / 60000)} min: ${done - failed} captured, ${failed} failed.`);
   if (failed) console.log("Failures are recorded as findings: ui-progress finding list");
+}
+
+/** Bring an older version's snapshot folders into today's layout (under the lock). */
+function migrated(p) {
+  const { moved } = migrateStore(p);
+  if (moved) console.log(`Moved ${moved} screenshot reference(s) of snapshots made by an older version into the store (snapshots/${STORE}/).`);
 }
 
 const megabytes = (bytes) => `${(bytes / 2 ** 20).toFixed(1)} MB`;
@@ -434,6 +441,17 @@ async function lineage(flags, [sub]) {
 async function doBuild() {
   const { p, config } = context();
   const adapter = await loadAdapter(p);
+  // Migrating rewrites manifests, so it needs the lock; the build itself reads every layout.
+  let release = null;
+  try {
+    release = acquireLock(p, "ui-progress build");
+  } catch {
+    console.log("Another ui-progress run holds the lock: building without bringing older snapshots into the store.");
+  }
+  if (release) {
+    migrated(p);
+    release();
+  }
   const result = await build(p, config, adapter, { log: (m) => console.log("  " + m) });
   console.log(`\n${result.snapshots} snapshots, ${result.captured} pages captured (${result.pages} known), ${result.views} views, lineage ${JSON.stringify(result.edges)}`);
   if (result.corrections) console.log(`${result.corrections} lineage edge(s) disagree with the snapshots and were re-placed in the viewer. See: ui-progress lineage check`);
@@ -502,6 +520,7 @@ export async function main(argv) {
     else if (command === "gc") {
       const { p } = context();
       acquireLock(p, "ui-progress gc");
+      migrated(p);
       const freed = gc(p);
       console.log(`Removed ${freed.files} screenshot(s) nothing refers to (${megabytes(freed.bytes)}).`);
     }

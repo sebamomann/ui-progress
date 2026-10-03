@@ -1,6 +1,7 @@
 /**
- * Screenshots live in one shared store, snapshots/_store/<hash>.png, named by the hash of
- * their bytes. A manifest refers to them as "_store/<hash>.png"; no snapshot owns a file,
+ * Screenshots live in one shared store, snapshots/_store/<ab>/<hash>.png, named by the hash
+ * of their bytes (in subfolders by the first two digits, as git does). A manifest refers to
+ * them as "_store/<ab>/<hash>.png"; no snapshot owns a file,
  * so capturing a snapshot again or deleting one never touches another.
  *
  * Whether a page needs rendering at all is decided from its source, not its pixels (two
@@ -9,7 +10,8 @@
  * `copiedFrom`, with the same references.
  *
  * Manifests written before the store keep file names relative to their own shots/ folder;
- * `shotPath` resolves both. Files nothing refers to any more are removed by `gc`.
+ * `shotPath` resolves both, and `migrateStore` brings them in. Files nothing refers to any
+ * more are removed by `gc`.
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -39,24 +41,37 @@ function mapFiles(entry, fn) {
   }
 }
 
+/** The reference of a stored file: in a subfolder named by the first two hex digits, as git does. */
+const refOf = (hash) => `${STORE}/${hash.slice(0, 2)}/${hash}.png`;
+/** Stored references of 1.3.0, before the subfolders: "_store/<hash>.png". */
+const isFlat = (file) => isStored(file) && !file.slice(STORE.length + 1).includes("/");
+
 /**
  * Put a file into the store and return its reference. `move` takes the file away (a fresh
- * render); otherwise it is copied (a file another snapshot's folder still lists).
+ * render); otherwise the source stays where it is (a file a manifest still lists there),
+ * and is hard-linked in where the file system allows it, else copied.
  */
 export function storeFile(p, src, { move = false } = {}) {
   const hash = crypto.createHash("sha256").update(fs.readFileSync(src)).digest("hex").slice(0, 32);
-  const ref = `${STORE}/${hash}.png`;
+  const ref = refOf(hash);
   const dest = path.join(p.snapshots, ref);
-  fs.mkdirSync(storeDir(p), { recursive: true });
   if (fs.existsSync(dest)) { if (move) fs.rmSync(src); }
-  else if (move) fs.renameSync(src, dest);
-  else {
-    // Parallel captures may store the same file: only a complete file ever has the name.
-    const temp = `${dest}.${process.pid}.tmp`;
-    fs.copyFileSync(src, temp);
-    fs.renameSync(temp, dest);
-  }
+  else if (move) { fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.renameSync(src, dest); }
+  else place(src, dest);
   return ref;
+}
+
+/**
+ * Give `src` a second name `dest`: a hard link where the file system allows it, else a
+ * copy. Only a complete file ever has the name, even if parallel captures store the same
+ * file or the run is interrupted.
+ */
+function place(src, dest) {
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  const temp = `${dest}.${process.pid}.tmp`;
+  fs.rmSync(temp, { force: true });
+  try { fs.linkSync(src, temp); } catch { fs.copyFileSync(src, temp); }
+  fs.renameSync(temp, dest);
 }
 
 /** Move the screenshots a capture rendered into the store and point the entry at them. */
@@ -115,28 +130,88 @@ export function unchangedRoutes(p, config, { deps, from, to, read }) {
   return { routes: unchanged, changed: changed.length, namespaces: [...changedNamespaces] };
 }
 
+/** Every file in the store, as references, subfolders and 1.3.0's flat files alike. */
+function storedFiles(p) {
+  const out = [];
+  if (!fs.existsSync(storeDir(p))) return out;
+  for (const entry of fs.readdirSync(storeDir(p), { withFileTypes: true })) {
+    if (entry.isDirectory()) for (const file of fs.readdirSync(path.join(storeDir(p), entry.name))) out.push(`${STORE}/${entry.name}/${file}`);
+    else out.push(`${STORE}/${entry.name}`);
+  }
+  return out;
+}
+
 /**
  * Delete the stored screenshots no manifest refers to: those of snapshots captured again
  * or deleted. Every manifest counts, finished or not. Run under the repository lock only,
  * so no capture is between storing a file and writing the manifest that lists it.
  */
 export function gc(p) {
-  if (!fs.existsSync(storeDir(p))) return { files: 0, bytes: 0 };
   const used = new Set();
-  for (const short of fs.readdirSync(p.snapshots)) {
+  for (const short of fs.existsSync(p.snapshots) ? fs.readdirSync(p.snapshots) : []) {
     if (short === STORE) continue;
     const manifest = readJson(manifestFile(p, short));
-    for (const entry of manifest?.routes ?? []) for (const f of entryFiles(entry)) if (isStored(f)) used.add(path.basename(f));
+    for (const entry of manifest?.routes ?? []) for (const f of entryFiles(entry)) if (isStored(f)) used.add(f);
   }
   let files = 0, bytes = 0;
-  for (const file of fs.readdirSync(storeDir(p))) {
-    if (used.has(file)) continue;
-    const full = path.join(storeDir(p), file);
+  for (const ref of storedFiles(p)) {
+    if (used.has(ref)) continue;
+    const full = path.join(p.snapshots, ref);
     bytes += fs.statSync(full).size;
     fs.rmSync(full);
     files++;
   }
+  for (const dir of fs.existsSync(storeDir(p)) ? fs.readdirSync(storeDir(p), { withFileTypes: true }) : []) {
+    if (dir.isDirectory() && !fs.readdirSync(path.join(storeDir(p), dir.name)).length) fs.rmdirSync(path.join(storeDir(p), dir.name));
+  }
   return { files, bytes };
+}
+
+/**
+ * Bring what older versions left into today's layout; runs on its own at the start of
+ * every command that reads or writes snapshots, so updating needs no step of its own:
+ *   - 1.3.0's flat "_store/<hash>.png" references move into the subfolders
+ *   - screenshots a finished snapshot keeps in its own folder (before 1.3.0) move into the
+ *     store; copies of pages copied forward collapse into one file there
+ * Lossless and safe to interrupt: files are linked into their new place first, then every
+ * manifest is rewritten, and only then are the old files removed. Returns what it moved.
+ */
+export function migrateStore(p) {
+  const all = load(p);
+  const old = new Set();
+  let moved = 0;
+  for (const s of all.values()) {
+    for (const entry of s.manifest.routes ?? []) {
+      mapFiles(entry, (f) => {
+        if (isFlat(f)) {
+          // The name is the hash already: link it into its subfolder.
+          const src = path.join(p.snapshots, f), ref = refOf(path.basename(f, ".png"));
+          if (!fs.existsSync(path.join(p.snapshots, ref))) {
+            if (!fs.existsSync(src)) return f; // gone: left for the build to report
+            place(src, path.join(p.snapshots, ref));
+          }
+          old.add(src);
+          s.dirty = true;
+          moved++;
+          return ref;
+        }
+        if (!isStored(f) && s.done) {
+          const src = shotPath(p, s.short, f);
+          if (!fs.existsSync(src)) return f;
+          old.add(src);
+          s.dirty = true;
+          moved++;
+          return storeFile(p, src);
+        }
+        return f;
+      });
+    }
+  }
+  save(p, all);
+  for (const file of old) fs.rmSync(file, { force: true });
+  // Flat files no manifest listed, and temporary files of an interrupted run.
+  for (const ref of storedFiles(p)) if (isFlat(ref) || ref.endsWith(".tmp")) fs.rmSync(path.join(p.snapshots, ref), { force: true });
+  return { moved, files: old.size };
 }
 
 const isAncestor = (p, a, b) => { try { git(p.repo, "merge-base", "--is-ancestor", a, b); return true; } catch { return false; } };
@@ -294,28 +369,15 @@ export async function looksTheSame(p, short, entry, from, before, identical) {
 /**
  * Bring snapshots made before the store into it, and share what can be shared across the
  * whole history (`ui-progress dedupe`):
- *   1. every file a finished snapshot's manifest lists in its own folder moves into the
- *      store; copies of pages copied forward collapse into one file there
+ *   1. `migrateStore` (which every command runs anyway)
  *   2. relinking over all snapshots, oldest first (see `relink`): with `identical`, pages
  *      a snapshot rendered that look exactly as in the snapshot before share its entry
- *   4. gc
+ *   3. gc
  * Idempotent: a second run finds nothing to do.
  */
 export async function dedupe(p, config, { identical = null, log = () => {} } = {}) {
-  const all = load(p);
-  let moved = 0;
-  for (const s of all.values()) {
-    if (!s.done) continue;
-    for (const entry of s.manifest.routes ?? []) {
-      const own = entryFiles(entry).filter((f) => !isStored(f));
-      if (!own.length) continue;
-      ingest(p, s.short, entry);
-      moved += own.length;
-      s.dirty = true;
-    }
-  }
-  save(p, all);
-  log(`moved ${moved} screenshot(s) into the store`);
+  const { moved } = migrateStore(p);
+  log(`moved ${moved} screenshot reference(s) into the store`);
   // One pass, oldest first: each snapshot is final before the one after it is compared.
   const fresh = load(p);
   const remove = [];

@@ -2,7 +2,8 @@
  * Turn the snapshots into the dataset the viewer reads, and install the viewer next to it:
  *   .ui-progress/viewer/index.html
  *   .ui-progress/viewer/data/history.js    window.UI_HISTORY = {...}
- *   .ui-progress/viewer/data/img/<sha>/    thumbnails and mid-size images (webp)
+ *   .ui-progress/viewer/data/img/_store/   thumbnails and mid-size images (webp), placed
+ *                                          like their screenshots in the store
  * Full-size PNGs stay in .ui-progress/snapshots (the shared store, snapshots/_store) and
  * are referenced relatively.
  *
@@ -14,7 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireDep } from "./deps.mjs";
 import { imageComparer } from "./imagediff.mjs";
-import { STORE, isStored, shotPath } from "./reuse.mjs";
+import { isStored, shotPath } from "./reuse.mjs";
 import { routeRegex, sectionOf } from "./routes.mjs";
 import { isCommitSnapshot } from "./snapshot.mjs";
 import { summarize } from "./stats.mjs";
@@ -194,14 +195,16 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
       for (const [viewport, file] of Object.entries(files)) {
         const src = shotPath(p, snap.id, file);
         if (!fs.existsSync(src)) throw new Error(`${path.relative(p.snapshots, src)} is missing`);
+        // A stored file's thumbnails mirror its place in the store: img/_store/<ab>/.
         const stored = isStored(file);
-        const imgDir = path.join(dataDir, "img", stored ? STORE : snap.id);
-        const imgBase = `data/img/${stored ? STORE : snap.id}`;
+        const folder = stored ? path.posix.dirname(file) : snap.id;
+        const imgDir = path.join(dataDir, "img", ...folder.split("/"));
+        const imgBase = `data/img/${folder.split("/").map(encodeURIComponent).join("/")}`;
         fs.mkdirSync(imgDir, { recursive: true });
         const stem = path.basename(file, ".png");
         await derive(src, path.join(imgDir, `${stem}.card.webp`), { ...cardSize(viewport), fit: "cover", position: "top" });
         produced.add(path.join(imgDir, `${stem}.card.webp`));
-        const full = stored ? `../snapshots/${STORE}/${encodeURIComponent(path.basename(file))}` : `../snapshots/${snap.id}/shots/${encodeURIComponent(file)}`;
+        const full = stored ? `../snapshots/${file.split("/").map(encodeURIComponent).join("/")}` : `../snapshots/${snap.id}/shots/${encodeURIComponent(file)}`;
         out[viewport] = { full, card: `${imgBase}/${encodeURIComponent(stem)}.card.webp` };
         if (!cardOnly) {
           await derive(src, path.join(imgDir, `${stem}.mid.webp`), { width: midWidth(viewport), withoutEnlargement: true });
@@ -277,11 +280,15 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
   // are gone. Those of a snapshot left out of this build stay for the next one.
   const keep = new Set(broken.map((s) => s.id));
   const imgRoot = path.join(dataDir, "img");
-  for (const dir of fs.existsSync(imgRoot) ? fs.readdirSync(imgRoot) : []) {
-    if (keep.has(dir)) continue;
-    for (const file of fs.readdirSync(path.join(imgRoot, dir))) if (!produced.has(path.join(imgRoot, dir, file))) fs.rmSync(path.join(imgRoot, dir, file), { force: true });
-    if (!fs.readdirSync(path.join(imgRoot, dir)).length) fs.rmdirSync(path.join(imgRoot, dir));
-  }
+  const prune = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) prune(full);
+      else if (!produced.has(full)) fs.rmSync(full, { force: true });
+    }
+    if (dir !== imgRoot && !fs.readdirSync(dir).length) fs.rmdirSync(dir);
+  };
+  for (const dir of fs.existsSync(imgRoot) ? fs.readdirSync(imgRoot) : []) if (!keep.has(dir)) prune(path.join(imgRoot, dir));
 
   // How much each view changed since the previous snapshot it appears in, which blocks
   // changed, and (for the page itself) which source files changed in between.
