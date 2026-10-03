@@ -12,7 +12,7 @@ import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, sessionStart, stop } from "./forward.mjs";
 import { candidates, checkLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
-import { captureLive, depsReady, ensureClone, isDone, runSnapshot, snapshotDir } from "./snapshot.mjs";
+import { depsReady, ensureClone, isDone, runSnapshot, snapshotDir } from "./snapshot.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,11 +34,6 @@ Capturing
   snapshot <sha...>             capture specific commits
   snapshot --plan               capture every planned commit that is not done yet
       [--concurrency N] [--force] [--limit N] [--ignore-memory]
-  snapshot --working-tree       HEAD plus uncommitted changes, built with a throwaway database
-  snapshot --live <url> --use-live-data
-                                photograph an app that is already running, with its own
-                                data (opt-in: snapshots otherwise never use your data)
-      [--states]                also click through it for dialogs and sections
   status                        what is planned, done and failed
 
 Keeping it current
@@ -149,16 +144,8 @@ async function snapshot(flags, positional) {
   const { p, config } = context();
   if (!depsReady()) throw new Error("Dependencies are missing. Run: ui-progress doctor --install");
   const adapter = await loadAdapter(p);
-  if (flags.live) {
-    const result = await captureLive(p, config, adapter, flags.live === true ? "http://localhost:3000" : flags.live, { states: Boolean(flags.states), useLiveData: Boolean(flags["use-live-data"]) });
-    console.log(`${result.short}: ${result.manifest.captured}/${result.manifest.routesTotal} pages, ${result.manifest.states} states${result.dirty ? " (working tree had uncommitted changes)" : ""}`);
-    return;
-  }
-  if (flags["working-tree"]) {
-    const result = await runSnapshot(p, config, adapter, "HEAD", { port: Number(flags.port ?? config.run.basePort), force: true, workingTree: true });
-    if (result.failed) { console.log(`FAILED in ${result.failed}: ${result.error}`); process.exitCode = 1; return; }
-    console.log(`${result.short}: ${result.manifest.captured}/${result.manifest.routesTotal} pages${result.manifest.reused ? ` (${result.manifest.reused} copied forward)` : ""}, ${result.manifest.states} states`);
-    return;
+  if (flags.live || flags["working-tree"]) {
+    throw new Error("Snapshots are always of a commit. Commit the change, then run: ui-progress snapshot HEAD");
   }
   let shas = positional;
   if (flags.plan) {

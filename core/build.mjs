@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireDep } from "./deps.mjs";
 import { routeRegex, sectionOf } from "./routes.mjs";
+import { isCommitSnapshot } from "./snapshot.mjs";
 import { git, readJson, VERSION } from "./util.mjs";
 
 const VIEWER_SOURCE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "viewer", "index.html");
@@ -128,8 +129,8 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
     const dir = path.join(p.snapshots, short);
     const info = readJson(path.join(dir, "snapshot.json"));
     const manifest = readJson(path.join(dir, "shots", "manifest.json"));
-    if (!fs.existsSync(path.join(dir, "OK")) || !info || !manifest) continue;
-    snapshots.push({ id: short, date: info.date, subject: info.subject, live: info.live ?? false, notes: info.notes ?? [], manifest });
+    if (!fs.existsSync(path.join(dir, "OK")) || !info || !manifest || !isCommitSnapshot(info)) continue;
+    snapshots.push({ id: short, date: info.date, subject: info.subject, notes: info.notes ?? [], manifest });
   }
   if (!snapshots.length) throw new Error("No finished snapshots yet. Run: ui-progress snapshot --plan");
   // Same-day snapshots keep their commit order.

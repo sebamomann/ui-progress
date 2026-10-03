@@ -97,7 +97,7 @@ export function stop() {
     `ui-progress: ${what}, and the current state is not captured. ` +
     `If this changed how a page looks, or the set of pages: ` +
     (uncommitted
-      ? `the changes are not committed: capture them with \`ui-progress snapshot --working-tree\` (HEAD plus the uncommitted changes, with a throwaway database). Do not commit on your own. `
+      ? `the changes are not committed, and snapshots are always of a commit: tell the user a capture is due once they commit (then \`ui-progress snapshot HEAD\`). Do not commit on your own. `
       : `run \`ui-progress snapshot HEAD\`. `) +
     `If a page was added, removed, split, merged or renamed, add the edge to .ui-progress/lineage.json, then run \`ui-progress build\`. ` +
     `If nothing visible changed (a refactor, logic, tests), say so in one line and stop. This reminder appears once.`;
@@ -114,9 +114,8 @@ per commit, page lineage, and a viewer at \`.ui-progress/viewer/index.html\`).
 When your work changes how a page looks, or adds, removes, splits, merges or renames a
 page, capture it before you finish:
 
-1. After the change is committed: \`ui-progress snapshot HEAD\`
-   (for uncommitted work: \`ui-progress snapshot --working-tree\`). Snapshots use a throwaway
-   database; never point them at the project's own data.
+1. After the change is committed: \`ui-progress snapshot HEAD\`. Snapshots are always of a
+   commit and use a throwaway database; never point them at the project's own data.
 2. If the set of pages changed, add the relationship to \`.ui-progress/lineage.json\`
    (\`type\`: split, extract, merge, replace, rename or clone; \`from\`, \`to\`, \`sha\`, \`date\`,
    \`confidence\`, and one or two sentences of \`evidence\`).

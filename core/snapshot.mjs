@@ -29,6 +29,8 @@ export function ensureClone(p, { refresh = true } = {}) {
 export function snapshotDir(p, short) {
   return path.join(p.snapshots, short);
 }
+/** Older versions could also capture a running app or uncommitted changes; those are not commits. */
+export const isCommitSnapshot = (info) => !info.live && !info.workingTree;
 export const isDone = (p, short) => fs.existsSync(path.join(snapshotDir(p, short), "OK"));
 
 /** The finished snapshot nearest below this commit in history, if any. */
@@ -36,7 +38,7 @@ function previousSnapshot(p, full) {
   let best = null;
   for (const short of fs.existsSync(p.snapshots) ? fs.readdirSync(p.snapshots) : []) {
     const info = readJson(path.join(snapshotDir(p, short), "snapshot.json"));
-    if (!info || !isDone(p, short) || info.live || info.sha === full) continue;
+    if (!info || !isDone(p, short) || !isCommitSnapshot(info) || info.sha === full) continue;
     try {
       git(p.repo, "merge-base", "--is-ancestor", info.sha, full);
     } catch {
@@ -103,27 +105,10 @@ function planReuse(p, config, adapter, ctx, full) {
   return { routes: reusable, from: previous.short, dir: path.join(prevDir, "shots"), manifest: prevManifest };
 }
 
-/** Tracked and untracked changes in the working tree, relative to HEAD (ignored files excluded). */
-function workingChanges(repo) {
-  const out = git(repo, "status", "--porcelain", "-z", "--untracked-files=all");
-  const changes = [];
-  const parts = out.split("\0").filter(Boolean);
-  for (let i = 0; i < parts.length; i++) {
-    const code = parts[i].slice(0, 2), file = parts[i].slice(3);
-    if (code[0] === "R" || code[0] === "C") i++; // the next entry is the original path
-    if (file.startsWith(".ui-progress/")) continue;
-    changes.push({ file, deleted: code.includes("D") });
-  }
-  return changes;
-}
-
-export async function runSnapshot(p, config, adapter, sha, { port, force = false, refreshClone = true, workingTree = false } = {}) {
+export async function runSnapshot(p, config, adapter, sha, { port, force = false, refreshClone = true } = {}) {
   const full = git(p.repo, "rev-parse", sha).trim();
-  const headShort = git(p.repo, "rev-parse", "--short=8", full).trim();
-  // A working-tree snapshot: HEAD plus the uncommitted changes, built like any other commit.
-  const short = workingTree ? `${headShort}-wip` : headShort;
-  let [date, subject] = git(p.repo, "log", "-1", "--format=%ad|%s", "--date=short", full).trim().split(/\|(.*)/s);
-  if (workingTree) { date = new Date().toISOString().slice(0, 10); subject = `uncommitted changes on top of ${headShort}`; }
+  const short = git(p.repo, "rev-parse", "--short=8", full).trim();
+  const [date, subject] = git(p.repo, "log", "-1", "--format=%ad|%s", "--date=short", full).trim().split(/\|(.*)/s);
   const out = snapshotDir(p, short);
   if (isDone(p, short) && !force) return { short, skipped: true };
 
@@ -198,15 +183,6 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       }
       fs.rmSync(dir, { recursive: true, force: true });
       git(clone, "worktree", "add", "--detach", "--quiet", dir, full);
-      if (workingTree) {
-        const changes = workingChanges(p.repo);
-        for (const { file, deleted } of changes) {
-          const target = path.join(dir, file);
-          if (deleted) fs.rmSync(target, { force: true });
-          else { fs.mkdirSync(path.dirname(target), { recursive: true }); fs.copyFileSync(path.join(p.repo, file), target); }
-        }
-        log(`applied ${changes.length} uncommitted change(s) from the working tree`);
-      }
     });
     if (adapter.install) await timed("install", () => adapter.install(ctx));
     if (adapter.seed) await timed("seed", () => adapter.seed(ctx));
@@ -231,7 +207,6 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       short,
       date,
       subject,
-      workingTree,
       timings,
       pages: manifest.routesTotal,
       captured: manifest.captured,
@@ -271,35 +246,6 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       }
     }
   }
-}
-
-/** Capture an app that is already running (the working tree as it is now). */
-export async function captureLive(p, config, adapter, baseUrl, { states = false, useLiveData = false } = {}) {
-  if ((config.data?.isolation ?? "throwaway") !== "shared" && !useLiveData) {
-    throw new Error(
-      "A live capture photographs your running app with its own (development) data. ui-progress builds its own dataset in a throwaway database instead.\n" +
-        "For uncommitted work use:  ui-progress snapshot --working-tree\n" +
-        "Only if you want your dev data in the history, add --use-live-data (or set data.isolation to \"shared\").",
-    );
-  }
-  // The running app holds the developer's own data: look, but do not click around in it
-  // unless asked to.
-  config = { ...config, capture: { ...config.capture, states: { ...config.capture.states, enabled: states && config.capture.states.enabled } } };
-  const full = git(p.repo, "rev-parse", "HEAD").trim();
-  const short = git(p.repo, "rev-parse", "--short=8", full).trim();
-  const [date, subject] = git(p.repo, "log", "-1", "--format=%ad|%s", "--date=short", full).trim().split(/\|(.*)/s);
-  const dirty = git(p.repo, "status", "--porcelain").trim().length > 0;
-  const out = snapshotDir(p, short);
-  fs.rmSync(out, { recursive: true, force: true });
-  fs.mkdirSync(out, { recursive: true });
-  const logFile = path.join(out, "run.log");
-  const log = (message) => fs.appendFileSync(logFile, `${message}\n`);
-  const ctx = { sha: full, short, date, subject, dir: p.repo, out, repo: p.repo, baseUrl, config, routes, state: {}, live: true, log, has: (f) => fs.existsSync(path.join(p.repo, f)), read: (f) => fs.readFileSync(path.join(p.repo, f), "utf8"), require: (name) => createRequire(path.join(p.repo, "package.json"))(name) };
-  const screens = readJson(path.join(p.root, "screens.json"), []);
-  const manifest = await capture({ baseUrl: baseUrl.replace(/\/$/, ""), outDir: path.join(out, "shots"), config, adapter, ctx, screens, log });
-  writeJson(path.join(out, "snapshot.json"), { sha: full, short, date, subject, live: true, dirty, pages: manifest.routesTotal, captured: manifest.captured, states: manifest.states, skipped: manifest.skipped });
-  fs.writeFileSync(path.join(out, "OK"), "");
-  return { short, date, manifest, dirty };
 }
 
 export const depsReady = () => hasDep("playwright") && hasDep("sharp");

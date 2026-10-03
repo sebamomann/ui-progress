@@ -65,18 +65,20 @@ Nothing to configure. With the plugin enabled, two hooks run in every tracked re
 - **When Claude is about to finish** and UI files changed during the session without a
   capture, it is sent back once: capture, or state that nothing visible changed.
 
-So after a UI change Claude captures the new state on its own:
+So after a committed UI change Claude captures the new state on its own:
 
 ```
 ui-progress snapshot HEAD             # the commit, built with a throwaway database
-ui-progress snapshot --working-tree   # the same, plus your uncommitted changes
 ui-progress build
 ```
 
-Snapshots never use your development, test or production databases: each builds its own
-data in a throwaway database, and ui-progress refuses to run if a command would reach one of
-the project's own databases. Photographing your running app with its own data is possible
-(`snapshot --live <url> --use-live-data`), but only on request.
+Every snapshot is of a commit. Uncommitted changes are not captured; Claude tells you a
+capture is due once you commit, and never commits on your behalf.
+
+Snapshots never use your development, test or production databases, and never photograph
+an app you are running: each checks out the commit, builds its own data in a throwaway
+database, and ui-progress refuses to run if a command would reach one of the project's own
+databases.
 
 Set `"forward": { "mode": "remind" }` (note only) or `"off"` in `config.json` to tone this
 down. Agents that do not load the plugin (another tool, a teammate without it) can get the
