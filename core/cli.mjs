@@ -6,7 +6,8 @@ import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { build } from "./build.mjs";
 import { DEFAULTS, findRepo, loadAdapter, loadConfig, paths } from "./config.mjs";
-import { DEPS_DIR, PACKAGES, hasDep } from "./deps.mjs";
+import { DEPS_DIR, PACKAGES, hasDep, requireDep } from "./deps.mjs";
+import { imageComparer } from "./imagediff.mjs";
 import { addFinding, dropFailure, exportFindings, listFindings, resolveFinding, signatureOf } from "./findings.mjs";
 import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, pendingState, renderPending, sessionStart, stop } from "./forward.mjs";
@@ -331,7 +332,7 @@ async function snapshot(flags, positional) {
   await Promise.all(Array.from({ length: Math.min(concurrency, shas.length) }, (_, i) => worker(i)));
   // A snapshot captured between two others: the next one may show pages it rendered itself
   // that are unchanged since the new one. They take over the new one's screenshots.
-  for (const r of captured.length ? relinkAfter(p, config, captured) : []) console.log(`${r.short}: ${r.routes.length} page(s) unchanged since ${r.from} now show its screenshots`);
+  for (const r of captured.length ? await relinkAfter(p, config, captured, { identical: imageComparer(requireDep("sharp")).identical }) : []) console.log(`${r.short}: ${r.routes.length} page(s) unchanged since ${r.from} now show its screenshots`);
   // Screenshots of snapshots captured again, and of failed attempts, are no longer referred to.
   const freed = gc(p);
   if (freed.files) console.log(`Removed ${freed.files} screenshot(s) nothing refers to any more (${megabytes(freed.bytes)}).`);

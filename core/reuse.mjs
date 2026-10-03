@@ -206,28 +206,38 @@ function chain(p, all) {
 const sameFiles = (a, b) => JSON.stringify(entryFiles(a)) === JSON.stringify(entryFiles(b));
 
 /**
- * Give `later` the entries of `earlier` (its nearest finished ancestor) for the pages whose
- * source did not change between the two but whose screenshots differ: a page `later`
- * rendered while `earlier` did not exist yet, or rendered again after a full recapture.
- * Only manifests change; files of older manifests that drop out go to `remove`. Returns
- * the routes that changed.
+ * Give `later` the entries of `earlier` (its nearest finished ancestor) where they should
+ * show the same thing:
+ *   - an entry that is a reference (`copiedFrom`, `sameAs`) follows when the page's source
+ *     did not change between the two: it has no screenshots of its own to go by
+ *   - a page `later` rendered itself is evidence: it is shared only when it looks exactly
+ *     the same (`identical`, see imagediff.mjs), whatever the source says, since a render
+ *     that differs means something outside the page's files changed
+ * Never at the cost of a view: a state or variant only `later` has keeps its entry. The
+ * entry keeps its own URL. Only manifests change; files of manifests older than the store
+ * that drop out go to `remove`. Returns the routes that changed.
  */
-function relink(p, config, earlier, later, remove) {
+async function relink(p, config, earlier, later, remove, identical) {
   if (JSON.stringify(earlier.manifest.viewports) !== JSON.stringify(later.manifest.viewports)) return [];
-  const deps = readJson(path.join(p.snapshots, later.short, "deps.json"));
-  if (!deps) return [];
-  const result = unchangedRoutes(p, config, { deps, from: earlier.sha, to: later.sha, read: (file) => git(p.repo, "show", `${later.sha}:${file}`) });
-  if (!result.routes) return [];
+  let unchanged;
+  const sourceUnchanged = (route) => {
+    if (unchanged === undefined) {
+      const deps = readJson(path.join(p.snapshots, later.short, "deps.json"));
+      unchanged = deps ? unchangedRoutes(p, config, { deps, from: earlier.sha, to: later.sha, read: (file) => git(p.repo, "show", `${later.sha}:${file}`) }).routes ?? null : null;
+    }
+    return Boolean(unchanged?.has(route));
+  };
   const changed = [];
   for (const [i, entry] of later.manifest.routes.entries()) {
-    if (!result.routes.has(entry.route) || !Object.keys(entry.variants ?? {}).length) continue;
+    if (!Object.keys(entry.variants ?? {}).length) continue;
     const before = earlier.manifest.routes.find((r) => r.route === entry.route);
-    if (!before || before.skipped || !Object.keys(before.variants ?? {}).length) continue;
-    const replacement = takeOver(p, earlier.short, before);
-    if (sameFiles(replacement, entry)) continue;
-    // A file of a manifest older than the store belongs to that folder alone.
+    if (!before || before.skipped || !Object.keys(before.variants ?? {}).length || sameFiles(before, entry)) continue;
+    const has = shape(before);
+    if ([...shape(entry).keys()].some((key) => !has.has(key))) continue;
+    const own = !entry.copiedFrom && !entry.sameAs;
+    if (own ? !(identical && (await looksTheSame(p, later.short, entry, earlier.short, before, identical))) : !sourceUnchanged(entry.route)) continue;
     for (const f of entryFiles(entry)) if (!isStored(f)) remove.push(shotPath(p, later.short, f));
-    later.manifest.routes[i] = replacement;
+    later.manifest.routes[i] = { ...takeOver(p, earlier.short, before, own ? "sameAs" : "copiedFrom"), url: entry.url };
     later.dirty = true;
     changed.push(entry.route);
   }
@@ -237,9 +247,10 @@ function relink(p, config, earlier, later, remove) {
 /**
  * Relink the snapshots after the ones in `shorts` (every snapshot when null), oldest
  * first: a changed snapshot is passed on to the one after it, so a whole run of snapshots
- * that showed a page unchanged keeps showing one picture. Returns [{ short, from, routes }].
+ * that showed a page unchanged keeps showing one picture. Pages a snapshot rendered itself
+ * are only compared with `identical`. Returns [{ short, from, routes }].
  */
-export function relinkAfter(p, config, shorts = null) {
+export async function relinkAfter(p, config, shorts = null, { identical = null } = {}) {
   const all = load(p);
   const fresh = new Set(shorts ?? []);
   const touched = new Set(fresh);
@@ -247,7 +258,7 @@ export function relinkAfter(p, config, shorts = null) {
   const remove = [];
   for (const { s, earlier } of chain(p, all)) {
     if (!earlier || (shorts && !touched.has(earlier.short) && !fresh.has(s.short))) continue;
-    const routes = relink(p, config, earlier, s, remove);
+    const routes = await relink(p, config, earlier, s, remove, identical);
     if (routes.length) { out.push({ short: s.short, from: earlier.short, routes }); touched.add(s.short); }
   }
   save(p, all);

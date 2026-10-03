@@ -239,7 +239,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
           const before = other.manifest.routes.find((r) => r.route === entry.route);
           if (!before || before.skipped || !(await looksTheSame(p, short, entry, other.short, before, identical))) continue;
           for (const f of entryFiles(entry)) fs.rmSync(shotPath(p, short, f), { force: true });
-          manifest.routes[i] = takeOver(p, other.short, before, "sameAs");
+          manifest.routes[i] = { ...takeOver(p, other.short, before, "sameAs"), url: entry.url };
           matched++;
           break;
         }
