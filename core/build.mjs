@@ -223,7 +223,7 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
 
   const pages = new Map();
   const page = (route) => {
-    if (!pages.has(route)) pages.set(route, { id: route, section: sectionOf(route), presence: {}, views: new Map(), history: [] });
+    if (!pages.has(route)) pages.set(route, { id: route, section: sectionOf(route), presence: {}, views: new Map(), history: [], life: [] });
     return pages.get(route);
   };
   const view = (record, id, kind, label) => {
