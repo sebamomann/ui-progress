@@ -56,10 +56,24 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     }
   }
 
+  // Hydration mismatches are mostly logged, not thrown, so the console is watched too.
+  const hydration = new RegExp(c.checks.hydration, "i");
   async function visit(page, url) {
     const errors = [];
-    const onError = (err) => errors.push(String(err.message ?? err).slice(0, 200));
+    let hydrationError = false;
+    const onError = (err) => {
+      const message = String(err.message ?? err);
+      if (hydration.test(message)) hydrationError = true;
+      errors.push(message.slice(0, 200));
+    };
+    const onConsole = (msg) => {
+      if (msg.type() === "error" && hydration.test(msg.text())) {
+        hydrationError = true;
+        errors.push(msg.text().slice(0, 200));
+      }
+    };
     page.on("pageerror", onError);
+    page.on("console", onConsole);
     let status = null;
     let failure = null;
     try {
@@ -72,8 +86,9 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       failure = String(err.message ?? err).split("\n")[0];
     }
     page.off("pageerror", onError);
+    page.off("console", onConsole);
     const finalPath = failure ? null : new URL(page.url()).pathname;
-    return { status, failure, finalPath, errors };
+    return { status, failure, finalPath, errors, hydrationError };
   }
 
   /** Does this URL answer for a signed-out visitor, without rendering it? */
@@ -374,7 +389,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       .catch(() => []);
   const signInPath = new RegExp(c.checks.signInPaths, "i");
   /** Issues worth a look, without the ones expected on this route. */
-  const suspectsOf = (issues, route) => issues.filter((i) => i !== "not-found" && !(i === "sign-in form" && signInPath.test(route)));
+  const suspectsOf = (issues, route, res) => [...issues.filter((i) => i !== "not-found" && !(i === "sign-in form" && signInPath.test(route))), ...(res.hydrationError ? ["hydration error"] : [])];
 
   // ---------- Routes ----------
   const hints = (await adapter.resolve?.(ctx)) ?? {};
@@ -472,7 +487,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         publicText = await textOf(worker.anon[primaryScheme]);
         for (const scheme of schemes) if (scheme !== primaryScheme) await visit(worker.anon[scheme], url);
         entry.variants.public = { files: await shootPage(worker.anon, `${slug(route)}.public`) };
-        const suspects = suspectsOf(issues, route);
+        const suspects = suspectsOf(issues, route, res);
         if (suspects.length) entry.variants.public.suspects = suspects;
         (await collectLinks(worker.anon[primaryScheme])).forEach((l) => links.add(l));
       }
@@ -492,7 +507,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
           if (!entry.variants.public) Object.assign(entry, res);
           for (const scheme of schemes) if (scheme !== primaryScheme) await visit(worker.user[scheme], url);
           entry.variants.user = { files: await shootPage(worker.user, `${slug(route)}.user`) };
-          const suspects = suspectsOf(issues, route);
+          const suspects = suspectsOf(issues, route, res);
           if (suspects.length) entry.variants.user.suspects = suspects;
           (await collectLinks(page)).forEach((l) => links.add(l));
         }

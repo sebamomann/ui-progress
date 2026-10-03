@@ -42,12 +42,14 @@ export const DEFAULTS = {
       "|mark as|markieren|accept|annehmen|decline|ablehnen|reject|absagen|confirm|bestätigen|send|senden|save|speichern|submit|apply|anwenden|snooze|follow|folgen|publish|veröffentlichen",
     // Cheap checks after every page load. notFound: title or main heading of a page that
     // says it does not exist (also when it answered 200). errorSelectors: dev-server error
-    // overlays and framework error pages. Pages that match are skipped or marked as suspect.
+    // overlays and framework error pages. hydration: page errors and console errors that
+    // report a server/client render mismatch. Pages that match are skipped or marked as suspect.
     checks: {
       notFound: "\\b404\\b|not found|page not found|does not exist|nicht gefunden|introuvable|no encontrad|non trovat|não encontrad|niet gevonden|nie znaleziono|見つかりません|找不到|не найден",
       errorSelectors: ["vite-error-overlay", "#webpack-dev-server-client-overlay", "[data-nextjs-dialog-overlay]", "#__next_error__", "#traceback", ".exception_value"],
       errorTitle: "traceback|exception|internal server error|application error|unhandled runtime error|server error|fatal error|\\b500\\b",
       signInPaths: "login|log-in|signin|sign-in|signup|sign-up|register|auth|password|account/new",
+      hydration: "hydrat|did not match\\. Server|server (rendered )?HTML|Minified React error #(418|419|421|422|423|425)",
     },
     hide: ["nextjs-portal", "#__next-build-watcher", "vite-error-overlay", "#djDebug"],
     locale: "en-US",
