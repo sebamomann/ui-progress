@@ -1,6 +1,9 @@
-# ui-progress
+# UI Progress
 
-A Claude Code plugin that records how a website's UI evolved and lets you browse it.
+**A visual history of your web app, rebuilt from git.** A Claude Code plugin that
+screenshots every page of your site at past commits, shows how the UI evolved on a
+timeline with before/after comparisons, works out which pages were split, merged or
+renamed, and keeps the record current as you commit.
 
 You build a site for months and have no picture of what it used to look like, when a page
 appeared, or which page another one grew out of. ui-progress rebuilds that from your git
@@ -147,7 +150,7 @@ bin/ui-progress   the command
 core/             generic engine: plan, snapshot, capture, lineage, build, findings
 viewer/           the viewer (copied into each project on build)
 templates/        files written by `init`
-skills/           the skill that tells Claude how to use all this
+skills/history/   the skill that tells Claude how to use all this (/ui-progress:history)
 hooks/            tell the agent a repository is tracked, and send it back to capture after UI changes
 examples/         a worked example adapter
 docs/             guides

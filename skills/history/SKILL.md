@@ -1,6 +1,6 @@
 ---
-name: ui-progress
-description: Track and visualise how a website's UI evolved. Use when the user wants screenshots of their site across its git history, a timeline or graph of pages being added, removed, split or merged, to set up UI history tracking in a repository, to backfill it from old commits, or to capture the current state after a UI change. Also use at the end of a session that changed how a page looks or changed the set of pages, in a repository that has a .ui-progress/ folder.
+name: history
+description: Screenshot every page of a web app at past commits and see how its UI evolved — a visual timeline, before/after comparisons, and a graph of pages added, split, merged or renamed. Works with any web stack. Use to set up UI history tracking in a git repository, backfill it from old commits, capture the latest commit after UI changes, or record page lineage. Also use at the end of a session that committed UI changes, in a repository that has a .ui-progress/ folder.
 ---
 
 # ui-progress
