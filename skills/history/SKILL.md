@@ -185,7 +185,8 @@ Several pages are captured at once (`capture.parallel`, default 3 tabs). A page 
 source files did not change since the previous captured commit is copied forward instead of
 re-shot (`capture.incremental`); the log line `incremental: … pages unchanged` says how many.
 Its screenshots are not copied: every screenshot is stored once, in `snapshots/_store/`, and
-manifests refer to it.
+manifests refer to it. Snapshots made before 1.3.0 hold their own copies; `ui-progress dedupe`
+moves them into the store when the user wants the disk space back.
 That needs `routeOfFile` in the adapter and an import graph the resolver can follow (JS/TS
 with relative or tsconfig-alias imports). A change in `globalPaths` (package.json, config
 files, global CSS, public assets) recaptures everything; translation JSON files only affect

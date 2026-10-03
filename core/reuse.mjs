@@ -290,3 +290,41 @@ export async function looksTheSame(p, short, entry, from, before, identical) {
   }
   return true;
 }
+
+/**
+ * Bring snapshots made before the store into it, and share what can be shared across the
+ * whole history (`ui-progress dedupe`):
+ *   1. every file a finished snapshot's manifest lists in its own folder moves into the
+ *      store; copies of pages copied forward collapse into one file there
+ *   2. relinking over all snapshots, oldest first (see `relink`): with `identical`, pages
+ *      a snapshot rendered that look exactly as in the snapshot before share its entry
+ *   4. gc
+ * Idempotent: a second run finds nothing to do.
+ */
+export async function dedupe(p, config, { identical = null, log = () => {} } = {}) {
+  const all = load(p);
+  let moved = 0;
+  for (const s of all.values()) {
+    if (!s.done) continue;
+    for (const entry of s.manifest.routes ?? []) {
+      const own = entryFiles(entry).filter((f) => !isStored(f));
+      if (!own.length) continue;
+      ingest(p, s.short, entry);
+      moved += own.length;
+      s.dirty = true;
+    }
+  }
+  save(p, all);
+  log(`moved ${moved} screenshot(s) into the store`);
+  // One pass, oldest first: each snapshot is final before the one after it is compared.
+  const fresh = load(p);
+  const remove = [];
+  let shared = 0;
+  for (const { s, earlier } of chain(p, fresh)) if (earlier) shared += (await relink(p, config, earlier, s, remove, identical)).length;
+  save(p, fresh);
+  for (const file of remove) fs.rmSync(file, { force: true });
+  log(`${shared} page(s) now share the earlier snapshot's screenshots`);
+  const freed = gc(p);
+  log(`removed ${freed.files} screenshot(s) nothing refers to any more`);
+  return { moved, shared, freed };
+}

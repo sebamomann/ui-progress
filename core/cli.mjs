@@ -13,7 +13,7 @@ import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, pendingState, renderPending, sessionStart, stop } from "./forward.mjs";
 import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
-import { gc, relinkAfter } from "./reuse.mjs";
+import { STORE, dedupe, gc, relinkAfter } from "./reuse.mjs";
 import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
 import { AGENT_TASKS, appendRun, duration, estimate, noteAgent, parseDuration, renderStats, summarize } from "./stats.mjs";
@@ -42,6 +42,9 @@ Capturing
                                 a commit that does not build is replaced by the next one
                                 that does (config run.fallback) and kept in unbuildable.json
   status                        what is planned, done and failed
+  dedupe [--no-visual]          move the screenshots of snapshots made before 1.3.0 into the
+                                shared store and share what can be shared: copies, pages
+                                with unchanged source, pages that look exactly the same
   gc                            delete stored screenshots no snapshot refers to any more
                                 (runs after every snapshot batch on its own)
   unbuildable [list]            commits recorded as not building, and what stands in for them
@@ -343,6 +346,24 @@ async function snapshot(flags, positional) {
 
 const megabytes = (bytes) => `${(bytes / 2 ** 20).toFixed(1)} MB`;
 
+/** Disk use of a folder, in bytes. */
+function folderBytes(dir) {
+  let n = 0;
+  for (const entry of fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }) : []) n += entry.isDirectory() ? folderBytes(path.join(dir, entry.name)) : fs.statSync(path.join(dir, entry.name)).size;
+  return n;
+}
+
+/** Move older snapshots' screenshots into the shared store and share what can be shared. */
+async function doDedupe(flags) {
+  const { p, config } = context();
+  acquireLock(p, "ui-progress dedupe");
+  const before = folderBytes(p.snapshots);
+  const identical = flags["no-visual"] ? null : imageComparer(requireDep("sharp")).identical;
+  await dedupe(p, config, { identical, log: (m) => console.log(m) });
+  const after = folderBytes(p.snapshots);
+  console.log(`\nsnapshots/: ${megabytes(before)} before, ${megabytes(after)} now (${STORE}/ holds every screenshot). Run ui-progress build to update the viewer.`);
+}
+
 /** Put the stand-in where the broken commit was in plan.json (once, keeping its reason). */
 function standIn(p, brokenSha, sha) {
   const planned = readJson(p.plan);
@@ -477,6 +498,7 @@ export async function main(argv) {
       const summary = summarize(p);
       console.log(flags.json ? JSON.stringify(summary, null, 1) : renderStats(summary));
     }
+    else if (command === "dedupe") await doDedupe(flags);
     else if (command === "gc") {
       const { p } = context();
       acquireLock(p, "ui-progress gc");
