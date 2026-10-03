@@ -14,6 +14,7 @@ import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineag
 import { MODES, buildPlan } from "./plan.mjs";
 import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
+import { appendRun } from "./stats.mjs";
 import { clearUnbuildable, markUnbuildable, readUnbuildable, unbuildableEntry } from "./unbuildable.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
@@ -229,11 +230,12 @@ async function snapshot(flags, positional) {
   const started = Date.now();
   let done = 0;
   let failed = 0;
+  let standIns = 0;
   console.log(`Capturing ${shas.length} snapshot(s), ${concurrency} at a time ...`);
   const runChild = async (sha, slot) => {
     const line = await new Promise((resolve) => {
       let output = "";
-      const child = spawn(process.execPath, [SELF, "snapshot", sha, "--port", String(config.run.basePort + slot)], { cwd: p.repo, stdio: ["ignore", "pipe", "inherit"] });
+      const child = spawn(process.execPath, [SELF, "snapshot", sha, "--port", String(config.run.basePort + slot)], { cwd: p.repo, env: { ...process.env, UI_PROGRESS_CONCURRENCY: String(concurrency) }, stdio: ["ignore", "pipe", "inherit"] });
       child.stdout.on("data", (d) => (output += d));
       child.on("exit", () => resolve(output.trim().split("\n").pop()));
     });
@@ -290,12 +292,14 @@ async function snapshot(flags, positional) {
       }
       done++;
       if (result.failed) failed++;
+      if (result.standsInFor) standIns++;
       const seconds = result.timings ? Object.values(result.timings).reduce((a, b) => a + b, 0) : 0;
       const standsIn = result.standsInFor ? ` (stands in for ${result.standsInFor.join(", ")}, which do${result.standsInFor.length > 1 ? "" : "es"} not build)` : "";
       console.log(`[${done}/${shas.length}] ${result.date ?? ""} ${result.short}${standsIn}  ${result.failed ? `FAILED in ${result.failed}: ${result.error}` : `${result.pages} pages${result.reused ? ` (${result.reused} copied forward)` : ""}, ${result.states} states, ${seconds}s${result.suspects ? `, ${result.suspects} suspect page(s): see "suspects" in snapshots/${result.short}/snapshot.json` : ""}`}`);
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, shas.length) }, (_, i) => worker(i)));
+  appendRun(p, { kind: "batch", command: `ui-progress snapshot ${process.argv.slice(3).join(" ")}`.trim(), started: new Date(started).toISOString(), seconds: Math.round((Date.now() - started) / 1000), snapshots: shas.length, ok: done - failed, failed, standIns, concurrency });
   console.log(`\nDone in ${Math.round((Date.now() - started) / 60000)} min: ${done - failed} captured, ${failed} failed.`);
   if (failed) console.log("Failures are recorded as findings: ui-progress finding list");
 }

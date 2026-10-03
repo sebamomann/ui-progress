@@ -11,6 +11,7 @@ import { addFinding } from "./findings.mjs";
 import { unbuildableEntry } from "./unbuildable.mjs";
 import { assertIsolated, neutraliseCheckout, protectedDatabases, rewriteDatabaseUrls } from "./isolation.mjs";
 import { hasDep, requireDep } from "./deps.mjs";
+import { appendRun, machine, setupFingerprint, shotCount } from "./stats.mjs";
 import * as routes from "./routes.mjs";
 import { background, freePort, git, readJson, sh, tail, waitForHttp, writeJson } from "./util.mjs";
 
@@ -59,26 +60,28 @@ function previousSnapshot(p, full) {
 /**
  * Which routes can be copied from the previous snapshot: those whose source dependencies
  * are untouched by the commits in between. Also writes deps.json for the build's evidence.
+ * `why` gets the reason when everything is recaptured, for runs.jsonl.
  */
-function planReuse(p, config, adapter, ctx, full) {
-  if (!adapter.routeOfFile) return null;
+function planReuse(p, config, adapter, ctx, full, why = {}) {
+  const none = (fields) => (Object.assign(why, fields), null);
+  if (!adapter.routeOfFile) return none({ reason: "no routeOfFile in the adapter" });
   const files = routes.pageFiles(ctx.dir, adapter.routeOfFile, config.lineage.pagePaths);
   const aliases = routes.readAliases(ctx.dir);
   const deps = {};
   for (const [route, file] of files) deps[route] = routes.routeDependencies(ctx.dir, file, aliases);
   writeJson(path.join(ctx.out, "deps.json"), deps);
-  if (!config.capture.incremental.enabled) return null;
+  if (!config.capture.incremental.enabled) return none({ reason: "capture.incremental is off" });
   const previous = previousSnapshot(p, full);
-  if (!previous) return null;
+  if (!previous) return none({ reason: "no earlier snapshot" });
   const prevDir = snapshotDir(p, previous.short);
   const prevManifest = readJson(path.join(prevDir, "shots", "manifest.json"));
-  if (!prevManifest || JSON.stringify(prevManifest.viewports) !== JSON.stringify(config.capture.viewports)) return null;
+  if (!prevManifest || JSON.stringify(prevManifest.viewports) !== JSON.stringify(config.capture.viewports)) return none({ reason: prevManifest ? "viewports changed" : "earlier snapshot has no manifest", from: previous.short });
   const changed = git(p.repo, "diff", "--name-only", previous.sha, full).split("\n").filter(Boolean);
   const globals = config.capture.incremental.globalPaths.map(routes.globToRegex);
   const globalHit = changed.find((f) => globals.some((re) => re.test(f)));
   if (globalHit) {
     ctx.log(`incremental: ${globalHit} changed since ${previous.short}, everything is recaptured`);
-    return null;
+    return none({ reason: "global file changed", file: globalHit, from: previous.short, changed: changed.length });
   }
   // Translation files change in nearly every commit; only the pages that use a changed
   // namespace (a top-level key) are affected by them.
@@ -108,6 +111,7 @@ function planReuse(p, config, adapter, ctx, full) {
   }
   if (changedNamespaces.size) ctx.log(`incremental: translation namespaces changed: ${[...changedNamespaces].join(", ")}`);
   ctx.log(`incremental: ${changed.length} files changed since ${previous.short}; ${reusable.size} of ${files.size} pages unchanged`);
+  Object.assign(why, { reason: "incremental", from: previous.short, changed: changed.length });
   return { routes: reusable, from: previous.short, dir: path.join(prevDir, "shots"), manifest: prevManifest };
 }
 
@@ -178,6 +182,22 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
   };
 
   const timings = {};
+  const recapture = {};
+  const startedAt = new Date().toISOString();
+  const setup = setupFingerprint(p);
+  /** One line in runs.jsonl per attempt, failed or not. */
+  const record = (fields) => {
+    try {
+      appendRun(p, {
+        kind: "snapshot", started: startedAt, sha: short, date, subject,
+        seconds: Object.values(timings).reduce((a, b) => a + b, 0), timings,
+        concurrency: Number(process.env.UI_PROGRESS_CONCURRENCY) || 1, tabs: config.capture.parallel,
+        setup, machine: machine(), ...fields,
+      });
+    } catch (err) {
+      log(`could not write runs.jsonl: ${err.message}`);
+    }
+  };
   let server = null;
   const timed = async (name, run) => {
     phase = name;
@@ -217,7 +237,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       await new Promise((r) => setTimeout(r, 1000));
       if (server?.exited()) throw new Error(`the app exited right after start, and something else answered on port ${port}; see server.log`);
     });
-    const reuse = planReuse(p, config, adapter, ctx, full);
+    const reuse = planReuse(p, config, adapter, ctx, full, recapture);
     const screens = readJson(path.join(p.root, "screens.json"), []);
     const manifest = await timed("capture", () => capture({ baseUrl, outDir: path.join(out, "shots"), config, adapter, ctx, screens, reuse, log }));
     // A snapshot of error pages is not a snapshot.
@@ -242,6 +262,11 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       notes: ctx.state.notes ?? [],
     });
     fs.writeFileSync(path.join(out, "OK"), "");
+    record({
+      ok: true, pages: manifest.routesTotal, captured: manifest.captured, reused: manifest.reused, states: manifest.states, shots: shotCount(manifest),
+      skipped: manifest.skipped.length, skippedWhy: manifest.skipped.reduce((n, s) => ({ ...n, [s.why]: (n[s.why] ?? 0) + 1 }), {}),
+      suspects: manifest.suspects.length, crawled: manifest.crawled, recapture,
+    });
     return { short, date, timings, manifest };
   } catch (err) {
     // The cause of a build or start failure is usually only in the app's own log.
@@ -251,6 +276,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
     if (fixUp) err.message += `\nThe next commit ${fixUp.short} came ${fixUp.minutes} min later ("${fixUp.subject}") and may fix this one.`;
     log(`FAILED in ${phase}: ${err.stack ?? err}`);
     fs.writeFileSync(path.join(out, "FAILED"), `${phase}\n${err.message}\n`);
+    record({ ok: false, phase, error: err.message.split("\n")[0].slice(0, 300), ...(recapture.reason ? { recapture } : {}) });
     addFinding(p, {
       kind: "failure",
       source: "snapshot",
