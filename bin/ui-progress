@@ -1,2 +1,23 @@
 #!/usr/bin/env node
-import("../core/cli.mjs").then((m) => m.main(process.argv.slice(2)));
+// Installed plugins live in <cache>/<marketplace>/ui-progress/<version>/. After an update the
+// PATH entry (and hook commands) can still name an older version until Claude Code
+// restarts, so run the newest installed version next to this one instead.
+// UI_PROGRESS_PINNED=1 keeps this exact copy.
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const version = /^\d+\.\d+\.\d+$/.test(path.basename(root)) ? path.basename(root) : null;
+const parts = (v) => v.split(".").map(Number);
+const newer = (a, b) => { const [x, y] = [parts(a), parts(b)]; for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
+
+let target = root;
+if (version && !process.env.UI_PROGRESS_PINNED) {
+  let best = version;
+  for (const name of fs.readdirSync(path.dirname(root))) {
+    if (/^\d+\.\d+\.\d+$/.test(name) && newer(name, best) && fs.existsSync(path.join(path.dirname(root), name, "core", "cli.mjs"))) best = name;
+  }
+  target = path.join(path.dirname(root), best);
+}
+import(pathToFileURL(path.join(target, "core", "cli.mjs")).href).then((m) => m.main(process.argv.slice(2)));
