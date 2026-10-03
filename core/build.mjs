@@ -415,7 +415,8 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
         page(to);
         stated.add(`${from}>${to}`);
         edges.push({
-          type, from, to,
+          // type: how the viewer draws it; kind: the type recorded in lineage.json.
+          type, kind: entry.type, from, to,
           at: fix ? fix.at : placed,
           date: fix?.date ?? entry.date,
           sha: fix?.sha ?? entry.sha ?? null,
@@ -484,6 +485,6 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
   fs.mkdirSync(dataDir, { recursive: true });
   fs.writeFileSync(path.join(dataDir, "history.js"), `window.UI_HISTORY = ${JSON.stringify(history)};\n`);
   fs.copyFileSync(VIEWER_SOURCE, path.join(p.viewer, "index.html"));
-  const types = edges.reduce((n, e) => ({ ...n, [e.type]: (n[e.type] ?? 0) + 1 }), {});
+  const types = edges.reduce((n, e) => ({ ...n, [e.kind ?? e.type]: (n[e.kind ?? e.type] ?? 0) + 1 }), {});
   return { corrections: corrections.length, snapshots: snapshots.length, pages: list.length, captured: list.filter((x) => x.seen).length, views: list.reduce((n, x) => n + x.views.length, 0), edges: types, index: path.join(p.viewer, "index.html") };
 }

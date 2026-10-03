@@ -26,7 +26,7 @@ export function changelogCandidates(p, config) {
     if (added.length) lines.push(`  added: ${added.map((pg) => pg.id).join(", ")}`);
     if (removed.length) lines.push(`  removed: ${removed.map((pg) => pg.id).join(", ")}`);
     if (redesigned.length) lines.push(`  redesigned: ${redesigned.map((pg) => pg.id).join(", ")}`);
-    for (const e of edges) lines.push(`  lineage: ${e.from} ${e.type} ${e.to}${e.note ? ` (${e.note})` : ""}`);
+    for (const e of edges) lines.push(`  lineage: ${e.from} ${e.kind ?? e.type} ${e.to}${e.note ? ` (${e.note})` : ""}`);
     if (prev) {
       const a = shaOf(prev.id), b = shaOf(s.id);
       if (a && b) {

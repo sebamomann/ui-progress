@@ -396,7 +396,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   const MAX_ZOOM = 80;
   const KIND_LABEL = { page: "Whole page", "signed-out": "Signed out", section: "Sections", dialog: "Dialogs", menu: "Menus" };
   const EDGE_TEXT = {
-    branch: ["Later added under it", "Added under"], split: ["Split off", "Split off from"], merged: ["Folded into", "Absorbed"],
+    branch: ["Later added under it", "Added under"], split: ["Split off", "Split off from"], extract: ["Part moved out to", "Moved out of"], merged: ["Folded into", "Absorbed"],
     replaced: ["Replaced by", "Replaced"], clone: ["Copied to make", "Built from a copy of"], rename: ["Renamed to", "Renamed from"], redirect: ["Redirects to", "Target of"],
   };
   const STATUS_TEXT = { new: "first seen", base: "first snapshot", major: "redesigned", minor: "small change", same: "unchanged", missing: "exists, not captured", absent: "does not exist" };
@@ -692,7 +692,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       const outOf = e.type === "branch" || e.type === "split" || e.type === "clone";
       if (outOf) path.setAttribute("d", `M${ex - 14} ${a.y} C ${ex - 2} ${a.y}, ${ex - 12} ${b.y}, ${ex} ${b.y}`);
       else { path.setAttribute("d", `M${ex} ${a.y} C ${ex + 14} ${a.y}, ${ex + 2} ${b.y}, ${ex + 16} ${b.y}`); path.setAttribute("marker-end", "url(#arrow)"); }
-      const verb = { branch: "was added under", split: "was split off from", clone: "was built from a copy of", merged: "was folded into", replaced: "was replaced by", redirect: "now redirects to", rename: "was renamed to" }[e.type];
+      const verb = { branch: "was added under", split: "was split off from", extract: "was moved out of", clone: "was built from a copy of", merged: "was folded into", replaced: "was replaced by", redirect: "now redirects to", rename: "was renamed to" }[e.kind === "extract" ? "extract" : e.type];
       const head = outOf ? `<b>${esc(e.to)}</b> ${verb} <b>${esc(e.from)}</b>` : `<b>${esc(e.from)}</b> ${verb} <b>${esc(e.to)}</b>`;
       path.style.pointerEvents = "stroke";
       path.addEventListener("mousemove", (ev) => showTip(ev, `${head}<br>${esc(e.date)}${e.sha ? " · " + esc(e.sha) : ""}${e.note ? "<br>" + esc(e.note) : ""}`));
@@ -830,7 +830,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       const rel = el('<div class="rel"></div>');
       for (const e of rels) {
         const out = e.from === id;
-        const text = (EDGE_TEXT[e.type] ?? ["Linked to", "Linked from"])[out ? 0 : 1];
+        const text = (EDGE_TEXT[e.kind === "extract" ? "extract" : e.type] ?? ["Linked to", "Linked from"])[out ? 0 : 1];
         const cls = e.type === "split" || e.type === "branch" || e.type === "clone" ? "new" : e.type === "merged" || e.type === "replaced" ? "gone" : "link";
         rel.append(el(`<details><summary><span class="pill ${cls}">${text}</span><a class="mono" href="${pageHref(out ? e.to : e.from)}">${esc(out ? e.to : e.from)}</a><span class="muted">${esc(e.date)}</span>${e.sha ? `<span class="mono muted">${esc(e.sha)}</span>` : ""}${e.note ? `<span class="why">${e.confidence ? esc(e.confidence) + " confidence · " : ""}why?</span>` : ""}</summary>${e.note ? `<div class="ev">${esc(e.note)}</div>` : ""}</details>`));
       }
