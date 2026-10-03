@@ -8,3 +8,6 @@ viewer/
 
 # Per-session bookkeeping of the capture reminder.
 .hook-state.json
+
+# Held while a snapshot run is working on this repository.
+.lock

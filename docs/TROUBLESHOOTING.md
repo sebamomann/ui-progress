@@ -10,7 +10,10 @@ message). Set `UI_PROGRESS_DEBUG=1` for stack traces from the CLI itself.
 | `ui-progress: command not found` in your own terminal | The command is on PATH only inside Claude Code | `node /path/to/plugin/bin/ui-progress …` |
 | Snapshot fails in `install` | Old commit needs another Node or package manager version, or has no lockfile | Branch in `install` on `ctx.has(...)`; use `npm install` when there is no lockfile; use a version manager in the command (`fnm exec --using 18 -- npm ci`) |
 | Snapshot fails in `seed` with a migration error | Old migrations only applied on top of data the real database had | Build the schema directly from the schema file for that era (Prisma: `db push`; Django: `migrate --run-syncdb`) |
-| `migrations did not reach …: it has no tables` | The commit hardcodes a database URL, so the migration went elsewhere | Rewrite the literal URL in the checkout before migrating. Check your real database was not changed |
+| `migrations did not reach …: it has no tables` | The commit hardcodes a database URL, so the migration went elsewhere | Call `ctx.rewriteDatabaseUrls(throwawayUrl)` in `seed` before migrating. Check your real database was not changed |
+| `Another ui-progress run is working on this repository` | A second run (another session, or another installed version) started while one is going | Wait for it, or stop the named process. If it is gone, delete `.ui-progress/.lock` |
+| `port … is in use; using …` in `run.log` | Another app listens on `run.basePort + slot` | Nothing to do; set `run.basePort` elsewhere to avoid the shift |
+| `the app exited right after start, and something else answered` | The app could not bind its port | Make sure the start command uses `ctx.port` |
 | Snapshot fails in `start`: "did not answer" | Wrong port or `readyPath`, or the app crashed | Read `server.log`. Make sure the command uses `ctx.port`. Raise `run.readyTimeoutMs` for slow first compiles |
 | "… pages answered with a server error" | The app runs but every page throws | `server.log` shows the first error. Often a missing env variable the old commit needed, or files resolved from the wrong folder |
 | Pages are blank or show the app's error boundary | Seed data in a shape that commit cannot render (for example image URLs stored differently in that era) | Look at `server.log`, adjust the seed for that era |

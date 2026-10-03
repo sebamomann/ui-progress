@@ -11,7 +11,7 @@ import { addFinding } from "./findings.mjs";
 import { assertIsolated, neutraliseCheckout, protectedDatabases, rewriteDatabaseUrls } from "./isolation.mjs";
 import { hasDep, requireDep } from "./deps.mjs";
 import * as routes from "./routes.mjs";
-import { background, git, readJson, sh, tail, waitForHttp, writeJson } from "./util.mjs";
+import { background, freePort, git, readJson, sh, tail, waitForHttp, writeJson } from "./util.mjs";
 
 /** A private clone owns the worktrees, so the project's own git metadata is never touched. */
 export function ensureClone(p, { refresh = true } = {}) {
@@ -118,6 +118,10 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
   const log = (message) => fs.appendFileSync(logFile, `[${new Date().toISOString().slice(11, 19)}] ${message}\n`);
   const clone = ensureClone(p, { refresh: refreshClone });
   const dir = path.join(p.work, short);
+  // Something else on the port would answer the readiness check in place of this app.
+  const wantedPort = port;
+  port = await freePort(port);
+  if (port !== wantedPort) log(`port ${wantedPort} is in use; using ${port}`);
   const baseUrl = `http://localhost:${port}`;
 
   const protectedDbs = protectedDatabases(p.repo, config);
@@ -203,6 +207,9 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
         server = background(spec.command, { cwd: spec.cwd ?? dir, env: { PORT: String(port), ...spec.env }, log: path.join(out, "server.log") });
       } else if (spec.stop) server = { stop: spec.stop, exited: () => false };
       await waitForHttp(baseUrl + (spec.readyPath ?? config.run.readyPath), { timeoutMs: config.run.readyTimeoutMs, alive: () => !server?.exited() });
+      // An app that failed to bind exits at once, while whatever holds the port answers.
+      await new Promise((r) => setTimeout(r, 1000));
+      if (server?.exited()) throw new Error(`the app exited right after start, and something else answered on port ${port}; see server.log`);
     });
     const reuse = planReuse(p, config, adapter, ctx, full);
     const screens = readJson(path.join(p.root, "screens.json"), []);

@@ -12,6 +12,7 @@ import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, pendingState, renderPending, sessionStart, stop } from "./forward.mjs";
 import { candidates, checkLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
+import { acquireLock } from "./lock.mjs";
 import { depsReady, ensureClone, isDone, runSnapshot, snapshotDir } from "./snapshot.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
@@ -160,6 +161,7 @@ async function snapshot(flags, positional) {
     console.log("Nothing to capture.");
     return;
   }
+  acquireLock(p, `ui-progress snapshot ${process.argv.slice(3).join(" ")}`.trim());
   // A single commit runs in this process; several run as parallel child processes.
   if (shas.length === 1 && flags.port) {
     const result = await runSnapshot(p, config, adapter, shas[0], { port: Number(flags.port), force: true, refreshClone: false });

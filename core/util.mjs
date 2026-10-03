@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, execFileSync } from "node:child_process";
+import net from "node:net";
 
 export const VERSION = "0.5.0";
 
@@ -48,6 +49,25 @@ export function background(command, { cwd, env, log }) {
       }, 3000).unref();
     },
   };
+}
+
+/** Whether nothing listens on `port`, on IPv4 or IPv6. */
+async function portFree(port) {
+  for (const host of ["127.0.0.1", "::"]) {
+    const ok = await new Promise((resolve) => {
+      const server = net.createServer();
+      server.once("error", (err) => resolve(err.code === "EADDRNOTAVAIL" || err.code === "EAFNOSUPPORT"));
+      server.listen({ port, host, exclusive: true }, () => server.close(() => resolve(true)));
+    });
+    if (!ok) return false;
+  }
+  return true;
+}
+
+/** `port` if it is free, else the first free one of port+32, port+64, ... (parallel slots stay apart). */
+export async function freePort(port) {
+  for (let k = 0; k < 40; k++) if (await portFree(port + k * 32)) return port + k * 32;
+  throw new Error(`no free port found from ${port} upwards`);
 }
 
 export async function waitForHttp(url, { timeoutMs = 180_000, alive = () => true } = {}) {
