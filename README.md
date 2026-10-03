@@ -66,7 +66,8 @@ they are listed so you know what exists.
 | `ui-progress plan [--mode M] [--max N] [--from D] [--to D] [--print]` | choose the commits |
 | `ui-progress snapshot --plan [--concurrency N] [--limit N] [--force]` | capture what is planned and missing |
 | `ui-progress snapshot <sha…>` / `snapshot HEAD` | capture specific commits |
-| `ui-progress snapshot --live <url>` | capture the app that is already running |
+| `ui-progress snapshot --working-tree` | HEAD plus uncommitted changes, with a throwaway database |
+| `ui-progress snapshot --live <url> --use-live-data` | photograph a running app with its own data (opt-in) |
 | `ui-progress status` | planned, done, failed |
 | `ui-progress lineage candidates` / `lineage check` | evidence for lineage; validate `lineage.json` |
 | `ui-progress changelog candidates` / `changelog check` | material for the Story; validate `changelog.json` |
@@ -91,7 +92,10 @@ they are listed so you know what exists.
 
 Old commits are checked out under `~/.ui-progress/work/`, outside the repository, and
 removed after each snapshot. Your working tree and your git metadata are not touched.
-Each snapshot uses its own throwaway database, created and dropped by the adapter.
+Each snapshot builds its own data in a throwaway database, created and dropped by the
+adapter; ui-progress refuses to run a command that would reach one of the project's own
+databases (anything in its env files, tracked files or container definitions) unless you
+explicitly set `data.isolation` to `"shared"`.
 
 ## How it works
 

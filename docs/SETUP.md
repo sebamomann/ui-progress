@@ -68,10 +68,15 @@ Nothing to configure. With the plugin enabled, two hooks run in every tracked re
 So after a UI change Claude captures the new state on its own:
 
 ```
-ui-progress snapshot HEAD                          # clean build of the commit
-ui-progress snapshot --live http://localhost:3000  # the dev server you already have running
+ui-progress snapshot HEAD             # the commit, built with a throwaway database
+ui-progress snapshot --working-tree   # the same, plus your uncommitted changes
 ui-progress build
 ```
+
+Snapshots never use your development, test or production databases: each builds its own
+data in a throwaway database, and ui-progress refuses to run if a command would reach one of
+the project's own databases. Photographing your running app with its own data is possible
+(`snapshot --live <url> --use-live-data`), but only on request.
 
 Set `"forward": { "mode": "remind" }` (note only) or `"off"` in `config.json` to tone this
 down. Agents that do not load the plugin (another tool, a teammate without it) can get the
@@ -81,10 +86,6 @@ explains why, and writes it for you on a yes; the command behind it is:
 ```
 ui-progress instructions --write     # adds a marked section to AGENTS.md or CLAUDE.md
 ```
-
-`--live` shows your development data and takes page screenshots only. Dialogs and
-sections are found by clicking, which it will not do in your own data unless you add
-`--states`.
 
 Pages whose source did not change since the last snapshot are copied forward rather than
 re-shot, so a capture after a small change takes seconds, not minutes.

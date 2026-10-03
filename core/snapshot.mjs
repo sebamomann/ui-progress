@@ -8,6 +8,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { capture } from "./capture.mjs";
 import { addFinding } from "./findings.mjs";
+import { assertIsolated, protectedDatabases } from "./isolation.mjs";
 import { hasDep, requireDep } from "./deps.mjs";
 import * as routes from "./routes.mjs";
 import { background, git, readJson, sh, tail, waitForHttp, writeJson } from "./util.mjs";
@@ -102,10 +103,27 @@ function planReuse(p, config, adapter, ctx, full) {
   return { routes: reusable, from: previous.short, dir: path.join(prevDir, "shots"), manifest: prevManifest };
 }
 
-export async function runSnapshot(p, config, adapter, sha, { port, force = false, refreshClone = true } = {}) {
+/** Tracked and untracked changes in the working tree, relative to HEAD (ignored files excluded). */
+function workingChanges(repo) {
+  const out = git(repo, "status", "--porcelain", "-z", "--untracked-files=all");
+  const changes = [];
+  const parts = out.split("\0").filter(Boolean);
+  for (let i = 0; i < parts.length; i++) {
+    const code = parts[i].slice(0, 2), file = parts[i].slice(3);
+    if (code[0] === "R" || code[0] === "C") i++; // the next entry is the original path
+    if (file.startsWith(".ui-progress/")) continue;
+    changes.push({ file, deleted: code.includes("D") });
+  }
+  return changes;
+}
+
+export async function runSnapshot(p, config, adapter, sha, { port, force = false, refreshClone = true, workingTree = false } = {}) {
   const full = git(p.repo, "rev-parse", sha).trim();
-  const short = git(p.repo, "rev-parse", "--short=8", full).trim();
-  const [date, subject] = git(p.repo, "log", "-1", "--format=%ad|%s", "--date=short", full).trim().split(/\|(.*)/s);
+  const headShort = git(p.repo, "rev-parse", "--short=8", full).trim();
+  // A working-tree snapshot: HEAD plus the uncommitted changes, built like any other commit.
+  const short = workingTree ? `${headShort}-wip` : headShort;
+  let [date, subject] = git(p.repo, "log", "-1", "--format=%ad|%s", "--date=short", full).trim().split(/\|(.*)/s);
+  if (workingTree) { date = new Date().toISOString().slice(0, 10); subject = `uncommitted changes on top of ${headShort}`; }
   const out = snapshotDir(p, short);
   if (isDone(p, short) && !force) return { short, skipped: true };
 
@@ -117,6 +135,8 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
   const dir = path.join(p.work, short);
   const baseUrl = `http://localhost:${port}`;
 
+  const protectedDbs = protectedDatabases(p.repo, config);
+  let phase = "checkout";
   const ctx = {
     sha: full,
     short,
@@ -133,7 +153,13 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
     log,
     has: (file) => fs.existsSync(path.join(dir, file)),
     read: (file) => fs.readFileSync(path.join(dir, file), "utf8"),
-    exec: (command, options = {}) => sh(command, { cwd: dir, log: logFile, ...options }),
+    exec: (command, options = {}) => {
+      // Seeding and running must never reach the project's own databases.
+      if (phase === "seed" || phase === "start") assertIsolated({ config, protectedDbs, env: { ...process.env, ...options.env }, checkout: dir, where: `run \`${command.slice(0, 80)}\`` });
+      return sh(command, { cwd: dir, log: logFile, ...options });
+    },
+    /** For adapters that connect directly (a database client): throws for a protected database. */
+    assertThrowaway: (url) => assertIsolated({ config, protectedDbs, env: { url }, where: "connect" }),
     /** A module from the checked-out commit's own node_modules, else from the live repo's. */
     require: (name) => {
       for (const base of [dir, p.repo]) {
@@ -151,7 +177,6 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
   };
 
   const timings = {};
-  let phase = "checkout";
   let server = null;
   const timed = async (name, run) => {
     phase = name;
@@ -173,6 +198,15 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       }
       fs.rmSync(dir, { recursive: true, force: true });
       git(clone, "worktree", "add", "--detach", "--quiet", dir, full);
+      if (workingTree) {
+        const changes = workingChanges(p.repo);
+        for (const { file, deleted } of changes) {
+          const target = path.join(dir, file);
+          if (deleted) fs.rmSync(target, { force: true });
+          else { fs.mkdirSync(path.dirname(target), { recursive: true }); fs.copyFileSync(path.join(p.repo, file), target); }
+        }
+        log(`applied ${changes.length} uncommitted change(s) from the working tree`);
+      }
     });
     if (adapter.install) await timed("install", () => adapter.install(ctx));
     if (adapter.seed) await timed("seed", () => adapter.seed(ctx));
@@ -180,6 +214,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       if (!adapter.start) throw new Error("adapter.mjs has no start(ctx): ui-progress does not know how to run this app");
       const started = await adapter.start(ctx);
       const spec = typeof started === "string" ? { command: started } : started ?? {};
+      assertIsolated({ config, protectedDbs, env: { ...process.env, ...spec.env }, checkout: dir, where: "start the app" });
       if (spec.command) {
         server = background(spec.command, { cwd: spec.cwd ?? dir, env: { PORT: String(port), ...spec.env }, log: path.join(out, "server.log") });
       } else if (spec.stop) server = { stop: spec.stop, exited: () => false };
@@ -196,6 +231,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       short,
       date,
       subject,
+      workingTree,
       timings,
       pages: manifest.routesTotal,
       captured: manifest.captured,
@@ -238,7 +274,14 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
 }
 
 /** Capture an app that is already running (the working tree as it is now). */
-export async function captureLive(p, config, adapter, baseUrl, { states = false } = {}) {
+export async function captureLive(p, config, adapter, baseUrl, { states = false, useLiveData = false } = {}) {
+  if ((config.data?.isolation ?? "throwaway") !== "shared" && !useLiveData) {
+    throw new Error(
+      "A live capture photographs your running app with its own (development) data. ui-progress builds its own dataset in a throwaway database instead.\n" +
+        "For uncommitted work use:  ui-progress snapshot --working-tree\n" +
+        "Only if you want your dev data in the history, add --use-live-data (or set data.isolation to \"shared\").",
+    );
+  }
   // The running app holds the developer's own data: look, but do not click around in it
   // unless asked to.
   config = { ...config, capture: { ...config.capture, states: { ...config.capture.states, enabled: states && config.capture.states.enabled } } };

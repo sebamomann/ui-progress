@@ -6,12 +6,66 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { createHmac } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PG = process.env.UI_PROGRESS_PG ?? "postgresql://plantuser:plantpass@localhost:5433";
 const EMAIL = "test@plants.local";
 const PASSWORD = "TestPassword123!";
+// Live mode (`ui-progress snapshot --live`) captures the developer's running app and its dev
+// database, where the throwaway seed account above does not exist. It signs in as this user
+// instead, by minting the same session cookie `lib/session.ts` issues.
+const LIVE_USER_ID = Number(process.env.UI_PROGRESS_LIVE_USER_ID ?? 5);
+
+/** KEY=value pairs from the live repository's `.env` (no expansion, quotes stripped). */
+function repoEnv(ctx) {
+  const file = path.join(ctx.repo, ".env");
+  if (!fs.existsSync(file)) return {};
+  const out = {};
+  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
+    if (m) out[m[1]] = m[2].replace(/^["']|["']$/g, "");
+  }
+  return out;
+}
+
+/** HS256 session JWT, identical in shape to `e2e/support/sessionToken.ts`. */
+function mintSession(secret, userId) {
+  const b64 = (v) => Buffer.from(JSON.stringify(v)).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const body = `${b64({ alg: "HS256" })}.${b64({ userId, iat: now, exp: now + 3600 })}`;
+  return `${body}.${createHmac("sha256", secret).update(body).digest("base64url")}`;
+}
+
+/** Concrete URLs for the dynamic routes, read-only from the dev database, live mode only. */
+async function liveRouteHints(ctx) {
+  const url = repoEnv(ctx).DATABASE_URL;
+  if (!url) return {};
+  const pg = ctx.require("pg");
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  const first = async (table, extra = "") => {
+    const { rows } = await client.query(`SELECT id FROM "${table}" WHERE "userId" = $1 ${extra} ORDER BY id LIMIT 1`, [LIVE_USER_ID]).catch(() => ({ rows: [] }));
+    return rows[0]?.id;
+  };
+  try {
+    const hints = {};
+    const ids = {
+      "/plants/[id]": await first("Plant", `AND status = 'LIVING'`),
+      "/fertilizers/[id]": await first("Fertilizer"),
+      "/locations/[id]": await first("Location"),
+      "/soils/[id]": await first("Soil"),
+      "/pots/[id]": await first("Pot"),
+      "/recipients/[id]": await first("Recipient"),
+    };
+    for (const [route, id] of Object.entries(ids)) if (id != null) hints[route] = route.replace("[id]", String(id));
+    hints["/community/profile/[userId]"] = `/community/profile/${LIVE_USER_ID}`;
+    return hints;
+  } finally {
+    await client.end();
+  }
+}
 
 const env = (ctx) => ({
   DATABASE_URL: `${PG}/uiprog_${ctx.short}`,
@@ -48,6 +102,7 @@ export default {
 
   async seed(ctx) {
     const vars = env(ctx);
+    ctx.assertThrowaway(vars.DATABASE_URL); // never the project's own database
     fs.writeFileSync(path.join(ctx.dir, ".env"), Object.entries(vars).map(([k, v]) => `${k}="${v}"`).join("\n") + '\nSMTP_HOST=""\n');
     if (!ctx.has("prisma/schema.prisma")) return; // the very first commits had no database
     // The first commits hardcoded the real database in prisma.config.ts. Point it at the
@@ -125,6 +180,14 @@ export default {
 
   async login(page, ctx) {
     if (!ctx.has("app/login/page.tsx")) return; // before accounts existed, everything was public
+    if (ctx.live) {
+      const secret = repoEnv(ctx).SESSION_SECRET;
+      if (!secret) throw new Error("live sign-in needs SESSION_SECRET in the repository's .env");
+      await page.context().addCookies([{ name: "session", value: mintSession(secret, LIVE_USER_ID), url: ctx.baseUrl, httpOnly: true, sameSite: "Lax" }]);
+      await page.goto(ctx.baseUrl + "/", { waitUntil: "load" });
+      if (new URL(page.url()).pathname.startsWith("/login")) throw new Error(`live sign-in as user ${LIVE_USER_ID} was rejected`);
+      return;
+    }
     await page.goto(ctx.baseUrl + "/login", { waitUntil: "load" });
     await page.waitForSelector('input[name="email"]', { state: "visible", timeout: 20_000 });
     await page.fill('input[name="email"]', EMAIL);
@@ -138,6 +201,7 @@ export default {
 
   // Before /login existed the app answered on "/" only.
   async resolve(ctx) {
+    if (ctx.live) return liveRouteHints(ctx);
     const file = path.join(ctx.out, "route-hints.json");
     return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
   },

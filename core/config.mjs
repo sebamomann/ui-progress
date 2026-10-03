@@ -49,6 +49,9 @@ export const DEFAULTS = {
     exclude: [],
   },
   run: { concurrency: 3, basePort: 4100, keepWorktrees: false, readyPath: "/", readyTimeoutMs: 180000, workDir: null },
+  // isolation "throwaway": snapshots build their own data and are refused if they would
+  // touch a database from the project's env files. "shared" only on the user's explicit wish.
+  data: { isolation: "throwaway", protect: [] },
   login: null,
   lineage: { pagePaths: ["."] },
   // auto: a hook sends the agent back to capture when a session changed UI files.

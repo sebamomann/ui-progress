@@ -93,10 +93,17 @@ selectors before the long run. Add to it whenever a later session adds a filter 
 
 ### Rules for the adapter
 
-- **Never touch real data.** Each snapshot gets its own throwaway database, named after
-  the commit, dropped in `teardown`. Old commits often hardcode a connection string or
-  read a different env file: grep the checkout for literal database URLs and rewrite them,
-  and make `seed` fail if the throwaway database ends up without tables.
+- **Never touch real data. This is the default and it is enforced.** Each snapshot builds
+  its own dataset in a throwaway database named after the commit (`uiprog_<short sha>`),
+  created in `seed` and dropped in `teardown`. ui-progress collects the project's own
+  databases (every connection string in its env files and tracked files, container
+  database names, the user's shell) and refuses to run a seed command or start the app
+  when the environment, an env file or a config file in the checkout points at one of them.
+  Old commits often hardcode a connection string: rewrite it in the checkout before the
+  first command. Direct database clients in the adapter call `ctx.assertThrowaway(url)`.
+  Make `seed` fail if the throwaway database ends up without tables. Only when the user
+  explicitly asks for their real data to be used, set `"data": { "isolation": "shared" }`;
+  never do it to get past a refusal.
 - **Seed every feature.** A page captured in its empty state is a gap. Use the project's
   own seed where the commit has one, then fill every table it leaves empty. Write inserts
   that tolerate schema drift (insert only the columns that exist). After seeding, list the
@@ -163,10 +170,10 @@ After a session changed the UI and the work is committed (this is fast: unchange
 are copied forward from the last snapshot):
 
 - `ui-progress snapshot HEAD` builds and captures the commit from scratch, like a backfill.
-- `ui-progress snapshot --live http://localhost:3000` captures the app the user already has
-  running. Faster, but it shows their development data and any uncommitted changes, and
-  it only takes page screenshots: dialogs and sections are skipped, because finding them
-  means clicking around in the user's own data. Add `--states` only if they agree to that.
+- `ui-progress snapshot --working-tree` captures HEAD plus the uncommitted changes, built
+  like any commit with a throwaway database.
+- `ui-progress snapshot --live <url> --use-live-data` photographs an app that is already
+  running, with its own data. Only when the user asks for exactly that.
 
 Then, if a page was added, removed, split, merged or renamed in the session, add the edge
 to `.ui-progress/lineage.json` now, while you know exactly what happened and why. If a

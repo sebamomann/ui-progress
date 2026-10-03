@@ -67,6 +67,15 @@ Copied pages are marked `copiedFrom` in the manifest. A changed `viewports` sett
 | `keepWorktrees` | `false` | Keep the checkout after a snapshot, for debugging |
 | `workDir` | `~/.ui-progress/work/<repo>` | Where old commits are checked out. Keep it outside the repository |
 
+## `data`: whose data the snapshots use
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `isolation` | `"throwaway"` | Snapshots build their own dataset in a throwaway database. Before every seed command and before starting the app, ui-progress checks the environment, the env files and the config files of the checkout against the project's own databases and refuses if one matches. `"shared"` turns the check off and allows live captures; set it only if you want your real data in the history |
+| `protect` | `[]` | Further connection strings to treat as the project's own |
+
+The project's own databases are collected automatically: connection strings in the repository's `.env*` files (not `*.example`), in tracked files (scripts, compose files, old defaults), database names in container definitions (`POSTGRES_DB`, `MYSQL_DATABASE`, …), and database variables in your shell. A database on this machine is matched by name, whatever the port.
+
 ## `login`: sign-in without code
 
 For a plain form, instead of an adapter `login` function:

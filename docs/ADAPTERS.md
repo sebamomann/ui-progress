@@ -36,6 +36,7 @@ capture) → `teardown`. `teardown` always runs, also after a failure.
 | `ctx.has(file)`, `ctx.read(file)` | Inspect the checkout. This is how one adapter handles every era |
 | `ctx.require(name)` | A module from the checkout's `node_modules`, else from the live repository's |
 | `ctx.sharp` | The sharp image library, for placeholder pictures |
+| `ctx.assertThrowaway(url)` | Throws if `url` is one of the project's own databases. Call it before connecting with a database client directly; `ctx.exec` and `start` are checked automatically |
 | `ctx.routes` | Helpers: `routesFromFiles`, `nextAppRouteOfFile`, `nextPagesRouteOfFile`, `normalizeRoute`, `patternOfPath` |
 | `ctx.state` | Scratch object shared by the functions of one snapshot. `ctx.state.notes = [...]` ends up in `snapshot.json` |
 | `ctx.log(msg)` | Write to `run.log` |
@@ -55,7 +56,8 @@ await ctx.exec(ctx.has("pnpm-lock.yaml") ? "pnpm install --frozen-lockfile" : ct
 Create a **throwaway** database named after the commit, bring it to this commit's schema,
 and fill it.
 
-- Never connect to a real database. Search the checkout for hardcoded connection strings
+- Never connect to a real database. ui-progress enforces this for `ctx.exec` and `start`
+  (see `data.isolation` in CONFIGURATION.md); direct clients call `ctx.assertThrowaway`. Search the checkout for hardcoded connection strings
   and env files that old commits read, and neutralise them. Verify afterwards that the
   throwaway database has tables; if not, the migration went somewhere else: throw.
 - Use the project's own seed if the commit has one, then fill every table it leaves empty.

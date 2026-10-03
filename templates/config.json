@@ -25,6 +25,7 @@
   },
   "run": { "concurrency": 3, "basePort": 4100, "keepWorktrees": false, "readyPath": "/" },
   "forward": { "mode": "auto" },
+  "data": { "isolation": "throwaway", "protect": [] },
   "login": null,
   "lineage": { "pagePaths": ["."] }
 }
