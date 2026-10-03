@@ -74,6 +74,7 @@ they are listed so you know what exists.
 | `ui-progress snapshot --plan [--concurrency N] [--limit N] [--force]` | capture what is planned and missing |
 | `ui-progress snapshot <sha…>` / `snapshot HEAD` | capture specific commits |
 | `ui-progress status` | planned, done, failed |
+| `ui-progress stats [--json]` | every snapshot attempt: time, pages, fixes, failures, and what the numbers say |
 | `ui-progress pending` | is HEAD captured, and which commits one snapshot of HEAD would cover |
 | `ui-progress lineage candidates [--since <sha>]` / `lineage check` | evidence for lineage; validate `lineage.json` |
 | `ui-progress changelog candidates` / `changelog check` | material for the Story; validate `changelog.json` |
@@ -91,6 +92,7 @@ they are listed so you know what exists.
   lineage.json     splits, merges, renames, with evidence      commit
   screens.json     hand-picked views (filters, searches)       commit
   changelog.json   the Story, a few written chapters           commit
+  runs.jsonl       every snapshot attempt, timings, outcome    commit
   findings/        problems with the plugin, to send upstream  optional
   snapshots/       screenshots and manifests per commit        ignored by default (20-40 MB each)
   viewer/          index.html and its data                     ignored by default

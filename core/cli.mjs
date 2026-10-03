@@ -14,7 +14,7 @@ import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineag
 import { MODES, buildPlan } from "./plan.mjs";
 import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
-import { appendRun } from "./stats.mjs";
+import { appendRun, renderStats, summarize } from "./stats.mjs";
 import { clearUnbuildable, markUnbuildable, readUnbuildable, unbuildableEntry } from "./unbuildable.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
@@ -57,6 +57,10 @@ Lineage and story
                                 snapshots; --fix re-dates edges the snapshots contradict
   changelog candidates          per snapshot: what changed, and the commits in between
   changelog check               validate .ui-progress/changelog.json
+
+Run stats
+  stats [--json]                every snapshot attempt from runs.jsonl: time, pages, fixes,
+                                failures, and what the numbers say
 
 Viewing
   build                         rebuild the viewer's dataset
@@ -421,6 +425,11 @@ export async function main(argv) {
       const { p, config } = context();
       if (positional[0] === "check") { const r = checkChangelog(p); console.log(r.ok ? `changelog.json is valid: ${r.entries} chapters` : `Problems:\n${r.problems.map((x) => "  " + x).join("\n")}`); if (!r.ok) process.exitCode = 1; }
       else console.log(changelogCandidates(p, config));
+    }
+    else if (command === "stats") {
+      const { p } = context();
+      const summary = summarize(p);
+      console.log(flags.json ? JSON.stringify(summary, null, 1) : renderStats(summary));
     }
     else if (command === "build") await doBuild();
     else if (command === "view") {

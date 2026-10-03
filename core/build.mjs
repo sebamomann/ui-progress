@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import { requireDep } from "./deps.mjs";
 import { routeRegex, sectionOf } from "./routes.mjs";
 import { isCommitSnapshot } from "./snapshot.mjs";
+import { summarize } from "./stats.mjs";
 import { git, readJson, VERSION } from "./util.mjs";
 
 const VIEWER_SOURCE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "viewer", "index.html");
@@ -481,6 +482,7 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
     snapshots: snapshots.map(({ manifest, index, ...rest }) => rest),
     pages: list,
     edges,
+    stats: summarize(p),
   };
   fs.mkdirSync(dataDir, { recursive: true });
   fs.writeFileSync(path.join(dataDir, "history.js"), `window.UI_HISTORY = ${JSON.stringify(history)};\n`);
