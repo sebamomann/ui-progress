@@ -228,6 +228,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       reused: manifest.reused,
       states: manifest.states,
       skipped: manifest.skipped,
+      suspects: manifest.suspects,
       notes: ctx.state.notes ?? [],
     });
     fs.writeFileSync(path.join(out, "OK"), "");

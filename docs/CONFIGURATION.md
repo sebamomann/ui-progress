@@ -34,6 +34,9 @@
 | `states.sectionChange` | `0.2` | Share of the page's text that must change for a click to count as a different section |
 | `unsafe` | see below | Regex of button labels that are never clicked |
 | `hide` | framework dev overlays | CSS selectors hidden before every screenshot |
+| `checks.notFound` | 404 / "not found" in several languages | Regex on the title and main heading: a page that says it does not exist is skipped as `not found`, also when it answered 200 |
+| `checks.errorSelectors`, `checks.errorTitle` | common dev-server overlays and framework error pages | A page that matches is shot but listed under `suspects` |
+| `checks.signInPaths` | login, register, auth, … | Routes where a password field is expected; elsewhere a sign-in form makes the page a suspect |
 | `include`, `exclude` | `[]` | Regexes on routes; `exclude: ["^/admin"]` skips the admin area |
 | `locale` | `"en-US"` | Browser locale |
 | `colorScheme` | `"light"` | `light` or `dark`: what the browser reports as the preferred scheme |

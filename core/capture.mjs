@@ -347,6 +347,35 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     return states;
   }
 
+  /**
+   * Mechanical checks on the page as rendered: a not-found page (even with status 200), an
+   * error overlay or framework error page, a sign-in form, a blank page, broken images.
+   */
+  const inspect = (page) =>
+    page
+      .evaluate((k) => {
+        const issues = [];
+        const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden"; };
+        const text = (document.body?.innerText ?? "").trim();
+        const heading = [...document.querySelectorAll("h1, h2")].filter(visible).slice(0, 3).map((h) => h.innerText).join(" ");
+        const label = `${document.title} ${heading}`;
+        const notFound = document.querySelector('meta[name="next-error"][content="not-found"]') || (new RegExp(k.notFound, "i").test(label) && text.length < 2000);
+        if (notFound) issues.push("not-found");
+        const overlay = k.errorSelectors.some((s) => { try { return document.querySelector(s); } catch { return false; } }) ||
+          [...document.querySelectorAll("nextjs-portal")].some((el) => el.shadowRoot?.querySelector("[data-nextjs-dialog], [data-nextjs-dialog-overlay]"));
+        if (overlay || new RegExp(k.errorTitle, "i").test(label)) issues.push("error page or overlay");
+        if ([...document.querySelectorAll('input[type="password"]')].some(visible)) issues.push("sign-in form");
+        const media = [...document.querySelectorAll("img, svg, canvas, video, picture")].filter(visible).length;
+        if (text.length < 15 && media < 2) issues.push("blank");
+        const broken = [...document.images].filter((img) => img.complete && img.naturalWidth === 0 && visible(img)).length;
+        if (broken) issues.push(`${broken} broken image(s)`);
+        return issues;
+      }, c.checks)
+      .catch(() => []);
+  const signInPath = new RegExp(c.checks.signInPaths, "i");
+  /** Issues worth a look, without the ones expected on this route. */
+  const suspectsOf = (issues, route) => issues.filter((i) => i !== "not-found" && !(i === "sign-in form" && signInPath.test(route)));
+
   // ---------- Routes ----------
   const hints = (await adapter.resolve?.(ctx)) ?? {};
   const allowed = (route) => (!c.include.length || c.include.some((r) => new RegExp(r).test(route))) && !c.exclude.some((r) => new RegExp(r).test(route));
@@ -429,15 +458,20 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   async function captureRoute(worker, route, url) {
     const entry = { route, url, variants: {} };
     let publicText = null;
+    let notFound = false;
     // Signed out: a request tells whether the page answers at all, before a tab renders it.
     const probe = await publicProbe(anonCtx[primaryScheme], url);
     if (probe.ok) {
       const res = await visit(worker.anon[primaryScheme], url);
-      if (!res.failure && res.finalPath === url && (res.status ?? 200) < 400) {
+      const issues = res.failure ? [] : await inspect(worker.anon[primaryScheme]);
+      if (issues.includes("not-found")) notFound = true;
+      else if (!res.failure && res.finalPath === url && (res.status ?? 200) < 400) {
         Object.assign(entry, res);
         publicText = await textOf(worker.anon[primaryScheme]);
         for (const scheme of schemes) if (scheme !== primaryScheme) await visit(worker.anon[scheme], url);
         entry.variants.public = { files: await shootPage(worker.anon, `${slug(route)}.public`) };
+        const suspects = suspectsOf(issues, route);
+        if (suspects.length) entry.variants.public.suspects = suspects;
         (await collectLinks(worker.anon[primaryScheme])).forEach((l) => links.add(l));
       }
     }
@@ -446,19 +480,23 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       const res = await visit(page, url);
       const redirected = !res.failure && res.finalPath !== url && !routeRegex(route).test(res.finalPath);
       const broken = (res.status ?? 200) >= 500;
-      if (res.failure || redirected || broken) {
-        if (!entry.variants.public) { Object.assign(entry, res); entry.skipped = res.failure ? "failed" : broken ? "server error" : "redirected"; }
+      const issues = res.failure || redirected ? [] : await inspect(page);
+      const missing = res.status === 404 || issues.includes("not-found");
+      if (res.failure || redirected || broken || missing) {
+        if (!entry.variants.public) { Object.assign(entry, res); entry.skipped = res.failure ? "failed" : broken ? "server error" : missing ? "not found" : "redirected"; }
       } else {
         const text = await textOf(page);
         if (!(publicText && textChange(publicText, text) === 0)) {
           if (!entry.variants.public) Object.assign(entry, res);
           for (const scheme of schemes) if (scheme !== primaryScheme) await visit(worker.user[scheme], url);
           entry.variants.user = { files: await shootPage(worker.user, `${slug(route)}.user`) };
+          const suspects = suspectsOf(issues, route);
+          if (suspects.length) entry.variants.user.suspects = suspects;
           (await collectLinks(page)).forEach((l) => links.add(l));
         }
       }
     } else if (!entry.variants.public && !entry.skipped) {
-      entry.skipped = probe.redirect ? "redirected" : "needs sign-in";
+      entry.skipped = notFound ? "not found" : probe.redirect ? "redirected" : "needs sign-in";
       entry.finalPath = probe.redirect ?? null;
     }
     if (c.states.enabled) {
@@ -525,6 +563,9 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     states,
     serverErrors: list.filter((r) => r.skipped === "server error").map((r) => r.route),
     pageErrors: list.filter((r) => r.errors?.length).map((r) => r.route),
+    // Pages that were shot but look wrong (an error overlay, a sign-in form, blank, broken
+    // images): where a review of the screenshots starts.
+    suspects: list.flatMap((r) => Object.entries(r.variants).filter(([, v]) => v.suspects?.length).map(([variant, v]) => ({ route: r.route, variant, issues: v.suspects }))),
     skipped: list.filter((r) => r.skipped).map((r) => ({ route: r.route, why: r.skipped, finalPath: r.finalPath, failure: r.failure })),
     routes: list,
   };

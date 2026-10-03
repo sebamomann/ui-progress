@@ -253,8 +253,12 @@ After lineage, write the history as a short narrative the viewer shows as "Story
 
 ## Check the result
 
-Never report a capture as done without looking at it. For a sample of pages per snapshot,
-open the PNG in `.ui-progress/snapshots/<sha>/shots/` and check:
+Never report a capture as done without looking at it. Start with what the tool already
+flagged: `suspects` in `snapshot.json` lists pages that were shot but look wrong (an error
+overlay or framework error page, a sign-in form while signed in, a blank page, broken
+images), and `skipped` lists pages that were not shot (`not found` includes pages that
+rendered a not-found screen with status 200). Open those first, then a sample of the
+others, in `.ui-progress/snapshots/<sha>/shots/`, and check:
 
 - it is the page, not an error page, a blank page or a login form
 - the data is there (lists are not empty, images are not broken)

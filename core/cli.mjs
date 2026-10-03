@@ -165,7 +165,7 @@ async function snapshot(flags, positional) {
   // A single commit runs in this process; several run as parallel child processes.
   if (shas.length === 1 && flags.port) {
     const result = await runSnapshot(p, config, adapter, shas[0], { port: Number(flags.port), force: true, refreshClone: false });
-    console.log(JSON.stringify({ short: result.short, date: result.date, failed: result.failed ?? null, error: result.error ?? null, timings: result.timings ?? null, pages: result.manifest ? `${result.manifest.captured}/${result.manifest.routesTotal}` : null, reused: result.manifest?.reused ?? 0, states: result.manifest?.states ?? null }));
+    console.log(JSON.stringify({ short: result.short, date: result.date, failed: result.failed ?? null, error: result.error ?? null, timings: result.timings ?? null, pages: result.manifest ? `${result.manifest.captured}/${result.manifest.routesTotal}` : null, reused: result.manifest?.reused ?? 0, states: result.manifest?.states ?? null, suspects: result.manifest?.suspects?.length ?? 0 }));
     if (result.failed) process.exitCode = 1;
     return;
   }
@@ -200,7 +200,7 @@ async function snapshot(flags, positional) {
       done++;
       if (result.failed) failed++;
       const seconds = result.timings ? Object.values(result.timings).reduce((a, b) => a + b, 0) : 0;
-      console.log(`[${done}/${shas.length}] ${result.date ?? ""} ${result.short}  ${result.failed ? `FAILED in ${result.failed}: ${result.error}` : `${result.pages} pages${result.reused ? ` (${result.reused} copied forward)` : ""}, ${result.states} states, ${seconds}s`}`);
+      console.log(`[${done}/${shas.length}] ${result.date ?? ""} ${result.short}  ${result.failed ? `FAILED in ${result.failed}: ${result.error}` : `${result.pages} pages${result.reused ? ` (${result.reused} copied forward)` : ""}, ${result.states} states, ${seconds}s${result.suspects ? `, ${result.suspects} suspect page(s): see "suspects" in snapshots/${result.short}/snapshot.json` : ""}`}`);
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, shas.length) }, (_, i) => worker(i)));

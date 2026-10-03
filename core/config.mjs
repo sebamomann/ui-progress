@@ -38,6 +38,15 @@ export const DEFAULTS = {
     unsafe:
       "delete|löschen|entfernen|remove|log ?out|abmelden|sign ?out|verwerfen|discard|impersonat|block|sperren|revoke|widerrufen|trash|pay|bezahlen|purchase|kaufen" +
       "|mark as|markieren|accept|annehmen|decline|ablehnen|reject|absagen|confirm|bestätigen|send|senden|save|speichern|submit|apply|anwenden|snooze|follow|folgen|publish|veröffentlichen",
+    // Cheap checks after every page load. notFound: title or main heading of a page that
+    // says it does not exist (also when it answered 200). errorSelectors: dev-server error
+    // overlays and framework error pages. Pages that match are skipped or marked as suspect.
+    checks: {
+      notFound: "\\b404\\b|not found|page not found|does not exist|nicht gefunden|introuvable|no encontrad|non trovat|não encontrad|niet gevonden|nie znaleziono|見つかりません|找不到|не найден",
+      errorSelectors: ["vite-error-overlay", "#webpack-dev-server-client-overlay", "[data-nextjs-dialog-overlay]", "#__next_error__", "#traceback", ".exception_value"],
+      errorTitle: "traceback|exception|internal server error|application error|unhandled runtime error|server error|fatal error|\\b500\\b",
+      signInPaths: "login|log-in|signin|sign-in|signup|sign-up|register|auth|password|account/new",
+    },
     hide: ["nextjs-portal", "#__next-build-watcher", "vite-error-overlay", "#djDebug"],
     locale: "en-US",
     colorScheme: "light",
