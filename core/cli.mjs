@@ -14,7 +14,7 @@ import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineag
 import { MODES, buildPlan } from "./plan.mjs";
 import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
-import { AGENT_TASKS, appendRun, noteAgent, parseDuration, renderStats, summarize } from "./stats.mjs";
+import { AGENT_TASKS, appendRun, duration, estimate, noteAgent, parseDuration, renderStats, summarize } from "./stats.mjs";
 import { clearUnbuildable, markUnbuildable, readUnbuildable, unbuildableEntry } from "./unbuildable.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
@@ -167,6 +167,24 @@ function init(flags) {
   console.log(`\nNext: fill in .ui-progress/adapter.mjs, then run  ui-progress plan --mode pilot`);
 }
 
+/**
+ * How many snapshots run at once. Each runs the app's dev server and a browser: budget about
+ * 3.5 GB apiece and leave 6 GB for everything else on the machine. Asking for more than fits
+ * is how a long run gets killed for memory halfway through.
+ */
+function concurrencyFor(wanted, ignoreMemory = false) {
+  const fits = Math.max(1, Math.floor((os.totalmem() / 2 ** 30 - 6) / 3.5));
+  return ignoreMemory ? wanted : Math.min(wanted, fits);
+}
+
+/** "About 25m for 12 snapshots, ..." from the measured runs, or null without any. */
+function estimateLine(p, config, todo) {
+  const concurrency = concurrencyFor(Math.max(1, Number(config.run.concurrency) || 1));
+  const e = estimate(summarize(p), todo, concurrency);
+  if (!e) return null;
+  return `Estimate: about ${duration(e.seconds)} for ${todo} snapshot(s), ${concurrency} at a time, ${duration(e.perSnapshot)} each (median of the last ${e.basedOn} measured in runs.jsonl). Setup fixes and failures come on top.`;
+}
+
 async function plan(flags) {
   const { p, config } = context();
   const adapter = await loadAdapter(p);
@@ -183,7 +201,10 @@ async function plan(flags) {
   if (!result) throw new Error("Mode is manual and there is no plan.json. Write one, or pick another --mode.");
   if (!flags.print && mode !== "manual") writeJson(p.plan, result);
   console.log(`${result.entries.length} snapshots planned (${result.mode}) out of ${result.commitsInRange ?? "?"} commits${flags.print ? " — not saved" : ""}\n`);
-  console.log(table(result.entries.map((e) => [isDone(p, snapshotId(p, e.sha)) ? "done" : "todo", e.date, e.short, e.reason.slice(0, 70)])));
+  const rows = result.entries.map((e) => [isDone(p, snapshotId(p, e.sha)) ? "done" : "todo", e.date, e.short, e.reason.slice(0, 70)]);
+  console.log(table(rows));
+  const line = estimateLine(p, config, rows.filter((r) => r[0] === "todo").length);
+  if (line) console.log(`\n${line}`);
 }
 
 async function snapshot(flags, positional) {
@@ -227,12 +248,8 @@ async function snapshot(flags, positional) {
     return;
   }
   ensureClone(p); // once, here: the parallel workers must not race to create or fetch it
-  // Each snapshot runs the app's dev server and a browser: budget about 3.5 GB apiece and
-  // leave 6 GB for everything else on the machine. Asking for more than fits is how a long
-  // run gets killed for memory halfway through.
   const wanted = Math.max(1, Number(flags.concurrency ?? config.run.concurrency));
-  const fits = Math.max(1, Math.floor((os.totalmem() / 2 ** 30 - 6) / 3.5));
-  const concurrency = flags["ignore-memory"] ? wanted : Math.min(wanted, fits);
+  const concurrency = concurrencyFor(wanted, flags["ignore-memory"]);
   if (concurrency < wanted) console.log(`This machine has ${Math.round(os.totalmem() / 2 ** 30)} GB of memory: running ${concurrency} at a time instead of ${wanted} (override with --ignore-memory).`);
   const queue = [...shas];
   const started = Date.now();
@@ -336,6 +353,8 @@ function status(flags) {
   });
   console.log(`Project: ${config.project.name}   sampling: ${planned.mode ?? config.sampling.mode}   planned: ${rows.length}   done: ${rows.filter((r) => r[0] === "done").length}   failed: ${rows.filter((r) => r[0].startsWith("FAILED")).length}\n`);
   console.log(table(rows));
+  const line = estimateLine(p, config, rows.filter((r) => r[0] !== "done").length);
+  if (line) console.log(`\n${line}`);
   const broken = readUnbuildable(p).length;
   if (broken) console.log(`\n${broken} commit(s) recorded as unbuildable: ui-progress unbuildable`);
   const open = listFindings(p).filter((f) => f.status === "open").length;
