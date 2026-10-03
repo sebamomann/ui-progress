@@ -19,7 +19,7 @@ you set a project up.
 - **Every page at every chosen commit**, on desktop and mobile, signed out and signed in
 - **Every view of a page**: sections you switch between, dialogs, menus, each tracked over time
 - **Lineage**: which page was split off, extracted, merged, replaced or renamed, each with the evidence
-- **A viewer** (one static HTML file) with a structural graph, a thumbnail timeline, per-snapshot overviews, a before/after slider with change highlighting, playback, and a written Story
+- **A viewer** (one static HTML file) with a structural graph, a thumbnail timeline, per-snapshot overviews, a before/after slider with change highlighting, playback, a written Story, and a Runs page with what each snapshot cost and where it went wrong
 - **Fast**: several tabs at once, and pages whose source did not change are copied forward instead of re-shot
 - **Seeded data and placeholder images** so old pages are not captured empty
 - **Only commits**: every snapshot is a commit in a throwaway checkout with a throwaway

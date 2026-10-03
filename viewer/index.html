@@ -296,6 +296,33 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .cards.narrow .card .thumb { aspect-ratio: 15 / 26; }
 .card .route { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------- Runs ---------- */
+.runs { display: flex; flex-direction: column; gap: 20px; }
+.runs .tiles { max-width: 1240px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.tile .v { font-size: 20px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.tile .k { color: var(--muted); font-size: 12px; }
+.tile .d { color: var(--faint); font-size: 11.5px; margin-top: 2px; }
+.findings { margin: 0; padding-left: 18px; line-height: 1.6; max-width: 90ch; }
+.findings li + li { margin-top: 4px; }
+.scrollx { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.rtable { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.rtable th { text-align: left; font-weight: 600; color: var(--muted); font-size: 11.5px; padding: 8px 10px; border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
+.rtable td { padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
+.rtable tr:last-child td { border-bottom: 0; }
+.rtable td.num, .rtable th.num { text-align: right; }
+.rtable .subj { color: var(--muted); max-width: 26ch; overflow: hidden; text-overflow: ellipsis; display: block; }
+.tries { display: flex; gap: 2px; align-items: center; min-width: 180px; }
+.try { height: 12px; border-radius: 0 4px 4px 0; background: var(--accent); min-width: 3px; }
+.try.fail { background: var(--gone-soft); box-shadow: inset 0 0 0 1px var(--gone); }
+.tries .s { margin-left: 6px; color: var(--muted); font-size: 11.5px; }
+.tries .x { color: var(--gone); font-weight: 650; }
+.phases { display: grid; grid-template-columns: max-content 1fr max-content; gap: 6px 12px; align-items: center; max-width: 640px; font-size: 12.5px; }
+.phases .bar { height: 10px; background: var(--raised); border-radius: 0 4px 4px 0; overflow: hidden; }
+.phases .bar i { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+.phases .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+
 /* ---------- Lightbox ---------- */
 .lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(8, 9, 12, .94); display: none; flex-direction: column; color: #eee; }
 .lightbox.open { display: flex; }
@@ -338,6 +365,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     <a href="#/timeline" data-view="timeline" title="Every page as thumbnails, snapshot by snapshot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="4" height="4"/><rect x="10" y="3" width="4" height="4"/><rect x="2" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/></svg>Screens</a>
     <a href="#/snapshots" data-view="snapshots" title="The whole site at one point in time"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>Snapshots</a>
     <a href="#/story" data-view="story" id="navStory" title="The history as a written changelog"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2.5h10v11H3zM5.5 6h5M5.5 8.5h5M5.5 11h3"/></svg>Story</a>
+    <a href="#/runs" data-view="runs" id="navRuns" title="How the snapshots were made: time, attempts, fixes, failures"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 13.5h11M4.5 11V8M8 11V4M11.5 11V6.5"/></svg>Runs</a>
   </nav>
   <div class="tools">
     <input class="field" id="search" type="search" placeholder="Find a page…  ( / )" aria-label="Find a page">
@@ -410,7 +438,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   const narrow = () => state.viewport !== viewportNames[0] && /mobile|phone|narrow/i.test(state.viewport);
   const mainView = (page) => page.views.find((v) => v.id === "page");
   const extraViews = (page) => page.views.filter((v) => v.id !== "page");
-  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const plural = (n, word, many = word + "s") => `${n} ${n === 1 ? word : many}`;
   const routeHtml = (id) => `<span>${esc(id)}</span>`;
 
   /** What a view looked like at a snapshot, relative to the last time it was captured. */
@@ -979,6 +1007,90 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     content.replaceChildren(pad);
   }
 
+  // ---------- Runs ----------
+  const dur = (sec) => {
+    if (sec == null) return "?";
+    const x = Math.round(sec);
+    if (x < 60) return `${x}s`;
+    if (x < 3600) return `${Math.floor(x / 60)}m ${String(x % 60).padStart(2, "0")}s`;
+    return `${Math.floor(x / 3600)}h ${String(Math.floor((x % 3600) / 60)).padStart(2, "0")}m`;
+  };
+  const num = (n) => (n ?? 0).toLocaleString("en");
+  function renderRuns() {
+    const S = H.stats;
+    const runs = S?.commits ?? [];
+    header("Runs", runs.length ? `${plural(S.totals.attempts, "attempt")} on ${plural(runs.length, "commit")} · from <span class="mono">runs.jsonl</span>` : "", [],
+      "<p>How the snapshots were made. Every <code>ui-progress snapshot</code> attempt is recorded in <code>.ui-progress/runs.jsonl</code>: how long each phase took, what was captured, why pages were recaptured instead of copied forward, and whether the adapter, config or screens changed since the attempt before (a setup fix). The same data is in <code>ui-progress stats</code>.</p>");
+    const pad = el('<div class="pad"></div>');
+    if (!runs.length) { pad.append(el('<div class="empty">No runs recorded yet. Every <code>ui-progress snapshot</code> adds a line to <code>.ui-progress/runs.jsonl</code>; rebuild the viewer afterwards.</div>')); content.replaceChildren(pad); return; }
+    const t = S.totals;
+    const box = el('<div class="runs"></div>');
+    const tile = (v, k, d = "") => `<div class="tile"><div class="v">${v}</div><div class="k">${esc(k)}</div>${d ? `<div class="d">${d}</div>` : ""}</div>`;
+    box.append(el(`<div class="tiles">
+      ${tile(`${t.captured}<span class="muted" style="font-size:14px;font-weight:500"> / ${t.commits}</span>`, "commits captured", t.failed ? `${t.failed} without a snapshot` : t.standIns ? `${plural(t.standIns, "stand-in")}` : "")}
+      ${tile(dur(t.finalSeconds), "capture time", "final runs")}
+      ${tile(dur(t.attemptSeconds), "all attempts", `${plural(t.attempts, "attempt")}${t.failedAttempts ? `, ${t.failedAttempts} failed` : ""}`)}
+      ${tile(num(t.pagesCaptured), "pages shot", t.reused ? `${num(t.reused)} copied forward` : "")}
+      ${tile(num(t.shots), "screenshots", `${num(t.states)} states`)}
+      ${tile(String(t.fixes), t.fixes === 1 ? "setup fix" : "setup fixes", `${t.firstTry} of ${t.commits} clean first try`)}
+      ${tile(String(t.suspects), "suspect pages", t.skipped ? `${t.skipped} skipped` : "")}
+    </div>`));
+    if (S.conclusions?.length) box.append(el(`<section><div class="h2">What the numbers say</div><ul class="findings">${S.conclusions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></section>`));
+
+    // One row per commit; each attempt is a bar as long as it took, failed ones outlined.
+    const longest = Math.max(1, ...runs.flatMap((c) => c.attempts.map((a) => a.seconds ?? 0)));
+    const tip = document.getElementById("tip");
+    const rows = runs.map((c, ci) => {
+      const f = c.final;
+      const known = snapIndex[c.sha] != null;
+      const bars = c.attempts.map((a, ai) => `<span class="try ${a.ok ? "" : "fail"}" data-c="${ci}" data-a="${ai}" style="width:${Math.max(3, Math.round(((a.seconds ?? 0) / longest) * 120))}px"></span>`).join("");
+      const last = c.attempts[c.attempts.length - 1];
+      const result = c.ok ? (c.firstTry ? "ok, first try" : "ok") + (c.standsInFor.length ? ` · for ${esc(c.standsInFor.join(", "))}` : "") : `<span class="x">✗</span> failed in ${esc(last.phase ?? "?")}`;
+      return `<tr>
+        <td>${esc(c.date)}</td>
+        <td>${known ? `<a class="mono" href="#/snapshot/${esc(c.sha)}">${esc(c.sha)}</a>` : `<span class="mono">${esc(c.sha)}</span>`}<span class="subj" title="${esc(c.subject)}">${esc(c.subject)}</span></td>
+        <td><div class="tries">${bars}<span class="s">${dur(last.seconds)}${c.attempts.length > 1 ? ` · ${plural(c.attempts.length, "try", "tries")}` : ""}</span></div></td>
+        <td class="num">${f ? `${f.captured}/${f.pages}` : ""}</td>
+        <td class="num">${f?.reused ? f.reused : ""}</td>
+        <td class="num">${f ? num(f.shots) : ""}</td>
+        <td class="num">${f ? num(f.states) : ""}</td>
+        <td class="num">${f?.skipped || ""}</td>
+        <td class="num">${f?.suspects || ""}</td>
+        <td class="num">${c.fixes || ""}</td>
+        <td>${result}</td>
+      </tr>`;
+    }).join("");
+    const tableBox = el(`<section><div class="h2">Per commit</div><div class="scrollx"><table class="rtable">
+      <thead><tr><th>Date</th><th>Commit</th><th>Attempts</th><th class="num">Pages</th><th class="num">Copied</th><th class="num">Shots</th><th class="num">States</th><th class="num">Skipped</th><th class="num">Suspects</th><th class="num">Fixes</th><th>Result</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></section>`);
+    tableBox.querySelectorAll(".try").forEach((bar) => {
+      const c = runs[bar.dataset.c], a = c.attempts[bar.dataset.a];
+      const f = a.ok && Number(bar.dataset.a) === c.attempts.length - 1 ? c.final : null;
+      const phases = f?.timings ? Object.entries(f.timings).map(([k, v]) => `${esc(k)} ${dur(v)}`).join(" · ") : "";
+      const why = f?.recapture?.reason && f.recapture.reason !== "incremental" ? `<br>everything recaptured: ${esc(f.recapture.reason)}${f.recapture.file ? ` (${esc(f.recapture.file)})` : ""}` : "";
+      const html = `<b>${esc(c.sha)}</b> attempt ${Number(bar.dataset.a) + 1} of ${c.attempts.length}<br>${esc(String(a.at ?? "").replace("T", " ").slice(0, 16))} · ${dur(a.seconds)}${a.ok ? "" : `<br>✗ failed in ${esc(a.phase)}${a.error ? `: ${esc(a.error)}` : ""}`}${a.changed?.length ? `<br>after a change to ${esc(a.changed.join(", "))}` : ""}${phases ? `<br>${phases}` : ""}${why}`;
+      bar.addEventListener("mousemove", (e) => { tip.innerHTML = html; tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - 350) + "px"; tip.style.top = e.clientY + 16 + "px"; });
+      bar.addEventListener("mouseleave", () => (tip.style.display = "none"));
+    });
+    box.append(tableBox);
+
+    if (S.phases?.length) {
+      const top = S.phases[0].seconds || 1;
+      box.append(el(`<section><div class="h2">Where the time goes · final runs</div><div class="phases">${S.phases.map((x) => `<span>${esc(x.phase)}</span><span class="bar"><i style="width:${(x.seconds / top) * 100}%"></i></span><span class="n">${dur(x.seconds)} · ${Math.round(x.share * 100)}%</span>`).join("")}</div></section>`));
+    }
+    const fails = Object.entries(S.failedByPhase ?? {});
+    const full = (S.fullRecaptures ?? []).filter((r) => r.reason !== "no earlier snapshot");
+    if (fails.length || full.length) {
+      const parts = [];
+      if (fails.length) parts.push(`<div><span class="pill gone">Failed attempts · ${t.failedAttempts}</span><ul>${fails.sort((a, b) => b[1] - a[1]).map(([ph, n]) => `<li>${n} in ${esc(ph)}</li>`).join("")}</ul></div>`);
+      if (full.length) parts.push(`<div><span class="pill major">Recaptured everything · ${full.length}</span><ul>${full.map((r) => `<li><span class="mono">${esc(r.sha)}</span> ${esc(r.reason)}${r.file ? ` <span class="mono muted">${esc(r.file)}</span>` : ""}</li>`).join("")}</ul></div>`);
+      box.append(el(`<section><div class="h2">Failures and full recaptures</div><div class="summary">${parts.join("")}</div></section>`));
+    }
+    if (S.machines?.length) box.append(el(`<p class="muted" style="margin:0;font-size:12px">Measured on ${S.machines.map(esc).join("; ")}. Times from different machines or concurrency are not directly comparable.</p>`));
+    pad.append(box);
+    content.replaceChildren(pad);
+  }
+
   // ---------- Snapshots ----------
   function delta(i) {
     const here = H.pages.filter((p) => exists(p, i));
@@ -1102,6 +1214,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     } else if (hash.startsWith("#/snapshot/")) { active = "snapshots"; renderSnapshot(hash.slice(11)); }
     else if (hash === "#/snapshots") { active = "snapshots"; renderSnapshots(); }
     else if (hash === "#/story") { active = "story"; renderStory(); }
+    else if (hash === "#/runs") { active = "runs"; renderRuns(); }
     else if (hash === "#/timeline") { active = "timeline"; renderTimeline(); }
     else renderGraph();
     document.querySelectorAll("#nav a").forEach((a) => a.dataset.view === active ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
@@ -1109,6 +1222,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     if (keep) { content.scrollLeft = keep[0]; content.scrollTop = keep[1]; } else content.scrollTop = 0;
   }
   if (!(H.changelog ?? []).length) document.getElementById("navStory").style.display = "none";
+  if (!(H.stats?.commits ?? []).length) document.getElementById("navRuns").style.display = "none";
   document.getElementById("project").textContent = `${H.project.name} · ${plural(snaps.length, "snapshot")} of ${H.project.commits} commits`;
   document.title = `UI History · ${H.project.name}`;
   document.getElementById("search").addEventListener("input", (e) => { state.search = e.target.value; render(); e.target.focus(); });
