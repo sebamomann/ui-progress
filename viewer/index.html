@@ -186,12 +186,12 @@ a:hover { text-decoration: underline; }
 .graph .node.missing { fill: var(--faint); }
 .graph .birth { stroke: var(--new); stroke-width: 2; }
 .graph .death { stroke: var(--gone); stroke-width: 2; }
-.graph .edge { fill: none; stroke-width: 1.5; }
-.graph .edge.branch { stroke: var(--lane); }
-.graph .edge.split { stroke: var(--new); stroke-width: 2; }
-.graph .edge.merged, .graph .edge.replaced { stroke: var(--gone); stroke-width: 2; }
-.graph .edge.redirect, .graph .edge.rename { stroke: var(--accent); stroke-width: 2; }
-.graph .edge.clone { stroke: var(--accent); stroke-dasharray: 4 3; }
+.edge { fill: none; stroke-width: 1.5; }
+.edge.branch { stroke: var(--lane); }
+.edge.split { stroke: var(--new); stroke-width: 2; }
+.edge.merged, .edge.replaced { stroke: var(--gone); stroke-width: 2; }
+.edge.redirect, .edge.rename { stroke: var(--accent); stroke-width: 2; }
+.edge.clone { stroke: var(--accent); stroke-dasharray: 4 3; }
 .tip { position: fixed; z-index: 40; pointer-events: none; background: var(--text); color: var(--bg); padding: 6px 9px; border-radius: 7px; font-size: 12px; max-width: 340px; box-shadow: var(--shadow); display: none; line-height: 1.45; }
 .tip b { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
 
@@ -207,6 +207,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .label .route { flex: 1; min-width: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
 .label .route > span { direction: ltr; unicode-bidi: isolate; }
 .label .route:hover { text-decoration: none; color: var(--accent); }
+.label .focus-btn { margin-left: auto; }
+.label:hover .focus-btn { opacity: 1; }
+.grid .links { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; overflow: visible; }
+.grid .links .edge { pointer-events: stroke; }
+.screensbar { display: flex; align-items: center; gap: 8px 24px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; position: sticky; left: 0; }
 .label .kind { color: var(--faint); font-size: 11px; white-space: nowrap; }
 .expander { height: 22px; border: 1px solid var(--line-strong); background: var(--raised); border-radius: 6px; padding: 0 7px; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .expander:hover { border-color: var(--accent); color: var(--accent); }
@@ -579,6 +584,39 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     tree.dataset.first = "1";
   }
 
+  // ---------- Relations, shared by the graph and the screens ----------
+  /** The relation keys double as switches: off hides those curves, and focus stops following them. */
+  function relationToggles() {
+    const box = el(`<div class="legend links" role="group" aria-label="Relations to show"><span class="lgtitle">Relations</span>
+      ${[["split", "split", "split off"], ["merge", "merge", "merged or replaced"], ["move", "move", "renamed or redirected"], ["clone", "clone", "built from a copy"], ["branch", "line", "added under"]]
+        .map(([k, cls, text]) => `<button class="lkey" data-link="${k}" aria-pressed="${state.links[k]}" title="${state.links[k] ? "Hide" : "Show"} these relations${state.focus.size ? " and stop following them in focus" : ""}"><i class="key ${cls}"></i> ${text}</button>`).join("")}</div>`);
+    box.querySelectorAll("[data-link]").forEach((b) => b.addEventListener("click", () => { state.links[b.dataset.link] = !state.links[b.dataset.link]; render(); }));
+    return box;
+  }
+  const isOutOf = (e) => e.type === "branch" || e.type === "split" || e.type === "clone";
+  /** One relation as a curve from row a to row b at x; with a hover text saying what happened. */
+  function edgePath(e, ex, ay, by) {
+    const path = svgEl("path", { class: `edge ${e.type}` });
+    if (isOutOf(e)) path.setAttribute("d", `M${ex - 14} ${ay} C ${ex - 2} ${ay}, ${ex - 12} ${by}, ${ex} ${by}`);
+    else { path.setAttribute("d", `M${ex} ${ay} C ${ex + 14} ${ay}, ${ex + 2} ${by}, ${ex + 16} ${by}`); path.setAttribute("marker-end", "url(#arrow)"); }
+    const verb = { branch: "was added under", split: "was split off from", extract: "was moved out of", clone: "was built from a copy of", merged: "was folded into", replaced: "was replaced by", redirect: "now redirects to", rename: "was renamed to" }[e.kind === "extract" ? "extract" : e.type];
+    const head = isOutOf(e) ? `<b>${esc(e.to)}</b> ${verb} <b>${esc(e.from)}</b>` : `<b>${esc(e.from)}</b> ${verb} <b>${esc(e.to)}</b>`;
+    path.style.pointerEvents = "stroke";
+    path.addEventListener("mousemove", (ev) => showTip(ev, `${head}<br>${esc(e.date)}${e.sha ? " · " + esc(e.sha) : ""}${e.note ? "<br>" + esc(e.note) : ""}`));
+    path.addEventListener("mouseleave", hideTip);
+    return path;
+  }
+  const arrowDefs = () => {
+    const defs = svgEl("defs");
+    const marker = svgEl("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 9, markerHeight: 9, markerUnits: "userSpaceOnUse", orient: "auto" });
+    marker.append(svgEl("path", { d: "M0 0 L10 5 L0 10 z", fill: "context-stroke" }));
+    defs.append(marker);
+    return defs;
+  };
+  const tip = document.getElementById("tip");
+  const showTip = (e, html) => { tip.innerHTML = html; tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - 350) + "px"; tip.style.top = e.clientY + 16 + "px"; };
+  const hideTip = () => (tip.style.display = "none");
+
   // ---------- Graph ----------
   function renderGraph() {
     const zoomBar = el(`<div class="zoom"><span class="seg"><button data-zoom="out" title="Zoom out">−</button><button data-zoom="fit" title="Show the whole history">Fit</button><button data-zoom="in" title="Zoom in">+</button></span><span class="zoomlvl">${state.zoom === 1 ? "whole history" : "×" + (state.zoom < 10 ? state.zoom.toFixed(1) : Math.round(state.zoom))}</span></div>`);
@@ -598,13 +636,9 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       intro.querySelector("[data-dismiss]").addEventListener("click", () => { try { localStorage.setItem("ui-history-intro", "1"); } catch { /* ignore */ } intro.remove(); });
       wrap.append(intro);
     }
-    // The relation keys double as switches: off hides those curves, and focus stops following them.
     const bar = el(`<div class="graphbar"><div class="legend">
-      <span><i class="key new"></i> first seen</span><span><i class="key major"></i> redesigned</span><span><i class="key minor"></i> small change</span><span><i class="key same"></i> unchanged</span></div>
-      <div class="legend links" role="group" aria-label="Relations to show"><span class="lgtitle">Relations</span>
-      ${[["split", "split", "split off"], ["merge", "merge", "merged or replaced"], ["move", "move", "renamed or redirected"], ["clone", "clone", "built from a copy"], ["branch", "line", "added under"]]
-        .map(([k, cls, text]) => `<button class="lkey" data-link="${k}" aria-pressed="${state.links[k]}" title="${state.links[k] ? "Hide" : "Show"} these relations${state.focus.size ? " and stop following them in focus" : ""}"><i class="key ${cls}"></i> ${text}</button>`).join("")}</div></div>`);
-    bar.querySelectorAll("[data-link]").forEach((b) => b.addEventListener("click", () => { state.links[b.dataset.link] = !state.links[b.dataset.link]; render(); }));
+      <span><i class="key new"></i> first seen</span><span><i class="key major"></i> redesigned</span><span><i class="key minor"></i> small change</span><span><i class="key same"></i> unchanged</span></div></div>`);
+    bar.append(relationToggles());
     wrap.append(bar);
     if (!pages.length) { wrap.append(emptyState()); content.replaceChildren(wrap); return; }
 
@@ -637,10 +671,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     labels.append(el('<div style="height:8px"></div>'));
     const svg = svgEl("svg", { width, height, viewBox: `0 0 ${width} ${height}` });
     const axisSvg = svgEl("svg", { width, height: AXIS, viewBox: `0 0 ${width} ${AXIS}` });
-    const defs = svgEl("defs");
-    const marker = svgEl("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 9, markerHeight: 9, markerUnits: "userSpaceOnUse", orient: "auto" });
-    marker.append(svgEl("path", { d: "M0 0 L10 5 L0 10 z", fill: "context-stroke" }));
-    defs.append(marker); svg.append(defs);
+    svg.append(arrowDefs());
     const layer = () => { const g = svgEl("g"); svg.append(g); return g; };
     const gBack = layer(), gHit = layer(), gLanes = layer(), gEdges = layer(), gNodes = layer();
     const gAxis = svgEl("g"); axisSvg.append(gAxis);
@@ -676,9 +707,6 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       if (sx - lastLabel > 46) { const t = svgEl("text", { x: sx, y: 40, "text-anchor": "middle" }); t.textContent = s.date.slice(5); gAxis.append(t); lastLabel = sx; }
     });
 
-    const tip = document.getElementById("tip");
-    const showTip = (e, html) => { tip.innerHTML = html; tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - 350) + "px"; tip.style.top = e.clientY + 16 + "px"; };
-    const hideTip = () => (tip.style.display = "none");
     const ends = new Map(H.edges.filter((e) => ["merged", "redirect", "replaced", "rename"].includes(e.type)).map((e) => [e.from, e]));
     const RANK = { major: 5, new: 4, base: 4, minor: 3, missing: 2, same: 1 };
 
@@ -740,17 +768,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     for (const e of H.edges) {
       const a = rows[e.from], b = rows[e.to];
       if (!a || !b || !e.date || !linkOn(e)) continue;
-      const ex = x(e.date);
-      const path = svgEl("path", { class: `edge ${e.type}` });
-      const outOf = e.type === "branch" || e.type === "split" || e.type === "clone";
-      if (outOf) path.setAttribute("d", `M${ex - 14} ${a.y} C ${ex - 2} ${a.y}, ${ex - 12} ${b.y}, ${ex} ${b.y}`);
-      else { path.setAttribute("d", `M${ex} ${a.y} C ${ex + 14} ${a.y}, ${ex + 2} ${b.y}, ${ex + 16} ${b.y}`); path.setAttribute("marker-end", "url(#arrow)"); }
-      const verb = { branch: "was added under", split: "was split off from", extract: "was moved out of", clone: "was built from a copy of", merged: "was folded into", replaced: "was replaced by", redirect: "now redirects to", rename: "was renamed to" }[e.kind === "extract" ? "extract" : e.type];
-      const head = outOf ? `<b>${esc(e.to)}</b> ${verb} <b>${esc(e.from)}</b>` : `<b>${esc(e.from)}</b> ${verb} <b>${esc(e.to)}</b>`;
-      path.style.pointerEvents = "stroke";
-      path.addEventListener("mousemove", (ev) => showTip(ev, `${head}<br>${esc(e.date)}${e.sha ? " · " + esc(e.sha) : ""}${e.note ? "<br>" + esc(e.note) : ""}`));
-      path.addEventListener("mouseleave", hideTip);
-      gEdges.append(path);
+      gEdges.append(edgePath(e, x(e.date), a.y, b.y));
     }
     graph.querySelector(".axis").append(axisSvg);
     graph.querySelector(".body").append(svg);
@@ -807,6 +825,8 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     header("Screens", `${pages.length} pages · ${plural(snaps.length, "snapshot")}`, [],
       "<p>One row per page, one column per snapshot. A thumbnail appears where the page first existed or changed; a small dot on the line means it looked the same as before, and the line shows how long the page existed. Click a thumbnail to enlarge it, then use the arrow keys to move through the changes. The \"views\" button opens the page's sections, dialogs and menus as extra rows.</p>");
     if (!pages.length) { content.replaceChildren(emptyState()); return; }
+    const bar = el('<div class="screensbar"></div>');
+    bar.append(relationToggles());
     const grid = el(`<div class="grid" style="grid-template-columns: var(--label-w) repeat(${snaps.length}, var(--col-w))"></div>`);
     grid.append(el('<div class="corner">Page · Time →</div>'));
     snaps.forEach((s) => grid.append(el(`<a class="head" href="#/snapshot/${s.id}" title="${esc(s.subject)}"><div class="date">${esc(s.date)}</div><div class="meta">${s.pages} pages · ${esc(s.id)}</div></a>`)));
@@ -830,13 +850,14 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       if (page.section !== section) { section = page.section; grid.append(el(`<div class="section">${esc(section)}</div>`)); }
       const { first, last } = lifespan(page);
       const extras = extraViews(page);
-      const label = el(`<div class="label"><a class="route" href="${pageHref(page.id)}" title="${esc(page.id)}">${routeHtml(page.id)}</a></div>`);
+      const label = el(`<div class="label" data-page="${esc(page.id)}"><a class="route" href="${pageHref(page.id)}" title="${esc(page.id)}">${routeHtml(page.id)}</a></div>`);
       if (extras.length) {
         const open = state.expanded.has(page.id);
         const ex = el(`<button class="expander" title="${open ? "Hide" : "Show"} this page's sections, dialogs and menus">${open ? "▾" : "▸"} ${extras.length} views</button>`);
         ex.addEventListener("click", () => { open ? state.expanded.delete(page.id) : state.expanded.add(page.id); render(); });
         label.append(ex);
       }
+      label.append(focusButton(page.id));
       grid.append(label);
       const series = seriesFor(page.id, mainView(page));
       snaps.forEach((s, i) => {
@@ -852,7 +873,29 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
         grid.append(row);
       }
     }
-    content.replaceChildren(grid);
+    content.replaceChildren(bar, grid);
+    drawScreenLinks(grid);
+  }
+
+  /**
+   * The graph's relation curves, laid over the screens grid: each one runs between the two
+   * pages' rows, at the first snapshot that shows the result.
+   */
+  function drawScreenLinks(grid) {
+    const rowY = {};
+    for (const label of grid.querySelectorAll(".label[data-page]")) rowY[label.dataset.page] = label.offsetTop + label.offsetHeight / 2;
+    const labelW = grid.querySelector(".corner").offsetWidth;
+    const colW = grid.querySelector(".head")?.offsetWidth ?? 132;
+    const svg = svgEl("svg", { class: "links", width: grid.scrollWidth, height: grid.scrollHeight });
+    svg.append(arrowDefs());
+    for (const e of H.edges) {
+      if (!e.date || !linkOn(e) || rowY[e.from] == null || rowY[e.to] == null) continue;
+      let k = snaps.findIndex((s) => s.date >= e.date);
+      if (k < 0) k = snaps.length - 1;
+      // At the left edge of that snapshot's column, clear of its thumbnail.
+      svg.append(edgePath(e, labelW + k * colW + 18, rowY[e.from], rowY[e.to]));
+    }
+    grid.append(svg);
   }
 
   // ---------- Page ----------
