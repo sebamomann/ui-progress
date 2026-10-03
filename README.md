@@ -20,7 +20,7 @@ you set a project up.
 - **Every view of a page**: sections you switch between, dialogs, menus, each tracked over time
 - **Lineage**: which page was split off, extracted, merged, replaced or renamed, each with the evidence
 - **A viewer** (one static HTML file) with a structural graph, a thumbnail timeline, per-snapshot overviews, a before/after slider with change highlighting, playback, a written Story, and a Runs page with what each snapshot cost and where it went wrong
-- **Fast**: several tabs at once, and pages whose source did not change are copied forward instead of re-shot
+- **Fast and small**: several tabs at once; pages whose source did not change are taken over instead of re-shot, and every screenshot is stored once
 - **Seeded data and placeholder images** so old pages are not captured empty
 - **Only commits**: every snapshot is a commit in a throwaway checkout with a throwaway
   database; after a batch of commits, one snapshot of HEAD covers them all
@@ -95,7 +95,7 @@ they are listed so you know what exists.
   changelog.json   the Story, a few written chapters           commit
   runs.jsonl       every snapshot attempt, timings, outcome    commit
   findings/        problems with the plugin, to send upstream  optional
-  snapshots/       screenshots and manifests per commit        ignored by default (20-40 MB each)
+  snapshots/       manifests; every screenshot once in _store/ ignored by default
   viewer/          index.html and its data                     ignored by default
 ```
 
