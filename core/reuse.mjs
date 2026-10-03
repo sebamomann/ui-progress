@@ -15,7 +15,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import * as routes from "./routes.mjs";
-import { git, readJson } from "./util.mjs";
+import { git, readJson, writeJson } from "./util.mjs";
 
 export const STORE = "_store";
 const storeDir = (p) => path.join(p.snapshots, STORE);
@@ -137,4 +137,120 @@ export function gc(p) {
     files++;
   }
   return { files, bytes };
+}
+
+const isAncestor = (p, a, b) => { try { git(p.repo, "merge-base", "--is-ancestor", a, b); return true; } catch { return false; } };
+const isCommitSnapshot = (info) => info?.sha && !info.live && !info.workingTree;
+
+/**
+ * The finished snapshots nearest before and after a commit in history, each with its
+ * manifest and dependency map: where a page can be taken over from.
+ */
+export function neighbours(p, full) {
+  let previous = null, next = null;
+  for (const short of fs.existsSync(p.snapshots) ? fs.readdirSync(p.snapshots) : []) {
+    const dir = path.join(p.snapshots, short);
+    const info = readJson(path.join(dir, "snapshot.json"));
+    if (!fs.existsSync(path.join(dir, "OK")) || !isCommitSnapshot(info) || info.sha === full) continue;
+    const before = isAncestor(p, info.sha, full);
+    if (!before && !isAncestor(p, full, info.sha)) continue;
+    const distance = Number(git(p.repo, "rev-list", "--count", before ? `${info.sha}..${full}` : `${full}..${info.sha}`).trim());
+    const found = { short, sha: info.sha, distance };
+    if (before && (!previous || distance < previous.distance)) previous = found;
+    if (!before && (!next || distance < next.distance)) next = found;
+  }
+  for (const s of [previous, next]) {
+    if (!s) continue;
+    s.manifest = readJson(manifestFile(p, s.short));
+    s.deps = readJson(path.join(p.snapshots, s.short, "deps.json"));
+  }
+  return { previous: previous?.manifest ? previous : null, next: next?.manifest ? next : null };
+}
+
+/** Every snapshot folder with a manifest, by id. Changes are written by `save`. */
+function load(p) {
+  const all = new Map();
+  for (const short of fs.existsSync(p.snapshots) ? fs.readdirSync(p.snapshots) : []) {
+    if (short === STORE) continue;
+    const manifest = readJson(manifestFile(p, short));
+    const info = readJson(path.join(p.snapshots, short, "snapshot.json"));
+    if (manifest) all.set(short, { short, sha: info?.sha ?? null, info, manifest, done: fs.existsSync(path.join(p.snapshots, short, "OK")), dirty: false });
+  }
+  return all;
+}
+
+function save(p, all) {
+  for (const s of all.values()) {
+    if (!s.dirty) continue;
+    s.manifest.reused = s.manifest.routes.filter((r) => r.copiedFrom).length;
+    writeJson(manifestFile(p, s.short), s.manifest);
+    if (s.info) writeJson(path.join(p.snapshots, s.short, "snapshot.json"), { ...s.info, reused: s.manifest.reused });
+    s.dirty = false;
+  }
+}
+
+/** Finished snapshots, ancestors first, each with its nearest finished ancestor. */
+function chain(p, all) {
+  const depth = new Map();
+  const depthOf = (sha) => {
+    if (!depth.has(sha)) { try { depth.set(sha, Number(git(p.repo, "rev-list", "--count", sha).trim())); } catch { depth.set(sha, Infinity); } }
+    return depth.get(sha);
+  };
+  const done = [...all.values()].filter((s) => s.done && isCommitSnapshot(s.info)).sort((a, b) => depthOf(a.sha) - depthOf(b.sha));
+  return done.map((s, i) => {
+    for (let k = i - 1; k >= 0; k--) if (depthOf(done[k].sha) < depthOf(s.sha) && isAncestor(p, done[k].sha, s.sha)) return { s, earlier: done[k] };
+    return { s, earlier: null };
+  });
+}
+
+const sameFiles = (a, b) => JSON.stringify(entryFiles(a)) === JSON.stringify(entryFiles(b));
+
+/**
+ * Give `later` the entries of `earlier` (its nearest finished ancestor) for the pages whose
+ * source did not change between the two but whose screenshots differ: a page `later`
+ * rendered while `earlier` did not exist yet, or rendered again after a full recapture.
+ * Only manifests change; files of older manifests that drop out go to `remove`. Returns
+ * the routes that changed.
+ */
+function relink(p, config, earlier, later, remove) {
+  if (JSON.stringify(earlier.manifest.viewports) !== JSON.stringify(later.manifest.viewports)) return [];
+  const deps = readJson(path.join(p.snapshots, later.short, "deps.json"));
+  if (!deps) return [];
+  const result = unchangedRoutes(p, config, { deps, from: earlier.sha, to: later.sha, read: (file) => git(p.repo, "show", `${later.sha}:${file}`) });
+  if (!result.routes) return [];
+  const changed = [];
+  for (const [i, entry] of later.manifest.routes.entries()) {
+    if (!result.routes.has(entry.route) || !Object.keys(entry.variants ?? {}).length) continue;
+    const before = earlier.manifest.routes.find((r) => r.route === entry.route);
+    if (!before || before.skipped || !Object.keys(before.variants ?? {}).length) continue;
+    const replacement = takeOver(p, earlier.short, before);
+    if (sameFiles(replacement, entry)) continue;
+    // A file of a manifest older than the store belongs to that folder alone.
+    for (const f of entryFiles(entry)) if (!isStored(f)) remove.push(shotPath(p, later.short, f));
+    later.manifest.routes[i] = replacement;
+    later.dirty = true;
+    changed.push(entry.route);
+  }
+  return changed;
+}
+
+/**
+ * Relink the snapshots after the ones in `shorts` (every snapshot when null), oldest
+ * first: a changed snapshot is passed on to the one after it, so a whole run of snapshots
+ * that showed a page unchanged keeps showing one picture. Returns [{ short, from, routes }].
+ */
+export function relinkAfter(p, config, shorts = null) {
+  const all = load(p);
+  const fresh = new Set(shorts ?? []);
+  const touched = new Set(fresh);
+  const out = [];
+  const remove = [];
+  for (const { s, earlier } of chain(p, all)) {
+    if (!earlier || (shorts && !touched.has(earlier.short) && !fresh.has(s.short))) continue;
+    const routes = relink(p, config, earlier, s, remove);
+    if (routes.length) { out.push({ short: s.short, from: earlier.short, routes }); touched.add(s.short); }
+  }
+  save(p, all);
+  for (const file of remove) fs.rmSync(file, { force: true });
+  return out;
 }

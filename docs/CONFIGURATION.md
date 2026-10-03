@@ -61,6 +61,8 @@ your app; a button that matches is never clicked, so its dialog is not captured 
 
 Screenshots are stored once, in a shared store: `snapshots/_store/<hash>.png`, named by the hash of their bytes. Manifests refer to them (`"_store/<hash>.png"`), and no snapshot owns a file, so capturing a snapshot again or deleting one never affects another. A page taken over is marked `copiedFrom` and keeps the same references; browsing a snapshot still shows every page. Screenshots nothing refers to any more are deleted after every snapshot batch, or with `ui-progress gc`. A changed `viewports` setting disables reuse for that snapshot, since the pictures would not be comparable.
 
+A snapshot captured between two others looks both ways: a page unchanged since the previous snapshot takes that one's screenshots, a page unchanged until the next snapshot takes the next one's, and only the rest is rendered. If the next snapshot had rendered a page itself that is unchanged since the new one (because the change happened in the new one, or after a full recapture), it takes over the new one's entry, and so do the snapshots after it that showed the page unchanged. Which snapshot shows a change is worked out by the build from the screenshots, so the viewer moves the change to the snapshot inserted.
+
 ## `run`: how snapshots are executed
 
 | Key | Default | Meaning |

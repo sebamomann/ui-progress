@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { capture } from "./capture.mjs";
-import { ingest, takeOver, unchangedRoutes } from "./reuse.mjs";
+import { ingest, neighbours, takeOver, unchangedRoutes } from "./reuse.mjs";
 import { addFinding } from "./findings.mjs";
 import { unbuildableEntry } from "./unbuildable.mjs";
 import { assertIsolated, neutraliseCheckout, protectedDatabases, rewriteDatabaseUrls } from "./isolation.mjs";
@@ -41,30 +41,14 @@ export const isDone = (p, short) => fs.existsSync(path.join(snapshotDir(p, short
  */
 export const snapshotId = (p, sha) => git(p.repo, "rev-parse", "--short=8", sha).trim();
 
-/** The finished snapshot nearest below this commit in history, if any. */
-function previousSnapshot(p, full) {
-  let best = null;
-  for (const short of fs.existsSync(p.snapshots) ? fs.readdirSync(p.snapshots) : []) {
-    const info = readJson(path.join(snapshotDir(p, short), "snapshot.json"));
-    if (!info || !isDone(p, short) || !isCommitSnapshot(info) || info.sha === full) continue;
-    try {
-      git(p.repo, "merge-base", "--is-ancestor", info.sha, full);
-    } catch {
-      continue;
-    }
-    const distance = Number(git(p.repo, "rev-list", "--count", `${info.sha}..${full}`).trim());
-    if (!best || distance < best.distance) best = { ...info, distance };
-  }
-  return best;
-}
-
 /**
- * The manifest entries to take over from the previous snapshot, by route: of the pages
- * whose source dependencies are untouched by the commits in between. Also writes deps.json for the
- * build's evidence and for `relinkAfter`.
- * `why` gets the reason when everything is recaptured, for runs.jsonl.
+ * The manifest entries to take over, by route: from the previous snapshot for pages whose
+ * source dependencies are untouched since it, else from the next one for pages untouched
+ * until it (a snapshot captured between two others). Also writes deps.json for the build's
+ * evidence and for `relinkAfter`. `why` gets the reason when everything is recaptured, for
+ * runs.jsonl.
  */
-function planReuse(p, config, adapter, ctx, full, why = {}) {
+export function planReuse(p, config, adapter, ctx, full, near, why = {}) {
   const none = (fields) => (Object.assign(why, fields), null);
   if (!adapter.routeOfFile) return none({ reason: "no routeOfFile in the adapter" });
   const files = routes.pageFiles(ctx.dir, adapter.routeOfFile, config.lineage.pagePaths);
@@ -73,25 +57,39 @@ function planReuse(p, config, adapter, ctx, full, why = {}) {
   for (const [route, file] of files) deps[route] = routes.routeDependencies(ctx.dir, file, aliases);
   writeJson(path.join(ctx.out, "deps.json"), deps);
   if (!config.capture.incremental.enabled) return none({ reason: "capture.incremental is off" });
-  const previous = previousSnapshot(p, full);
-  if (!previous) return none({ reason: "no earlier snapshot" });
-  const prevDir = snapshotDir(p, previous.short);
-  const prevManifest = readJson(path.join(prevDir, "shots", "manifest.json"));
-  if (!prevManifest || JSON.stringify(prevManifest.viewports) !== JSON.stringify(config.capture.viewports)) return none({ reason: prevManifest ? "viewports changed" : "earlier snapshot has no manifest", from: previous.short });
-  const result = unchangedRoutes(p, config, { deps, from: previous.sha, to: full, read: (file) => fs.readFileSync(path.join(ctx.dir, file), "utf8") });
-  if (!result.routes) {
-    if (result.file) ctx.log(`incremental: ${result.file} changed since ${previous.short}, everything is recaptured`);
-    return none({ ...result, from: previous.short });
-  }
+  if (!near.previous && !near.next) return none({ reason: "no earlier snapshot" });
+  const sides = [];
+  if (near.previous) sides.push({ other: near.previous, word: "since", check: () => unchangedRoutes(p, config, { deps, from: near.previous.sha, to: full, read: (file) => fs.readFileSync(path.join(ctx.dir, file), "utf8") }) });
+  if (near.next) sides.push({ other: near.next, word: "until", check: () => (near.next.deps ? unchangedRoutes(p, config, { deps: near.next.deps, from: full, to: near.next.sha, read: (file) => git(p.repo, "show", `${near.next.sha}:${file}`) }) : { reason: "no deps.json" }) });
   const entries = new Map();
-  for (const route of result.routes) {
-    const entry = prevManifest.routes.find((r) => r.route === route);
-    if (entry && !entry.skipped && Object.keys(entry.variants ?? {}).length) entries.set(route, takeOver(p, previous.short, entry));
+  const from = [];
+  let first = null, usable = false;
+  for (const { other, word, check } of sides) {
+    const result = JSON.stringify(other.manifest.viewports) !== JSON.stringify(config.capture.viewports) ? { reason: "viewports changed" } : check();
+    first ??= { ...result, from: other.short };
+    if (!result.routes) {
+      if (result.file) ctx.log(`incremental: ${result.file} changed ${word} ${other.short}, no page is taken over from it`);
+      continue;
+    }
+    usable = true;
+    if (result.namespaces.length) ctx.log(`incremental: translation namespaces changed ${word} ${other.short}: ${result.namespaces.join(", ")}`);
+    let taken = 0;
+    for (const route of result.routes) {
+      if (entries.has(route) || !deps[route]) continue;
+      const entry = other.manifest.routes.find((r) => r.route === route);
+      if (entry && !entry.skipped && Object.keys(entry.variants ?? {}).length) { entries.set(route, takeOver(p, other.short, entry)); taken++; }
+    }
+    ctx.log(`incremental: ${result.changed} files changed ${word} ${other.short}; ${taken} of ${files.size} pages taken over from it`);
+    if (taken) from.push(`${taken} from ${other.short}`);
   }
-  if (result.namespaces.length) ctx.log(`incremental: translation namespaces changed: ${result.namespaces.join(", ")}`);
-  ctx.log(`incremental: ${result.changed} files changed since ${previous.short}; ${entries.size} of ${files.size} pages unchanged`);
-  Object.assign(why, { reason: "incremental", from: previous.short, changed: result.changed });
-  return { entries, from: previous.short };
+  if (!usable) {
+    if (!near.previous) return none({ reason: "no earlier snapshot" });
+    ctx.log(`incremental: everything is recaptured`);
+    const { routes: _, namespaces: __, ...fields } = first;
+    return none(fields);
+  }
+  Object.assign(why, { reason: "incremental", from: near.previous?.short ?? null, ...(near.next ? { next: near.next.short } : {}), changed: first.changed ?? null });
+  return { entries, from: from.join(", ") || "neighbours" };
 }
 
 export async function runSnapshot(p, config, adapter, sha, { port, force = false, refreshClone = true } = {}) {
@@ -216,7 +214,8 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       await new Promise((r) => setTimeout(r, 1000));
       if (server?.exited()) throw new Error(`the app exited right after start, and something else answered on port ${port}; see server.log`);
     });
-    const reuse = planReuse(p, config, adapter, ctx, full, recapture);
+    const near = neighbours(p, full);
+    const reuse = planReuse(p, config, adapter, ctx, full, near, recapture);
     const screens = readJson(path.join(p.root, "screens.json"), []);
     const manifest = await timed("capture", () => capture({ baseUrl, outDir: path.join(out, "shots"), config, adapter, ctx, screens, reuse, log }));
     // A snapshot of error pages is not a snapshot.

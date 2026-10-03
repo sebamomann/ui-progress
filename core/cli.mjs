@@ -12,7 +12,7 @@ import { changelogCandidates, checkChangelog } from "./changelog.mjs";
 import { instructions, pendingState, renderPending, sessionStart, stop } from "./forward.mjs";
 import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineage.mjs";
 import { MODES, buildPlan } from "./plan.mjs";
-import { gc } from "./reuse.mjs";
+import { gc, relinkAfter } from "./reuse.mjs";
 import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
 import { AGENT_TASKS, appendRun, duration, estimate, noteAgent, parseDuration, renderStats, summarize } from "./stats.mjs";
@@ -259,6 +259,7 @@ async function snapshot(flags, positional) {
   let done = 0;
   let failed = 0;
   let standIns = 0;
+  const captured = [];
   console.log(`Capturing ${shas.length} snapshot(s), ${concurrency} at a time ...`);
   const runChild = async (sha, slot) => {
     const line = await new Promise((resolve) => {
@@ -320,6 +321,7 @@ async function snapshot(flags, positional) {
       }
       done++;
       if (result.failed) failed++;
+      else captured.push(result.short);
       if (result.standsInFor) standIns++;
       const seconds = result.timings ? Object.values(result.timings).reduce((a, b) => a + b, 0) : 0;
       const standsIn = result.standsInFor ? ` (stands in for ${result.standsInFor.join(", ")}, which do${result.standsInFor.length > 1 ? "" : "es"} not build)` : "";
@@ -327,6 +329,9 @@ async function snapshot(flags, positional) {
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, shas.length) }, (_, i) => worker(i)));
+  // A snapshot captured between two others: the next one may show pages it rendered itself
+  // that are unchanged since the new one. They take over the new one's screenshots.
+  for (const r of captured.length ? relinkAfter(p, config, captured) : []) console.log(`${r.short}: ${r.routes.length} page(s) unchanged since ${r.from} now show its screenshots`);
   // Screenshots of snapshots captured again, and of failed attempts, are no longer referred to.
   const freed = gc(p);
   if (freed.files) console.log(`Removed ${freed.files} screenshot(s) nothing refers to any more (${megabytes(freed.bytes)}).`);
