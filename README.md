@@ -75,6 +75,7 @@ they are listed so you know what exists.
 | `ui-progress snapshot <sha…>` / `snapshot HEAD` | capture specific commits |
 | `ui-progress status` | planned, done, failed |
 | `ui-progress stats [--json]` | every snapshot attempt: time, pages, fixes, failures, and what the numbers say |
+| `ui-progress stats note --task T [--sha S] [--tokens N] [--tool-calls N] [--time 6m11s]` | record what an agent task cost, as its harness reported it |
 | `ui-progress pending` | is HEAD captured, and which commits one snapshot of HEAD would cover |
 | `ui-progress lineage candidates [--since <sha>]` / `lineage check` | evidence for lineage; validate `lineage.json` |
 | `ui-progress changelog candidates` / `changelog check` | material for the Story; validate `changelog.json` |

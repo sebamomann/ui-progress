@@ -14,7 +14,7 @@ import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineag
 import { MODES, buildPlan } from "./plan.mjs";
 import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
-import { appendRun, renderStats, summarize } from "./stats.mjs";
+import { AGENT_TASKS, appendRun, noteAgent, parseDuration, renderStats, summarize } from "./stats.mjs";
 import { clearUnbuildable, markUnbuildable, readUnbuildable, unbuildableEntry } from "./unbuildable.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
@@ -61,6 +61,10 @@ Lineage and story
 Run stats
   stats [--json]                every snapshot attempt from runs.jsonl: time, pages, fixes,
                                 failures, and what the numbers say
+  stats note --task <${AGENT_TASKS.join("|")}> [--sha <sha,...>]
+      [--tokens N] [--cache-read N] [--cache-write N] [--tool-calls N] [--time 6m11s]
+      [--model NAME] [--note "..."]
+                                record what an agent task cost, as its harness reported it
 
 Viewing
   build                         rebuild the viewer's dataset
@@ -425,6 +429,15 @@ export async function main(argv) {
       const { p, config } = context();
       if (positional[0] === "check") { const r = checkChangelog(p); console.log(r.ok ? `changelog.json is valid: ${r.entries} chapters` : `Problems:\n${r.problems.map((x) => "  " + x).join("\n")}`); if (!r.ok) process.exitCode = 1; }
       else console.log(changelogCandidates(p, config));
+    }
+    else if (command === "stats" && positional[0] === "note") {
+      const { p } = context();
+      const number = (k) => (flags[k] == null || flags[k] === true ? null : Number(String(flags[k]).replace(/[,_]/g, "")));
+      const seconds = flags.time == null || flags.time === true ? null : parseDuration(flags.time);
+      if (flags.time != null && seconds == null) throw new Error(`--time: cannot read "${flags.time}"; use seconds or a form like 6m11s`);
+      const shas = flags.sha && flags.sha !== true ? String(flags.sha).split(",").map((x) => x.trim()).filter(Boolean).map((x) => { try { return snapshotId(p, x); } catch { return x; } }) : [];
+      const r = noteAgent(p, { task: flags.task, shas, model: flags.model && flags.model !== true ? flags.model : null, tokens: number("tokens"), cacheRead: number("cache-read"), cacheWrite: number("cache-write"), toolCalls: number("tool-calls"), seconds, note: flags.note && flags.note !== true ? flags.note : null });
+      console.log(`Recorded agent ${r.task}${shas.length ? ` for ${shas.join(", ")}` : ""} in runs.jsonl.`);
     }
     else if (command === "stats") {
       const { p } = context();

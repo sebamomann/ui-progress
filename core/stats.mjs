@@ -62,6 +62,31 @@ export function shotCount(manifest) {
   return n;
 }
 
+export const AGENT_TASKS = ["snapshot", "lineage", "story", "setup", "review", "other"];
+
+/** "371", "6m11s", "18m 30s", "1h 2m" -> seconds. */
+export function parseDuration(text) {
+  const t = String(text).trim();
+  if (/^\d+(\.\d+)?$/.test(t)) return Math.round(Number(t));
+  const m = /^(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:(\d+)\s*s)?$/.exec(t);
+  if (!m || !t) return null;
+  return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
+}
+
+/**
+ * What an agent task cost, as the agent's harness reported it (tokens, tool calls, time).
+ * ui-progress cannot see or check these numbers; they are kept apart from what it measured.
+ */
+export function noteAgent(p, { task, shas = [], model = null, tokens = null, cacheRead = null, cacheWrite = null, toolCalls = null, seconds = null, note = null }) {
+  if (!AGENT_TASKS.includes(task)) throw new Error(`--task must be one of: ${AGENT_TASKS.join(", ")}`);
+  const fields = { tokens, cacheRead, cacheWrite, toolCalls, seconds };
+  for (const [k, v] of Object.entries(fields)) if (v != null && !(Number.isFinite(v) && v >= 0)) throw new Error(`${k} must be a number, got "${v}"`);
+  if (Object.values(fields).every((v) => v == null)) throw new Error("give at least one of --tokens, --tool-calls, --time");
+  const record = { kind: "agent", source: "agent-reported", task, shas, model, ...Object.fromEntries(Object.entries(fields).filter(([, v]) => v != null)), note };
+  appendRun(p, record);
+  return record;
+}
+
 const sum = (xs) => xs.reduce((a, b) => a + (b ?? 0), 0);
 const median = (xs) => {
   if (!xs.length) return null;
@@ -89,6 +114,7 @@ const count = (n, word, many = word + "s") => `${n} ${n === 1 ? word : many}`;
 export function summarize(p, runs = readRuns(p)) {
   const attempts = runs.filter((r) => r.kind === "snapshot");
   const batches = runs.filter((r) => r.kind === "batch");
+  const agents = runs.filter((r) => r.kind === "agent");
   const unbuildable = readUnbuildable(p);
   const byCommit = new Map();
   for (const r of attempts) {
@@ -110,6 +136,8 @@ export function summarize(p, runs = readRuns(p)) {
       ok: Boolean(final.ok),
       firstTry: list.length === 1 && Boolean(final.ok),
       final: final.ok ? Object.fromEntries(FINAL_FIELDS.filter((k) => k in final).map((k) => [k, final[k]])) : null,
+      // A report that covers several commits is split evenly between them.
+      agent: agentSum(agents.filter((a) => a.task === "snapshot" && (a.shas ?? []).some((x) => sha.startsWith(x) || x.startsWith(sha))).map(share)),
       standsInFor: unbuildable.filter((u) => u.replacedBy && u.replacedBy === sha.slice(0, u.replacedBy.length)).map((u) => u.short),
     };
   });
@@ -151,13 +179,29 @@ export function summarize(p, runs = readRuns(p)) {
     setups: new Set(attempts.map((a) => a.setup?.adapter).filter(Boolean)).size,
   };
   const rates = { secondsPerPage: perPage, overheadSeconds: overhead, savedSeconds: perPage != null ? Math.round(totals.reused * perPage) : null };
-  const summary = { totals, phases, rates, failedByPhase, fullRecaptures, commits, batches, machines: [...new Set(attempts.map((a) => a.machine && `${a.machine.cpu ?? a.machine.arch}, ${a.machine.cpus} cores, ${a.machine.memoryGb} GB`).filter(Boolean))] };
+  const byTask = {};
+  for (const a of agents) (byTask[a.task] ??= []).push(a);
+  const agent = agents.length ? { ...agentSum(agents), byTask: Object.fromEntries(Object.entries(byTask).map(([k, list]) => [k, agentSum(list)])), tasks: agents.filter((a) => a.task !== "snapshot").map((a) => ({ at: a.at, task: a.task, shas: a.shas ?? [], model: a.model ?? null, tokens: a.tokens ?? null, toolCalls: a.toolCalls ?? null, seconds: a.seconds ?? null, note: a.note ?? null })) } : null;
+  const summary = { totals, agent, phases, rates, failedByPhase, fullRecaptures, commits, batches, machines: [...new Set(attempts.map((a) => a.machine && `${a.machine.cpu ?? a.machine.arch}, ${a.machine.cpus} cores, ${a.machine.memoryGb} GB`).filter(Boolean))] };
   summary.conclusions = conclusions(summary);
   return summary;
 }
 
+const AGENT_NUMBERS = ["tokens", "cacheRead", "cacheWrite", "toolCalls", "seconds"];
+const share = (a) => {
+  const n = Math.max(1, (a.shas ?? []).length);
+  return n === 1 ? a : { ...a, ...Object.fromEntries(AGENT_NUMBERS.filter((k) => a[k] != null).map((k) => [k, Math.round(a[k] / n)])) };
+};
+
+/** Totals over agent records; a field is null when no record gave it. */
+function agentSum(list) {
+  if (!list.length) return null;
+  const total = (k) => (list.some((a) => a[k] != null) ? sum(list.map((a) => a[k])) : null);
+  return { reports: list.length, tokens: total("tokens"), cacheRead: total("cacheRead"), cacheWrite: total("cacheWrite"), toolCalls: total("toolCalls"), seconds: total("seconds"), models: [...new Set(list.map((a) => a.model).filter(Boolean))] };
+}
+
 /** What the numbers say, in sentences. Only what the data supports. */
-function conclusions({ totals: t, phases, rates, failedByPhase, fullRecaptures, commits, batches }) {
+function conclusions({ totals: t, agent, phases, rates, failedByPhase, fullRecaptures, commits, batches }) {
   const out = [];
   if (!commits.length) return out;
   const reruns = t.attempts - t.commits;
@@ -193,6 +237,12 @@ function conclusions({ totals: t, phases, rates, failedByPhase, fullRecaptures, 
     const [a, b] = [withPages[0], withPages[withPages.length - 1]];
     if (a.final.pages !== b.final.pages) out.push(`The site went from ${a.final.pages} pages (${a.date}) to ${b.final.pages} (${b.date}); capture time per snapshot went from ${duration(a.final.seconds)} to ${duration(b.final.seconds)}.`);
   }
+  if (agent) {
+    const parts = [agent.tokens != null && `${agent.tokens.toLocaleString("en")} tokens`, agent.toolCalls != null && `${agent.toolCalls} tool calls`, agent.seconds != null && `${duration(agent.seconds)} of agent time`].filter(Boolean);
+    const tasks = Object.entries(agent.byTask).map(([k, v]) => `${k} ${v.tokens != null ? v.tokens.toLocaleString("en") + " tokens" : count(v.reports, "report")}`);
+    const perSnap = commits.filter((c) => c.agent?.tokens != null);
+    out.push(`The agent reported ${parts.join(", ")} (${tasks.join(", ")})${perSnap.length > 1 ? `, about ${Math.round(sum(perSnap.map((c) => c.agent.tokens)) / perSnap.length).toLocaleString("en")} tokens per snapshot` : ""}. These numbers come from the agent's harness, not from ui-progress.`);
+  }
   if (t.suspects) {
     const worst = [...commits].filter((c) => c.final?.suspects).sort((x, y) => y.final.suspects - x.final.suspects)[0];
     out.push(`${count(t.suspects, "suspect page")} to review across the final runs, most in ${worst.sha} (${worst.final.suspects}).`);
@@ -214,8 +264,9 @@ export function estimate(summary, n, concurrency = 1) {
 
 export function renderStats(summary) {
   const { totals: t, commits } = summary;
-  if (!commits.length) return "No runs recorded yet. Every `ui-progress snapshot` adds to .ui-progress/runs.jsonl.";
-  const rows = [["date", "commit", "attempts (s)", "pages", "shots", "states", "skipped", "suspects", "fixes", "result"]];
+  if (!commits.length && !summary.agent) return "No runs recorded yet. Every `ui-progress snapshot` adds to .ui-progress/runs.jsonl.";
+  const withAgent = commits.some((c) => c.agent);
+  const rows = [["date", "commit", "attempts (s)", "pages", "shots", "states", "skipped", "suspects", "fixes", ...(withAgent ? ["agent"] : []), "result"]];
   for (const c of commits) {
     const f = c.final;
     rows.push([
@@ -223,11 +274,13 @@ export function renderStats(summary) {
       c.attempts.map((a) => (a.ok ? a.seconds : `${a.seconds}✗`)).join(" → "),
       f ? `${f.captured}/${f.pages}${f.reused ? ` (${f.reused} copied)` : ""}` : "",
       f?.shots ?? "", f?.states ?? "", f?.skipped ?? "", f?.suspects ?? "", c.fixes || "",
+      ...(withAgent ? [c.agent ? [c.agent.tokens != null && `${Math.round(c.agent.tokens / 1000)}k tok`, c.agent.seconds != null && duration(c.agent.seconds)].filter(Boolean).join(", ") : ""] : []),
       c.ok ? (c.firstTry ? "ok, first try" : "ok") + (c.standsInFor.length ? `, for ${c.standsInFor.join(", ")}` : "") : `FAILED in ${c.attempts[c.attempts.length - 1].phase}`,
     ]);
   }
   const lines = [table(rows), ""];
   lines.push(`Totals: ${count(t.captured, "snapshot")} of ${count(t.commits, "commit")} · ${count(t.attempts, "attempt")} · ${duration(t.finalSeconds)} final runs, ${duration(t.attemptSeconds)} all attempts · ${t.pagesCaptured} pages · ${t.shots} screenshots · ${t.states} states · ${count(t.fixes, "setup fix", "setup fixes")}`);
+  for (const a of summary.agent?.tasks ?? []) lines.push(`Agent ${a.task}${a.shas.length ? ` (${a.shas.join(", ")})` : ""}: ${[a.tokens != null && `${a.tokens.toLocaleString("en")} tokens`, a.toolCalls != null && `${a.toolCalls} tool calls`, a.seconds != null && duration(a.seconds), a.model].filter(Boolean).join(" · ")}${a.note ? ` — ${a.note}` : ""}`);
   if (summary.conclusions.length) lines.push("", ...summary.conclusions.map((c) => `- ${c}`));
   return lines.join("\n");
 }

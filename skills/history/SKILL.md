@@ -188,6 +188,25 @@ files, global CSS, public assets) recaptures everything; translation JSON files 
 the pages that use a changed namespace. Mention the measured time per snapshot from the
 three test commits when you quote a duration.
 
+### Recording what the agent work cost
+
+ui-progress measures its own runs, but it cannot see tokens, tool calls or how long an
+agent worked. When a snapshot, lineage or story task is done and your harness has
+reported its usage (a subagent's completion report gives its tokens, tool calls and
+duration), record it:
+
+```
+ui-progress stats note --task snapshot --sha 3e2365f1 --tokens 78179 --tool-calls 20 --time 6m11s --model <model>
+ui-progress stats note --task lineage --tokens 78382 --tool-calls 13 --time 2m15s --note "51 candidates, 21 edges"
+```
+
+Tasks: `snapshot`, `lineage`, `story`, `setup`, `review`, `other`. One note per task;
+a task that covered several commits lists them all (`--sha a,b,c`) and its numbers are
+split between them. Give only numbers the harness reported. Leave out what you do not
+know, and never estimate. A subagent cannot see its own token count, so the agent that
+started it records the note once its report is in. The viewer and `ui-progress stats`
+mark these numbers as reported by the agent.
+
 ## Capture the current state
 
 Snapshots are always of a **commit**, checked out and run with a throwaway database.
@@ -251,7 +270,9 @@ Git cannot tell that a page was split in two. You can.
    `from` and `to` take one route or a list. `evidence` is required: say what you saw, in
    one or two sentences. List every commit you judged to have **no** lineage under
    `reviewed`, with the reason, so the next pass does not redo it.
-4. `ui-progress lineage check`, then `ui-progress build`.
+4. `ui-progress lineage check`, then `ui-progress build`. If your harness reported the
+   task's usage, record it: `ui-progress stats note --task lineage ...` (see
+   [Recording what the agent work cost](#recording-what-the-agent-work-cost)).
 
 `sha` is the commit that made the change, never the snapshot where you first noticed it:
 snapshots get added later (between existing ones), and the viewer places each edge by its
@@ -281,7 +302,8 @@ After lineage, write the history as a short narrative the viewer shows as "Story
 
    `pages` are routes to link; `snapshot` is the id of the snapshot that best shows the
    chapter. Write in plain language for the project's owner; name pages by what they do.
-3. `ui-progress changelog check`, then `ui-progress build`.
+3. `ui-progress changelog check`, then `ui-progress build`. Record the task's reported usage
+   with `ui-progress stats note --task story ...`, as for lineage.
 
 ## Check the result
 

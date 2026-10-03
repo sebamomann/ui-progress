@@ -1020,7 +1020,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     const S = H.stats;
     const runs = S?.commits ?? [];
     header("Runs", runs.length ? `${plural(S.totals.attempts, "attempt")} on ${plural(runs.length, "commit")} · from <span class="mono">runs.jsonl</span>` : "", [],
-      "<p>How the snapshots were made. Every <code>ui-progress snapshot</code> attempt is recorded in <code>.ui-progress/runs.jsonl</code>: how long each phase took, what was captured, why pages were recaptured instead of copied forward, and whether the adapter, config or screens changed since the attempt before (a setup fix). The same data is in <code>ui-progress stats</code>.</p>");
+      "<p>How the snapshots were made. Every <code>ui-progress snapshot</code> attempt is recorded in <code>.ui-progress/runs.jsonl</code>: how long each phase took, what was captured, why pages were recaptured instead of copied forward, and whether the adapter, config or screens changed since the attempt before (a setup fix). Tokens, tool calls and agent time are what the agent reported with <code>ui-progress stats note</code>; ui-progress cannot check them. The same data is in <code>ui-progress stats</code>.</p>");
     const pad = el('<div class="pad"></div>');
     if (!runs.length) { pad.append(el('<div class="empty">No runs recorded yet. Every <code>ui-progress snapshot</code> adds a line to <code>.ui-progress/runs.jsonl</code>; rebuild the viewer afterwards.</div>')); content.replaceChildren(pad); return; }
     const t = S.totals;
@@ -1034,10 +1034,13 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       ${tile(num(t.shots), "screenshots", `${num(t.states)} states`)}
       ${tile(String(t.fixes), t.fixes === 1 ? "setup fix" : "setup fixes", `${t.firstTry} of ${t.commits} clean first try`)}
       ${tile(String(t.suspects), "suspect pages", t.skipped ? `${t.skipped} skipped` : "")}
+      ${S.agent ? tile(S.agent.tokens != null ? num(S.agent.tokens) : dur(S.agent.seconds), S.agent.tokens != null ? "agent tokens" : "agent time", `reported by the agent${S.agent.toolCalls != null ? ` · ${num(S.agent.toolCalls)} tool calls` : ""}`) : ""}
     </div>`));
     if (S.conclusions?.length) box.append(el(`<section><div class="h2">What the numbers say</div><ul class="findings">${S.conclusions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></section>`));
 
     // One row per commit; each attempt is a bar as long as it took, failed ones outlined.
+    const withAgent = runs.some((c) => c.agent);
+    const agentCell = (a) => (a ? [a.tokens != null && `${Math.round(a.tokens / 1000)}k tok`, a.seconds != null && dur(a.seconds)].filter(Boolean).join(" · ") : "");
     const longest = Math.max(1, ...runs.flatMap((c) => c.attempts.map((a) => a.seconds ?? 0)));
     const tip = document.getElementById("tip");
     const rows = runs.map((c, ci) => {
@@ -1057,11 +1060,12 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
         <td class="num">${f?.skipped || ""}</td>
         <td class="num">${f?.suspects || ""}</td>
         <td class="num">${c.fixes || ""}</td>
+        ${withAgent ? `<td class="num" title="Reported by the agent">${agentCell(c.agent)}</td>` : ""}
         <td>${result}</td>
       </tr>`;
     }).join("");
     const tableBox = el(`<section><div class="h2">Per commit</div><div class="scrollx"><table class="rtable">
-      <thead><tr><th>Date</th><th>Commit</th><th>Attempts</th><th class="num">Pages</th><th class="num">Copied</th><th class="num">Shots</th><th class="num">States</th><th class="num">Skipped</th><th class="num">Suspects</th><th class="num">Fixes</th><th>Result</th></tr></thead>
+      <thead><tr><th>Date</th><th>Commit</th><th>Attempts</th><th class="num">Pages</th><th class="num">Copied</th><th class="num">Shots</th><th class="num">States</th><th class="num">Skipped</th><th class="num">Suspects</th><th class="num">Fixes</th>${withAgent ? '<th class="num" title="Reported by the agent">Agent</th>' : ""}<th>Result</th></tr></thead>
       <tbody>${rows}</tbody></table></div></section>`);
     tableBox.querySelectorAll(".try").forEach((bar) => {
       const c = runs[bar.dataset.c], a = c.attempts[bar.dataset.a];
@@ -1077,6 +1081,9 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     if (S.phases?.length) {
       const top = S.phases[0].seconds || 1;
       box.append(el(`<section><div class="h2">Where the time goes · final runs</div><div class="phases">${S.phases.map((x) => `<span>${esc(x.phase)}</span><span class="bar"><i style="width:${(x.seconds / top) * 100}%"></i></span><span class="n">${dur(x.seconds)} · ${Math.round(x.share * 100)}%</span>`).join("")}</div></section>`));
+    }
+    if (S.agent?.tasks?.length) {
+      box.append(el(`<section><div class="h2">Other agent tasks · reported by the agent</div><div class="scrollx"><table class="rtable"><thead><tr><th>When</th><th>Task</th><th class="num">Tokens</th><th class="num">Tool calls</th><th class="num">Time</th><th>Model</th><th>Note</th></tr></thead><tbody>${S.agent.tasks.map((a) => `<tr><td>${esc(String(a.at ?? "").replace("T", " ").slice(0, 16))}</td><td>${esc(a.task)}${a.shas.length ? ` <span class="mono muted">${esc(a.shas.join(", "))}</span>` : ""}</td><td class="num">${a.tokens != null ? num(a.tokens) : ""}</td><td class="num">${a.toolCalls ?? ""}</td><td class="num">${a.seconds != null ? dur(a.seconds) : ""}</td><td>${esc(a.model ?? "")}</td><td class="muted">${esc(a.note ?? "")}</td></tr>`).join("")}</tbody></table></div></section>`));
     }
     const fails = Object.entries(S.failedByPhase ?? {});
     const full = (S.fullRecaptures ?? []).filter((r) => r.reason !== "no earlier snapshot");

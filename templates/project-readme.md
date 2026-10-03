@@ -9,7 +9,7 @@ It records how this project's UI changed over time.
 | `adapter.mjs` | How to install, seed, start and sign in to this app at any commit | yes |
 | `plan.json` | The commits chosen for a snapshot | yes |
 | `lineage.json` | Page splits, merges and renames, with the evidence for each | yes |
-| `runs.jsonl` | Every snapshot attempt and batch: timings, outcome, adapter changes | yes |
+| `runs.jsonl` | Every snapshot attempt and batch: timings, outcome, adapter changes, agent cost | yes |
 | `findings/` | Problems with ui-progress itself, to send to its maintainer | optional |
 | `snapshots/` | Screenshots and manifests, one folder per commit; rebuildable (see below) | ignored by default |
 | `viewer/` | The viewer and its derived data. Open `viewer/index.html` | ignored by default |
