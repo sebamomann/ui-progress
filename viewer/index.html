@@ -305,7 +305,19 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 .card .thumb { width: 100%; aspect-ratio: 16 / 10; }
 .cards.narrow .card .thumb { aspect-ratio: 15 / 26; }
-.card .route { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.listhead { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; margin: 8px 0 4px; }
+.h2big { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+.seg .cnt, .jump .cnt, .cardgroup .cnt { color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.seg button[aria-pressed="true"] .cnt { color: inherit; opacity: .75; }
+.listhead .seg button { text-transform: none; gap: 5px; }
+.jump { display: flex; flex-wrap: wrap; gap: 4px; flex-basis: 100%; }
+.jump a { font-size: 12px; color: var(--muted); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
+.jump a:hover { color: var(--accent); border-color: var(--accent); text-decoration: none; }
+.cardgroup { margin-top: 18px; scroll-margin-top: 12px; }
+.cardgroup h3 { font-size: 13px; font-weight: 650; margin: 0 0 8px; text-transform: capitalize; display: flex; align-items: baseline; gap: 6px; }
+.cardmeta { color: var(--faint); font-size: 11px; margin-top: -4px; }
+.card .route { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; color: var(--text); }
+.card .route > span { direction: ltr; unicode-bidi: isolate; }
 
 /* ---------- Runs ---------- */
 .runs { display: flex; flex-direction: column; gap: 20px; }
@@ -1203,18 +1215,43 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       pad.append(el(`<div class="h2">Since ${esc(snaps[i - 1].date)}</div>`));
       pad.append(el(`<div class="summary">${html || '<span class="muted">No pages added, removed or redesigned.</span>'}</div>`));
     }
-    pad.append(el('<div class="h2">All pages</div>'));
-    const cards = el(`<div class="cards ${narrow() ? "narrow" : ""}"></div>`);
-    for (const page of d.here.filter(matches)) {
-      const st = status(page, i);
-      if (!st.shot || !img(st.shot)) continue;
-      if (state.onlyChanged && !["new", "major", "minor"].includes(st.kind)) continue;
-      const card = el(`<div class="card"><a class="route" href="${pageHref(page.id)}" title="${esc(page.id)}">${esc(page.id)}</a></div>`);
-      const t = thumb(img(st.shot), seriesFor(page.id, mainView(page)), i, st.kind === "base" ? null : st);
-      t.style.cssText = ""; t.classList.remove("same"); card.prepend(t);
-      cards.append(card);
+    // All pages, by section and route, narrowed by what happened to them in this snapshot.
+    const shown = d.here.filter(matches).map((page) => ({ page, st: status(page, i) })).filter(({ st }) => st.shot && img(st.shot));
+    const FILTERS = [["all", "All", () => true], ["changed", "Changed", (k) => ["new", "major", "minor"].includes(k)], ["new", "New", (k) => k === "new"], ["major", "Redesigned", (k) => k === "major"], ["minor", "Tweaked", (k) => k === "minor"], ["same", "Unchanged", (k) => k === "same" || k === "base"]];
+    const active = FILTERS.find(([k]) => k === state.snapFilter) ?? FILTERS[0];
+    const allHead = el('<div class="listhead"><h2 class="h2big">All pages</h2><div class="seg" role="group" aria-label="Show"></div><div class="jump"></div></div>');
+    for (const [k, text, test] of FILTERS) {
+      const n = shown.filter(({ st }) => test(st.kind)).length;
+      if (!n && k !== "all") continue;
+      const b = el(`<button aria-pressed="${active[0] === k}">${text} <span class="cnt">${n}</span></button>`);
+      b.addEventListener("click", () => { state.snapFilter = k; render(); });
+      allHead.querySelector(".seg").append(b);
     }
-    pad.append(cards);
+    pad.append(allHead);
+    const bySection = new Map();
+    for (const item of shown.filter(({ st }) => active[2](st.kind))) (bySection.get(item.page.section) ?? bySection.set(item.page.section, []).get(item.page.section)).push(item);
+    if (!bySection.size) pad.append(el('<div class="empty">No page matches this filter.</div>'));
+    const jump = allHead.querySelector(".jump");
+    // A section of one or two pages is not worth a heading of its own: those share one group.
+    const groups = [...bySection].filter(([, items]) => items.length >= 3).sort((a, b) => a[0].localeCompare(b[0]));
+    const rest = [...bySection].filter(([, items]) => items.length < 3).flatMap(([, items]) => items);
+    if (rest.length) groups.push([groups.length ? "Other pages" : "Pages", rest]);
+    for (const [section, items] of groups) {
+      const anchor = "sec-" + section.replace(/[^a-z0-9]+/gi, "-");
+      const jl = el(`<a href="#">${esc(section)} <span class="cnt">${items.length}</span></a>`);
+      jl.addEventListener("click", (e) => { e.preventDefault(); document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth", block: "start" }); });
+      jump.append(jl);
+      const group = el(`<section class="cardgroup" id="${anchor}"><h3>${esc(section)} <span class="cnt">${items.length}</span></h3><div class="cards ${narrow() ? "narrow" : ""}"></div></section>`);
+      for (const { page, st } of items.sort((a, b) => a.page.id.localeCompare(b.page.id))) {
+        const card = el(`<div class="card"><a class="route" href="${pageHref(page.id)}" title="${esc(page.id)}">${routeHtml(page.id)}</a></div>`);
+        const views = extraViews(page).filter((v) => v.shots[s.id]).length;
+        if (views) card.append(el(`<span class="cardmeta">${plural(views, "view")}</span>`));
+        const t = thumb(img(st.shot), seriesFor(page.id, mainView(page)), i, st.kind === "base" ? null : st);
+        t.style.cssText = ""; t.classList.remove("same"); card.prepend(t);
+        group.querySelector(".cards").append(card);
+      }
+      pad.append(group);
+    }
     content.replaceChildren(pad);
   }
 
