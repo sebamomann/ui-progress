@@ -1,8 +1,10 @@
 # Throwaway checkouts of old commits (large).
 work/
 
-# Screenshots and the viewer's derived data. Remove these two lines to commit the
-# history itself; expect roughly 20-40 MB per snapshot.
+# Screenshots and the viewer's derived data. Every snapshot is of a commit and can be
+# rebuilt at any time from git plus the files committed here (adapter, config, plan,
+# screens): ui-progress snapshot --plan. Remove these two lines to commit the history
+# itself instead (roughly 20-40 MB per snapshot; consider Git LFS for snapshots/**/*.png).
 snapshots/
 viewer/
 

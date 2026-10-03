@@ -274,6 +274,16 @@ others, in `.ui-progress/snapshots/<sha>/shots/`, and check:
 Then read `snapshot.json`: `skipped` lists every route that was not captured and why.
 Each entry is either fixed (seed more, add a `resolve` hint) or explained to the user.
 
+## Committing `.ui-progress/`
+
+When the user asks what to commit: `config.json`, `adapter.mjs` (and `adapter/`),
+`plan.json`, `screens.json`, `lineage.json` and `changelog.json` always. They are what makes
+the history reproducible. `snapshots/` and `viewer/` are ignored by default because every
+snapshot is of a commit and can be rebuilt from git plus those files
+(`ui-progress snapshot --plan`, then `ui-progress build`). Say this plainly. Committing the
+screenshots too is fine when the user wants the history browsable without a rebuild: remove
+the two lines from `.ui-progress/.gitignore`, and suggest Git LFS for `snapshots/**/*.png`.
+
 ## Findings
 
 When **ui-progress itself** misbehaves, lacks something, or needs a workaround, record it

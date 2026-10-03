@@ -10,9 +10,15 @@ It records how this project's UI changed over time.
 | `plan.json` | The commits chosen for a snapshot | yes |
 | `lineage.json` | Page splits, merges and renames, with the evidence for each | yes |
 | `findings/` | Problems with ui-progress itself, to send to its maintainer | optional |
-| `snapshots/` | Screenshots and manifests, one folder per commit | ignored by default |
+| `snapshots/` | Screenshots and manifests, one folder per commit; rebuildable (see below) | ignored by default |
 | `viewer/` | The viewer and its derived data. Open `viewer/index.html` | ignored by default |
 | `work/` | Throwaway checkouts | never |
+
+Every snapshot is of a commit, built in a throwaway checkout with generated data, so the
+screenshots can be rebuilt at any time from git and the committed files above
+(`ui-progress snapshot --plan`). Committing them is a choice for convenience (the history is
+browsable without rebuilding), not a requirement; Git LFS keeps the repository small if you
+do.
 
 Common commands (run from the repository root):
 
