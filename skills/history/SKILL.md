@@ -292,8 +292,8 @@ Each entry is either fixed (seed more, add a `resolve` hint) or explained to the
 ## Committing `.ui-progress/`
 
 When the user asks what to commit: `config.json`, `adapter.mjs` (and `adapter/`),
-`plan.json`, `screens.json`, `lineage.json` and `changelog.json` always. They are what makes
-the history reproducible. `snapshots/` and `viewer/` are ignored by default because every
+`plan.json`, `screens.json`, `lineage.json`, `changelog.json` and `unbuildable.json`
+always. They are what makes the history reproducible. `snapshots/` and `viewer/` are ignored by default because every
 snapshot is of a commit and can be rebuilt from git plus those files
 (`ui-progress snapshot --plan`, then `ui-progress build`). Say this plainly. Committing the
 screenshots too is fine when the user wants the history browsable without a rebuild: remove

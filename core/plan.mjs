@@ -110,7 +110,27 @@ function auto(list, config) {
   return picks;
 }
 
-export function buildPlan(repo, config, adapter, mode = config.sampling.mode) {
+/**
+ * Commits recorded as unbuildable give way to the commit that stands in for them, or drop
+ * out when none is known. A stand-in already picked is not picked twice.
+ */
+export function avoidUnbuildable(picks, list, unbuildable) {
+  if (!unbuildable.length) return picks;
+  const broken = new Map(unbuildable.map((e) => [e.sha, e]));
+  const out = [];
+  const seen = new Set();
+  for (const pick of picks) {
+    const entry = broken.get(pick.sha);
+    const stand = entry?.replacedBySha ? list.find((c) => c.sha === entry.replacedBySha) : null;
+    const next = entry ? (stand && !broken.has(stand.sha) ? { ...stand, reason: `${pick.reason} (stands in for ${entry.short}, which does not build)`, score: pick.score } : null) : pick;
+    if (!next || seen.has(next.sha)) continue;
+    seen.add(next.sha);
+    out.push(next);
+  }
+  return out;
+}
+
+export function buildPlan(repo, config, adapter, mode = config.sampling.mode, { unbuildable = [] } = {}) {
   if (!MODES.includes(mode)) throw new Error(`Unknown sampling mode "${mode}". Use one of: ${MODES.join(", ")}`);
   const list = commits(repo, config, adapter);
   if (!list.length) throw new Error("No commits in range.");
@@ -131,7 +151,7 @@ export function buildPlan(repo, config, adapter, mode = config.sampling.mode) {
     score = (c) => c.score;
   } else return null;
   if (picks[picks.length - 1].sha !== head.sha) picks.push(head);
-  picks = thin(picks, max, score);
+  picks = thin(avoidUnbuildable(picks, list, unbuildable), max, score);
   return {
     mode,
     generatedAt: new Date().toISOString(),

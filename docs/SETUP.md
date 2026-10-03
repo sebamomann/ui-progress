@@ -139,8 +139,9 @@ Click any screenshot to enlarge it, then use the arrow keys to step through time
 ## What to commit
 
 `.ui-progress/.gitignore` ignores the screenshots and the viewer by default, because they
-are large. `config.json`, `adapter.mjs`, `plan.json` and `lineage.json` are small and
-worth committing: with them, anyone can regenerate the history. Remove the lines from that
+are large. `config.json`, `adapter.mjs`, `plan.json`, `lineage.json` and
+`unbuildable.json` are small and worth committing: with them, anyone can regenerate the
+history, and nobody spends time on a commit already known not to build. Remove the lines from that
 `.gitignore` if you want the screenshots in the repository too.
 
 ## Reporting problems with the plugin

@@ -14,6 +14,7 @@ import { candidates, checkLineage, fixLineage, renderCandidates } from "./lineag
 import { MODES, buildPlan } from "./plan.mjs";
 import { acquireLock } from "./lock.mjs";
 import { depsReady, ensureClone, isDone, runSnapshot, snapshotDir } from "./snapshot.mjs";
+import { clearUnbuildable, markUnbuildable, readUnbuildable, unbuildableEntry } from "./unbuildable.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -36,6 +37,9 @@ Capturing
   snapshot --plan               capture every planned commit that is not done yet
       [--concurrency N] [--force] [--limit N] [--ignore-memory]
   status                        what is planned, done and failed
+  unbuildable [list]            commits recorded as not building, and what stands in for them
+  unbuildable add <sha> --reason "..." [--replaced-by <sha>]
+  unbuildable remove <sha>      try the commit again next time
 
 Keeping it current
   pending [--json]              is HEAD captured? which commits would one snapshot of HEAD cover?
@@ -164,7 +168,7 @@ async function plan(flags) {
     return;
   }
   const mode = flags.mode ?? config.sampling.mode;
-  const result = mode === "manual" ? readJson(p.plan) : buildPlan(p.repo, config, adapter, mode);
+  const result = mode === "manual" ? readJson(p.plan) : buildPlan(p.repo, config, adapter, mode, { unbuildable: readUnbuildable(p) });
   if (!result) throw new Error("Mode is manual and there is no plan.json. Write one, or pick another --mode.");
   if (!flags.print && mode !== "manual") writeJson(p.plan, result);
   console.log(`${result.entries.length} snapshots planned (${result.mode}) out of ${result.commitsInRange ?? "?"} commits${flags.print ? " — not saved" : ""}\n`);
@@ -184,6 +188,20 @@ async function snapshot(flags, positional) {
     if (!planned) throw new Error("No plan.json. Run: ui-progress plan --mode pilot");
     shas = planned.entries.filter((e) => flags.force || !isDone(p, e.short)).map((e) => e.sha);
     if (flags.limit) shas = shas.slice(0, Number(flags.limit));
+  }
+  // Commits recorded as unbuildable are not tried again: their stand-in is taken instead.
+  if (!flags.force && !flags.port) {
+    const kept = [];
+    for (const sha of shas) {
+      const entry = unbuildableEntry(p, sha);
+      if (!entry) kept.push(sha);
+      else {
+        const stand = entry.replacedBySha && !isDone(p, entry.replacedBy) && !kept.includes(entry.replacedBySha) ? entry.replacedBySha : null;
+        console.log(`${entry.short} is recorded as unbuildable${entry.phase ? ` (${entry.phase}: ${entry.cause})` : ""}${stand ? `; capturing its stand-in ${entry.replacedBy} instead` : entry.replacedBy ? `; its stand-in ${entry.replacedBy} is already captured` : ""}. To try it anyway: --force`);
+        if (stand) kept.push(stand);
+      }
+    }
+    shas = kept;
   }
   if (!shas.length) {
     console.log("Nothing to capture.");
@@ -246,8 +264,27 @@ function status(flags) {
   });
   console.log(`Project: ${config.project.name}   sampling: ${planned.mode ?? config.sampling.mode}   planned: ${rows.length}   done: ${rows.filter((r) => r[0] === "done").length}   failed: ${rows.filter((r) => r[0].startsWith("FAILED")).length}\n`);
   console.log(table(rows));
+  const broken = readUnbuildable(p).length;
+  if (broken) console.log(`\n${broken} commit(s) recorded as unbuildable: ui-progress unbuildable`);
   const open = listFindings(p).filter((f) => f.status === "open").length;
   if (open) console.log(`\n${open} open finding(s): ui-progress finding list`);
+}
+
+function unbuildable(flags, [sub = "list", sha]) {
+  const { p } = context();
+  if (sub === "list") {
+    const list = readUnbuildable(p);
+    console.log(list.length ? table(list.map((e) => [e.date, e.short, e.replacedBy ? `-> ${e.replacedBy}` : "", e.source, e.phase ?? "", (e.note ?? e.cause ?? e.subject ?? "").slice(0, 70)])) : "No commits recorded as unbuildable.");
+  } else if (sub === "add") {
+    if (!sha) throw new Error("usage: ui-progress unbuildable add <sha> --reason \"...\" [--replaced-by <sha>]");
+    if (!flags.reason || flags.reason === true) throw new Error("say why the commit does not build: --reason \"...\"");
+    const entry = markUnbuildable(p, sha, { replacedBy: flags["replaced-by"] ?? null, note: flags.reason, source: "agent" });
+    console.log(`Recorded ${entry.short} as unbuildable${entry.replacedBy ? `, ${entry.replacedBy} stands in for it` : ""}. Plans and snapshot runs skip it from now on.`);
+  } else if (sub === "remove") {
+    if (!sha) throw new Error("usage: ui-progress unbuildable remove <sha>");
+    const entry = clearUnbuildable(p, sha);
+    console.log(entry ? `Removed ${entry.short}; it will be tried again.` : `${sha} is not recorded as unbuildable.`);
+  } else throw new Error(`Unknown subcommand "${sub}". Use: list, add, remove`);
 }
 
 async function lineage(flags, [sub]) {
@@ -307,6 +344,7 @@ export async function main(argv) {
     else if (command === "plan") await plan(flags);
     else if (command === "snapshot") await snapshot(flags, positional);
     else if (command === "status") status(flags);
+    else if (command === "unbuildable") unbuildable(flags, positional);
     else if (command === "pending") {
       const { p, config } = context();
       const state = pendingState(p, config);

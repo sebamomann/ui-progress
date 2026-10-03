@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { findRepo, loadConfig, paths } from "./config.mjs";
+import { unbuildableEntry } from "./unbuildable.mjs";
 import { VERSION, git, readJson, writeJson } from "./util.mjs";
 
 const MARK_START = "<!-- ui-progress:start -->";
@@ -94,13 +95,15 @@ export function pendingState(p, config) {
   const since = last ? log() : [];
   const uiSince = last ? log("--", ...config.sampling.uiPaths) : [];
   const dirty = git(p.repo, "status", "--porcelain", "--", ...config.sampling.uiPaths).split("\n").filter((l) => l.trim() && !l.slice(3).startsWith(".ui-progress/"));
-  return { head, short, headCaptured: captured.has(head), last, since, uiSince, dirty: dirty.length };
+  const broken = unbuildableEntry(p, head);
+  return { head, short, headCaptured: captured.has(head), headUnbuildable: broken ? { phase: broken.phase, cause: broken.note ?? broken.cause } : null, last, since, uiSince, dirty: dirty.length };
 }
 
 /** Human-readable advice for `ui-progress pending`. */
 export function renderPending(s) {
   const out = [];
   if (s.headCaptured) out.push(`HEAD ${s.short} is captured. Nothing to do.`);
+  else if (s.headUnbuildable) out.push(`HEAD ${s.short} is recorded as unbuildable (${s.headUnbuildable.cause ?? s.headUnbuildable.phase ?? "no reason given"}). Capture the commit that fixes it once it exists, or: ui-progress unbuildable remove ${s.short}`);
   else if (!s.last) out.push(`HEAD ${s.short} is not captured, and no earlier commit on this line is either.`, `Capture the current state with: ui-progress snapshot HEAD   (backfill older history with ui-progress plan)`);
   else if (!s.uiSince.length) out.push(`HEAD ${s.short} is not captured, but none of the ${s.since.length} commit(s) since the last snapshot (${s.last.short}) touch UI paths. Nothing to capture.`);
   else {
@@ -136,11 +139,11 @@ export function stop() {
   const uncommitted = now.dirty !== session.start.dirty && now.hasDirty;
   if (!sessionCommits.length && !uncommitted) return;
   const pending = pendingState(p, config);
-  if (!uncommitted && pending.headCaptured) return;
+  if (!uncommitted && (pending.headCaptured || pending.headUnbuildable)) return;
   saveSession(p, input.session_id, { ...session, asked: key });
 
   const parts = [];
-  if (sessionCommits.length && !pending.headCaptured) {
+  if (sessionCommits.length && !pending.headCaptured && !pending.headUnbuildable) {
     const batch = pending.last ? ` (${pending.uiSince.length} UI commit(s) since the last snapshot ${pending.last.short})` : "";
     parts.push(
       `ui-progress: this session made ${sessionCommits.length} commit(s) that touch UI files, and HEAD ${pending.short} is not captured${batch}.`,
