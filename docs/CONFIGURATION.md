@@ -31,6 +31,7 @@
 | `states.depth` | `2` | `2` also tries tabs and buttons inside an opened dialog or menu |
 | `states.depthClicks` | `3` | Controls tried inside each overlay |
 | `states.budgetMs` | `45000` | Time limit for the click-through of one page |
+| `states.totalBudgetMs` | `900000` | Time for the click-through over the whole snapshot (summed over tabs). After that, the remaining pages are shot without looking for their states; `screens.json` entries are still captured |
 | `states.sectionChange` | `0.2` | Share of the page's text that must change for a click to count as a different section |
 | `unsafe` | see below | Regex of button labels that are never clicked |
 | `hide` | framework dev overlays | CSS selectors hidden before every screenshot |

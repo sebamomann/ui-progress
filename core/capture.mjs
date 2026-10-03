@@ -452,6 +452,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   // ---------- Per-route work, spread over several tabs ----------
   const links = new Set();
   const seenGlobal = new Set();
+  let statesSpent = 0; // summed over tabs
+  let statesBudgetLogged = false;
   const staticRoutes = routes.filter((r) => !isDynamic(r) && !results[r]);
   const dynamicRoutes = routes.filter((r) => isDynamic(r) && !results[r]);
 
@@ -499,13 +501,24 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       entry.skipped = notFound ? "not found" : probe.redirect ? "redirected" : "needs sign-in";
       entry.finalPath = probe.redirect ?? null;
     }
-    if (c.states.enabled) {
+    const statesOver = statesSpent >= (c.states.totalBudgetMs ?? Infinity);
+    if (statesOver && c.states.enabled && !statesBudgetLogged) { statesBudgetLogged = true; log(`states: the snapshot's budget (${Math.round(c.states.totalBudgetMs / 1000)}s) is used up; remaining pages are shot without their states`); }
+    if (c.states.enabled && !statesOver) {
+      const statesStart = Date.now();
       for (const [auth, variant] of Object.entries(entry.variants)) {
         const page = (auth === "user" ? worker.user : worker.anon)[primaryScheme];
         await visit(page, url);
         variant.states = await captureStates(page, route, url, auth, seenGlobal).catch(() => []);
         variant.states.push(...(await captureScreens(page, route, url, auth)));
       }
+      statesSpent += Date.now() - statesStart;
+    } else if (statesOver) {
+      // Hand-picked screens are cheap and asked for explicitly: keep them.
+      for (const [auth, variant] of Object.entries(entry.variants)) {
+        const page = (auth === "user" ? worker.user : worker.anon)[primaryScheme];
+        variant.states = await captureScreens(page, route, url, auth);
+      }
+      entry.statesBudget = true;
     }
     results[route] = entry;
   }

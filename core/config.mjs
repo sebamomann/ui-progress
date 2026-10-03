@@ -28,7 +28,9 @@ export const DEFAULTS = {
     parallel: 3,
     signedOut: true,
     // depth 2 also tries tabs and buttons inside an opened dialog or menu.
-    states: { enabled: true, maxClicks: 20, maxPerPage: 12, depth: 2, depthClicks: 3, sectionChange: 0.2, budgetMs: 45000 },
+    // budgetMs per page; totalBudgetMs for the click-through of the whole snapshot, after
+    // which the remaining pages are shot without looking for their states.
+    states: { enabled: true, maxClicks: 20, maxPerPage: 12, depth: 2, depthClicks: 3, sectionChange: 0.2, budgetMs: 45000, totalBudgetMs: 900000 },
     // Copy a page forward from the previous snapshot when none of its source files changed.
     // globalPaths: a change there recaptures everything. translationPaths: JSON message
     // files whose changed top-level keys (namespaces) decide which pages are affected.
