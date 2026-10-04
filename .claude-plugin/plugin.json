@@ -1,7 +1,7 @@
 {
   "name": "ui-progress",
   "displayName": "UI Progress",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "See how your web app's UI evolved: screenshots of every page, dialog and section at past git commits, a visual timeline with before/after comparisons, and page lineage (splits, merges, renames). Any web stack; every snapshot is a commit run with throwaway data.",
   "author": { "name": "Sebastian Momann", "url": "https://github.com/sebamomann" },
   "homepage": "https://github.com/sebamomann/ui-progress",
