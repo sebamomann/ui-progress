@@ -140,7 +140,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
 
   // Hydration mismatches are mostly logged, not thrown, so the console is watched too.
   const hydration = new RegExp(c.checks.hydration, "i");
-  async function visit(page, url) {
+  /** Load `url`; `quietMs` is how long it must stay unchanged first (see settleQuietMs). */
+  async function visit(page, url, { quietMs = c.settleQuietMs } = {}) {
     const errors = [];
     let hydrationError = false;
     const onError = (err) => {
@@ -165,7 +166,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
       await page.addStyleTag({ content: hideCss }).catch(() => {});
       for (const selector of waitForOf(url)) await page.waitForSelector(selector, { state: "visible", timeout: c.waitForTimeoutMs }).catch(() => log(`${url}: "${selector}" did not show within ${c.waitForTimeoutMs} ms`));
-      await settle(page, c.settleRounds, c.settleQuietMs);
+      await settle(page, c.settleRounds, quietMs);
     } catch (err) {
       failure = String(err.message ?? err).split("\n")[0];
     }
@@ -400,7 +401,9 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     const deadline = Date.now() + limits.budgetMs;
     const section = sectionOf(route);
     let cleanStorage = await storageOf(page);
-    const reload = async () => { await visit(page, url); cleanStorage = await storageOf(page); };
+    // Back to the page as loaded before the next click. Its late content was waited for when
+    // it was first shot, so a reload only waits for the page to stop moving.
+    const reload = async () => { await visit(page, url, { quietMs: 0 }); cleanStorage = await storageOf(page); };
     let baseText = await textOf(page);
     const baseSearch = new URL(page.url()).search;
     const baseOverlays = new Set(await overlaysOf(page));
@@ -663,7 +666,9 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       const statesStart = Date.now();
       for (const [auth, variant] of Object.entries(entry.variants)) {
         const page = (auth === "user" ? worker.user : worker.anon)[primaryScheme];
-        await visit(page, url);
+        // Shooting does not click, so the page is still as loaded: no second load is needed.
+        if (new URL(page.url()).pathname === url) await settle(page, 4);
+        else await visit(page, url);
         variant.states = await captureStates(page, route, url, auth, seenGlobal).catch(() => []);
         variant.states.push(...(await captureScreens(page, route, url, auth)));
       }
