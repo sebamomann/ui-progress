@@ -174,6 +174,17 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
   const line = commitLine(p.repo, config.sampling.branch ?? "HEAD");
   for (const snap of snapshots) snap.index = snap.sha ? line.indexOf(snap.sha) : null;
   snapshots.sort((a, b) => (a.index != null && b.index != null ? a.index - b.index : a.date.localeCompare(b.date)));
+  // A snapshot is named after the newest commit since the one before that touched the UI
+  // (sampling.uiPaths): the captured commit itself is often a chore or docs commit made
+  // after the work, whose subject says nothing about what the pictures show.
+  snapshots.forEach((snap, i) => {
+    const before = snapshots[i - 1]?.sha;
+    if (!snap.sha) return;
+    let found = "";
+    try { found = git(p.repo, "log", "-1", "--first-parent", "--format=%h|%s", before ? `${before}..${snap.sha}` : snap.sha, "--", ...config.sampling.uiPaths).trim(); } catch {}
+    const [short, ...subject] = found.split("|");
+    if (found && !snap.sha.startsWith(short)) Object.assign(snap, { commitSubject: snap.subject, subject: subject.join("|"), uiCommit: short });
+  });
 
   const pages = new Map();
   const page = (route) => {

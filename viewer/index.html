@@ -1669,7 +1669,9 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
     const s = snaps[i], d = delta(i);
     const prev = i > 0 ? el(`<a class="btn" href="#/snapshot/${snaps[i - 1].id}" title="${esc(snaps[i - 1].subject)} (←)">← ${esc(dayMonth(snaps[i - 1].date))}</a>`) : null;
     const next = i < snaps.length - 1 ? el(`<a class="btn" href="#/snapshot/${snaps[i + 1].id}" title="${esc(snaps[i + 1].subject)} (→)">${esc(dayMonth(snaps[i + 1].date))} →</a>`) : null;
-    header(s.subject, `<a href="#/snapshots">Snapshots</a> › ${esc(s.date)} · <span class="mono">${esc(s.id)}</span>`, [prev, next].filter(Boolean),
+    // Named after its newest UI commit; the captured commit is said where it differs.
+    const captured = s.commitSubject ? ` · newest UI commit <span class="mono">${esc(s.uiCommit)}</span>, captured at <span class="mono">${esc(s.id)}</span> <span class="faint">(${esc(s.commitSubject)})</span>` : ` · <span class="mono">${esc(s.id)}</span>`;
+    header(s.subject, `<a href="#/snapshots">Snapshots</a> › ${esc(s.date)}${captured}`, [prev, next].filter(Boolean),
       "<p>What changed in this commit since the snapshot before, then every other page as it looked at that point. The bars at the top are all snapshots; ← and → step through them.</p>");
     const pad = el('<div class="pad report"></div>');
     pad.append(timeStrip(i));
