@@ -270,59 +270,88 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .cell .pill.gone, .cell .pill.link { position: relative; z-index: 1; }
 
 /* ---------- Page ---------- */
-.pagehead { margin: 0 0 16px; display: flex; flex-direction: column; gap: 10px; max-width: 1100px; }
-.pagehead .life { margin: 0; font-size: 13px; color: var(--text); }
-.rels { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px; margin: 0; align-items: start; }
-.rels dt { padding-top: 3px; }
-.rels dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.pagepad { display: flex; flex-direction: column; gap: 16px; padding: 18px 24px 40px; }
+.pagepad .lede { margin: 0; font-size: 15px; }
+.rels { display: flex; flex-direction: column; gap: 6px; margin-top: -6px; }
+.rel { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13.5px; }
+.relkind { color: var(--muted); }
 .relchips { display: flex; flex-wrap: wrap; gap: 4px; }
 .relchips .chip { padding: 0 9px; color: var(--text); }
 .relchips .chip:hover { border-color: var(--accent); text-decoration: none; }
-.reldate { font-size: 12px; }
 .why { font-size: 12.5px; }
 .why[open] { flex-basis: 100%; }
 .why summary { cursor: pointer; color: var(--muted); width: max-content; list-style: none; text-decoration: underline dotted; font-size: 12px; }
 .why summary::-webkit-details-marker { display: none; }
 .why ul { margin: 6px 0 0; padding-left: 16px; color: var(--muted); line-height: 1.5; max-width: 90ch; }
 .why li + li { margin-top: 6px; }
-.pagewrap { display: flex; flex-direction: column; gap: 14px; }
-.views { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
-.vgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.vkind { color: var(--faint); font-size: 11.5px; margin-right: 2px; }
-.views a { display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 999px; color: var(--muted); border: 1px solid var(--line); font-size: 12.5px; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.views a:hover { color: var(--text); border-color: var(--line-strong); text-decoration: none; }
-.views a[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
-.strip { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 12px; align-items: stretch; }
-.frame { flex: 0 0 auto; width: 300px; display: flex; flex-direction: column; }
-.frame.narrow { width: 180px; }
-.frame header { display: flex; align-items: center; gap: 6px; height: 24px; margin-bottom: 6px; white-space: nowrap; }
-.frame header b { font-size: 12.5px; }
-.frame header .mono { color: var(--faint); font-size: 11px; }
-.frame .shot { display: block; height: 380px; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--surface); cursor: zoom-in; padding: 0; line-height: 0; box-shadow: var(--shadow); }
-.frame .shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
-.frame .gap { height: 380px; border: 1px dashed var(--line-strong); border-radius: 8px; padding: 12px; color: var(--muted); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; line-height: 1.5; }
-.frame.skip { width: 116px; }
-.frame.skip .gap { font-size: 12px; padding: 10px 8px; border-style: dashed; background: none; }
-.frame.skip header { color: var(--muted); }
-.frame .caption { color: var(--faint); font-size: 11.5px; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.frame .sources { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
-.frame .sources summary { cursor: pointer; list-style: none; text-decoration: underline dotted; }
-.frame .sources summary::-webkit-details-marker { display: none; }
-.frame .sources ul { margin: 4px 0 0; padding-left: 14px; max-height: 160px; overflow: auto; line-height: 1.5; white-space: normal; }
-.frame .sources li { overflow-wrap: anywhere; }
+.vtabs { display: flex; flex-direction: column; gap: 10px; }
+.vkinds { display: flex; flex-wrap: wrap; gap: 4px 24px; border-bottom: 1px solid var(--line); }
+.vkinds a { display: inline-flex; align-items: center; gap: 6px; height: 40px; color: var(--muted); font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.vkinds a:hover { color: var(--text); text-decoration: none; }
+.vkinds a[aria-current="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 500; }
+.vkinds .cnt { color: var(--faint); font-size: 12px; font-weight: 400; }
+.vsub { display: flex; flex-wrap: wrap; gap: 6px; }
+.vsub a { display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 999px; color: var(--muted); border: 1px solid var(--line); font-size: 13px; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vsub a:hover { color: var(--text); border-color: var(--line-strong); text-decoration: none; }
+.vsub a[aria-current="true"] { background: var(--raised); border-color: var(--line-strong); color: var(--text); }
+.pagebody { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.hero { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.herohead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 14px; }
+.herohead b { font-weight: 600; }
+.heroframe { max-height: calc(100vh - 300px); min-height: 320px; overflow: auto; border-radius: 10px; box-shadow: 0 0 0 1px var(--line-strong); background: var(--raised); }
+.heroframe.narrow { max-width: 420px; }
+.herostack { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; line-height: 0; }
+.herostack img { width: 100%; display: block; }
+.herostack canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: pixelated; }
+.sources { font-size: 12.5px; color: var(--muted); }
+.sources summary { cursor: pointer; list-style: none; text-decoration: underline dotted; width: max-content; }
+.sources summary::-webkit-details-marker { display: none; }
+.sources ul { margin: 6px 0 0; padding-left: 16px; max-height: 180px; overflow: auto; line-height: 1.55; }
+.sources li { overflow-wrap: anywhere; }
+.versions { flex: 1 1 280px; max-width: 340px; max-height: calc(100vh - 260px); overflow: auto; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 0; }
+.vrow { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px; border: 0; border-radius: 10px; background: none; color: var(--text); text-align: left; }
+.vrow:hover { background: var(--surface); }
+.vrow[aria-current="true"] { background: var(--raised); box-shadow: inset 0 0 0 1px var(--line-strong), inset 3px 0 0 var(--accent); }
+.vrow.isA { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.vrow.isA .vdate::after { content: "A"; margin-left: auto; font-size: 11px; color: var(--faint); }
+.vrow[aria-current="true"] .vdate::after { content: "B"; margin-left: auto; font-size: 11px; color: var(--faint); }
+body:not(.comparing) .vrow .vdate::after { content: none; }
+.vthumb { display: block; aspect-ratio: 16 / 10; border-radius: 4px; overflow: hidden; background: var(--raised); box-shadow: 0 0 0 1px var(--line-strong); }
+.vthumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.vmeta { display: flex; flex-direction: column; min-width: 0; }
+.vdate { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.vmeta .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vfold { display: flex; align-items: center; gap: 10px; padding: 2px 8px 2px 44px; font-size: 12px; color: var(--faint); }
+.vfold i { width: 1px; height: 16px; background: var(--line-strong); flex: none; }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font-size: inherit; }
-.compare { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-width: 1100px; margin-top: 8px; }
-.cmptitle { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.compare.full { position: fixed; inset: 0; z-index: 45; max-width: none; margin: 0; border-radius: 0; border: 0; display: flex; flex-direction: column; }
-.compare.full .stage { flex: 1; max-height: none; }
-.compare .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
-.compare .controls .field { width: auto; }
-.compare .cmphint { flex: 1; text-align: center; color: var(--faint); font-size: 12px; }
-.compare .stage { position: relative; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden auto; max-height: 78vh; line-height: 0; background: var(--raised); cursor: col-resize; user-select: none; }
-.compare .stage img { width: 100%; display: block; pointer-events: none; }
-.compare .stage .after { position: absolute; inset: 0 0 auto 0; }
-.compare .handle { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); pointer-events: none; }
-.compare .handle .grip { position: sticky; top: 50%; left: 50%; display: block; width: 34px; height: 34px; margin: 0 0 0 -16px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 17px; line-height: 34px; text-align: center; box-shadow: var(--shadow); }
+
+/* ---------- Compare ---------- */
+.cmp { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cmp.full { position: fixed; inset: 0; z-index: 60; background: var(--bg); padding: 12px 16px 16px; }
+.cmpbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.cmpbar .where { font-size: 14px; margin-right: 8px; }
+.cmpbar .pick { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.cmpbar .pick .field { width: auto; max-width: 200px; height: 32px; }
+.cmpbar .onion { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--faint); }
+.cmpbar .onion[hidden] { display: none; }
+.cmpstage { min-height: 320px; max-height: calc(100vh - 300px); overflow: auto; border-radius: 10px; box-shadow: 0 0 0 1px var(--line-strong); background: var(--raised); }
+.cmp.full .cmpstage { flex: 1; max-height: none; }
+.cmpstage figure { margin: 0; }
+.cmpstage figcaption { font-size: 13px; padding: 8px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmpstage figcaption b { font-weight: 600; }
+.cmpstage img { width: 100%; display: block; }
+.cmpstage.sbs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; align-items: start; }
+.cmpstage.sbs figcaption { position: sticky; top: 0; background: var(--raised); z-index: 1; }
+.cmpstage .caps { position: sticky; top: 0; z-index: 3; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); background: var(--raised); }
+.cmpstage .caps figcaption:last-child { text-align: right; }
+.layers { position: relative; line-height: 0; user-select: none; }
+.layers .over { position: absolute; inset: 0 0 auto 0; }
+.layered.slider .layers { cursor: col-resize; }
+.layered.diff .layers .over { mix-blend-mode: difference; }
+.layered.diff .layers { background: #000; }
+.layers .handle { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.35); pointer-events: none; }
+.layers .handle .grip { position: sticky; top: 45%; display: block; width: 36px; height: 36px; margin-left: -17px; border-radius: 50%; background: #fff; color: #111; font-size: 16px; line-height: 36px; text-align: center; box-shadow: var(--shadow); pointer-events: auto; }
+@media (max-width: 900px) { .cmpstage.sbs { grid-template-columns: minmax(0, 1fr); } .versions { max-width: none; position: static; max-height: 360px; } }
 
 /* ---------- Snapshots ---------- */
 .story { display: flex; flex-direction: column; gap: 12px; max-width: 86ch; }
@@ -431,27 +460,36 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .phases .n { color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* ---------- Lightbox ---------- */
-.lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(8, 9, 12, .94); display: none; flex-direction: column; color: #eee; }
+.lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(7, 7, 8, .97); display: none; flex-direction: column; color: #e8e8eb; }
 .lightbox.open { display: flex; }
 .lightbox .body:focus { outline: none; }
-.lightbox .bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; flex-wrap: wrap; }
-.lightbox .where { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 600; }
-.lightbox .when { color: #b9bac4; }
-.lightbox button { height: 28px; border: 1px solid #555; background: #1d1e24; color: #eee; border-radius: 7px; padding: 0 11px; }
+.lightbox .bar { display: flex; align-items: center; gap: 10px 16px; padding: 10px 16px; flex-wrap: wrap; }
+.lbtitle { display: flex; flex-direction: column; line-height: 1.35; min-width: 0; }
+.lightbox .where { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px; }
+.lightbox .when { color: #a2a4ac; font-size: 12.5px; }
+.lbgroup { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 10px; background: #18191c; }
+.lightbox button { height: 30px; border: 0; background: transparent; color: #e8e8eb; border-radius: 7px; padding: 0 11px; font-size: 13px; }
+.lightbox button:hover:not(:disabled) { background: #2a2c33; }
 .lightbox button:disabled { opacity: .35; cursor: default; }
-.lightbox .body { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 0 16px 24px; }
+.lightbox button[aria-pressed="true"] { background: #e8e8eb; color: #111; }
+.lightbox .lbx { width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.lightbox .lbx svg { width: 16px; height: 16px; }
+.lbmain { flex: 1; min-height: 0; display: flex; align-items: stretch; }
+.lightbox .lbstep { align-self: center; width: 44px; height: 64px; margin: 0 6px; font-size: 28px; background: #18191c; flex: none; }
+.lightbox .body { flex: 1; min-width: 0; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 0 8px 12px; }
 .lightbox .body img { width: 100%; border-radius: 6px; background: #fff; display: block; }
 .lightbox .stack { position: relative; display: inline-block; flex: none; max-width: 100%; line-height: 0; }
-.lightbox .lbzoom { display: flex; align-items: center; gap: 4px; }
-.lightbox .lbzoom button { min-width: 28px; padding: 0 8px; }
-.lightbox .lbzoom output { min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; color: #b9bac4; font-size: 12px; }
-.lightbox .stack canvas, .compare .stage canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
-.tinted .lightbox .stack canvas, .tinted .compare .stage canvas { display: block; }
-.lightbox button[aria-pressed="true"] { background: #fff; color: #111; }
-.lightbox .steps { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; max-width: 40vw; }
-.lightbox .steps i { width: 8px; height: 8px; border-radius: 50%; background: #555; }
-.lightbox .steps i.on { background: #fff; }
-.hint { color: #8f909a; font-size: 12px; }
+.lightbox .lbzoom output { min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; color: #a2a4ac; font-size: 12px; }
+.lightbox .stack canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
+.tinted .lightbox .stack canvas { display: block; }
+.lbstrip { display: flex; gap: 10px; padding: 10px 16px 14px; overflow-x: auto; justify-content: safe center; flex: none; }
+.lightbox .lbstrip button { flex: 0 0 96px; height: auto; padding: 0; display: flex; flex-direction: column; gap: 4px; align-items: center; background: none; opacity: .55; }
+.lightbox .lbstrip button:hover { background: none; opacity: .85; }
+.lightbox .lbstrip button.on { opacity: 1; }
+.lbstrip img { width: 96px; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border-radius: 4px; display: block; }
+.lbstrip button.on img { box-shadow: 0 0 0 2px #fff; }
+.lbstrip span { font-size: 11px; color: #a2a4ac; }
+.lightbox.behind { visibility: hidden; }
 
 @media (max-width: 900px) {
   .side { position: fixed; inset: 0 auto 0 0; z-index: 30; transform: translateX(-100%); transition: transform .18s; box-shadow: var(--shadow); max-width: 86vw; }
@@ -463,12 +501,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   .searchbox { order: 9; width: 100%; }
   .top { padding: 10px 16px; }
   :root { --label-w: 150px; --col-w: 110px; }
-  .hint { display: none; }
   .top .sub { display: none; }
-  .pagehead .life .muted { display: none; }
-  .rels { grid-template-columns: minmax(0, 1fr); }
-  .frame { width: 240px; }
-  .frame .shot, .frame .gap { height: 300px; }
 }
 </style>
 </head>
@@ -521,12 +554,14 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot">
   <div class="bar">
-    <span class="where" id="lbWhere"></span><span class="when" id="lbWhen"></span><span class="steps" id="lbSteps"></span>
-    <span class="spacer"></span><span class="hint">← → through time · − + zoom · 0 full width · Esc to close</span>
-    <span class="lbzoom"><button id="lbOut" title="Zoom out (−)">−</button><output id="lbZoom"></output><button id="lbIn" title="Zoom in (+)">+</button><button id="lbWidth" title="Fill the width (0)">Width</button><button id="lbPage" title="Show the whole screenshot">Whole</button></span>
-    <button id="lbPlay" title="Step through time automatically">▶ Play</button><button id="lbPrev">← Older</button><button id="lbNext">Newer →</button><button id="lbClose">Close</button>
+    <div class="lbtitle"><span class="where" id="lbWhere"></span><span class="when" id="lbWhen"></span></div>
+    <span class="spacer"></span>
+    <span class="lbgroup lbzoom"><button id="lbOut" title="Zoom out (−)" aria-label="Zoom out">−</button><output id="lbZoom"></output><button id="lbIn" title="Zoom in (+)" aria-label="Zoom in">+</button><button id="lbWidth" title="Fill the width (0)">Width</button><button id="lbPage" title="Show the whole screenshot">Whole</button></span>
+    <span class="lbgroup"><button id="lbPlay" title="Step through time automatically (space)">▶ Play</button><button id="lbCompare" title="Compare with the version before">Compare</button></span>
+    <button id="lbClose" class="lbx" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg></button>
   </div>
-  <div class="body" tabindex="-1"><div class="stack" id="lbStack"><img id="lbImg" alt=""><canvas id="lbTint"></canvas></div></div>
+  <div class="lbmain"><button id="lbPrev" class="lbstep" title="Older (←)" aria-label="Older">‹</button><div class="body" tabindex="-1"><div class="stack" id="lbStack"><img id="lbImg" alt=""><canvas id="lbTint"></canvas></div></div><button id="lbNext" class="lbstep" title="Newer (→)" aria-label="Newer">›</button></div>
+  <nav class="lbstrip" id="lbStrip" aria-label="Versions"></nav>
 </div>
 
 <script src="data/history.js"></script>
@@ -541,7 +576,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   const snapIndex = Object.fromEntries(snaps.map((s, i) => [s.id, i]));
   const pageById = Object.fromEntries(H.pages.map((p) => [p.id, p]));
   const viewportNames = H.viewports ?? ["desktop", "mobile"];
-  const state = { viewport: viewportNames[0], search: "", onlyChanged: false, showSame: false, tint: false, expanded: new Set(), zoom: 1, graphLeft: 0, focus: new Set(), help: false,
+  const state = { viewport: viewportNames[0], search: "", onlyChanged: false, showSame: false, tint: false, compare: false, cmpMode: "side", cmpFull: false, pageAt: {}, cmpA: {}, expanded: new Set(), zoom: 1, graphLeft: 0, focus: new Set(), help: false,
     // Which kinds of relation the graph draws and focus follows; toggled from the legend.
     links: { split: true, merge: true, move: true, clone: true, branch: true } };
   const LINK_GROUP = { split: "split", merged: "merge", replaced: "merge", rename: "move", redirect: "move", clone: "clone", branch: "branch" };
@@ -1032,183 +1067,228 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     if (!page) { header("Unknown page"); content.innerHTML = '<div class="empty">Unknown page.</div>'; return; }
     const order = H.pages.filter((p) => p.seen);
     const at = order.indexOf(page);
+    const view = page.views.find((v) => v.id === viewId) ?? mainView(page) ?? page.views[0];
     const focusBtn = el(`<button class="btn" aria-pressed="${state.focus.has(id)}" title="Show only what is connected to this page">${FOCUS_ICON} Connected</button>`);
     focusBtn.addEventListener("click", () => { toggleFocus(id); if (state.focus.has(id)) location.hash = "#/"; });
-    const prev = at > 0 ? el(`<a class="btn" href="${pageHref(order[at - 1].id)}" title="${esc(order[at - 1].id)}">←</a>`) : null;
-    const next = at >= 0 && at < order.length - 1 ? el(`<a class="btn" href="${pageHref(order[at + 1].id)}" title="${esc(order[at + 1].id)}">→</a>`) : null;
+    const prev = at > 0 ? el(`<a class="btn icon" href="${pageHref(order[at - 1].id)}" title="Previous page: ${esc(order[at - 1].id)}" aria-label="Previous page">←</a>`) : null;
+    const next = at >= 0 && at < order.length - 1 ? el(`<a class="btn icon" href="${pageHref(order[at + 1].id)}" title="Next page: ${esc(order[at + 1].id)}" aria-label="Next page">→</a>`) : null;
     const playBtn = el('<button class="btn" title="Play this view through time">▶ Play</button>');
-    header(page.id, `<a href="#/">Graph</a> › <a href="#/?section=${encodeURIComponent(page.section)}">${esc(page.section)}</a> › ${plural(page.views.length, "view")}`, [playBtn, focusBtn, prev, next].filter(Boolean),
-      "<p>The tabs hold every view of this page: the page itself, its signed-out version where that differs, and each section, dialog and menu found on it. Pick one to see it across time. Snapshots where it looked the same as before, or where the view was not on the page, are folded into the small dashed cards. Click a screenshot to enlarge it and step through time with the arrow keys; the slider at the bottom compares any two snapshots, and Full screen gives it the whole window.</p>");
-    const pad = el('<div class="pad"></div>');
+    const cmpBtn = el(`<button class="btn" aria-pressed="${state.compare}" title="Compare two snapshots (C)">Compare</button>`);
+    cmpBtn.addEventListener("click", () => { state.compare = !state.compare; render(); });
+    header(page.id, `<a href="#/timeline">Screens</a> › ${esc(page.section)}`, [playBtn, cmpBtn, focusBtn, prev, next].filter(Boolean),
+      "<p>The tabs hold every view of this page: the page itself, its signed-out version where that differs, and each section, dialog and menu found on it. The list on the right has every version of the selected view; pick one to see it large, or press ← and →. Compare puts any two versions next to each other, over each other, or as a difference.</p>");
+    const pad = el('<div class="pad pagepad"></div>');
 
-    // Summary: when the page came and went, then its relations grouped by kind.
-    const head = el('<div class="pagehead"></div>');
+    // One or two sentences: when the page came and went, how often it changed, where it came from.
     const added = page.history.find((h) => h.kind === "added");
     const gone = page.life?.length && page.life[page.life.length - 1].to ? [...page.history].reverse().find((h) => h.kind === "deleted") : null;
-    const life = el('<p class="life"></p>');
-    life.innerHTML = added
-      ? `Added on <b>${esc(added.date)}</b> <span class="muted">in <span class="mono">${esc(added.sha)}</span> · ${esc(added.subject)}</span>`
-      : `First captured on <b>${esc(snaps.find((s) => page.presence[s.id])?.date ?? "–")}</b>`;
-    if (gone) life.innerHTML += ` · <span class="pill gone">deleted</span> <b>${esc(gone.date)}</b> <span class="mono muted">${esc(gone.sha)}</span>`;
-    head.append(life);
+    const changes = view ? changesOf(mainView(page) ?? view) : 0;
+    const last = lastChange(page);
+    const lede = el('<p class="lede"></p>');
+    lede.innerHTML = (added ? `Added on <b>${esc(added.date)}</b> <span class="faint">· ${esc(added.subject)}</span>.` : `First captured on <b>${esc(snaps.find((s) => page.presence[s.id])?.date ?? "–")}</b>.`)
+      + (gone ? ` Removed on <b>${esc(gone.date)}</b>.` : "")
+      + (changes > 1 ? ` Changed ${plural(changes, "time")}${last && last.kind !== "gone" ? `, last on ${esc(last.date)}` : ""}.` : "");
+    pad.append(lede);
     const rels = H.edges.filter((e) => e.source !== "git" && (e.from === id || e.to === id));
     if (rels.length) {
       const groups = new Map();
       for (const e of rels) {
         const out = e.from === id;
         const text = (EDGE_TEXT[e.kind === "extract" ? "extract" : e.type] ?? ["Linked to", "Linked from"])[out ? 0 : 1];
-        const cls = isOutOf(e) ? "new" : e.type === "merged" || e.type === "replaced" ? "gone" : "link";
-        (groups.get(text) ?? groups.set(text, { cls, items: [] }).get(text)).items.push({ e, other: out ? e.to : e.from });
+        (groups.get(text) ?? groups.set(text, []).get(text)).push({ e, other: out ? e.to : e.from });
       }
-      const dl = el('<dl class="rels"></dl>');
-      for (const [text, { cls, items }] of groups) {
+      const box = el('<div class="rels"></div>');
+      for (const [text, items] of groups) {
         const dates = [...new Set(items.map((x) => x.e.date))];
-        dl.append(el(`<dt><span class="pill ${cls}">${esc(text)}</span></dt>`));
-        const dd = el(`<dd><span class="relchips">${items.map(({ other }) => `<a class="chip" href="${pageHref(other)}" title="${esc(other)}">${routeHtml(other)}</a>`).join("")}</span><span class="muted reldate">${dates.map(esc).join(", ")}</span></dd>`);
+        const row = el(`<div class="rel"><span class="relkind">${esc(text)}</span><span class="relchips">${items.map(({ other }) => `<a class="chip" href="${pageHref(other)}" title="${esc(other)}">${routeHtml(other)}</a>`).join("")}</span><span class="faint small">${dates.map(esc).join(", ")}</span></div>`);
         const notes = items.filter((x) => x.e.note);
-        if (notes.length) {
-          const why = el(`<details class="why"><summary>Why?</summary><ul>${notes.map(({ e, other }) => `<li><span class="mono">${esc(other)}</span>${e.confidence ? ` <span class="muted">· ${esc(e.confidence)} confidence</span>` : ""}<br>${esc(e.note)}</li>`).join("")}</ul></details>`);
-          dd.append(why);
-        }
-        dl.append(dd);
+        if (notes.length) row.append(el(`<details class="why"><summary>Why?</summary><ul>${notes.map(({ e, other }) => `<li><span class="mono">${esc(other)}</span>${e.confidence ? ` <span class="faint">· ${esc(e.confidence)} confidence</span>` : ""}<br>${esc(e.note)}</li>`).join("")}</ul></details>`));
+        box.append(row);
       }
-      head.append(dl);
+      pad.append(box);
     }
-    pad.append(head);
 
-    if (!page.views.length) {
+    if (!view) {
       pad.append(el('<div class="empty">There are no screenshots of this page: it existed only between two snapshots, only ever redirected, or could not be captured.</div>'));
       content.replaceChildren(pad); return;
     }
-    // The page's views as tabs: the page itself first, then sections, dialogs and menus.
-    const view = page.views.find((v) => v.id === viewId) ?? mainView(page) ?? page.views[0];
-    const wrap = el('<div class="pagewrap"><nav class="views" aria-label="Views of this page"></nav><div class="detail"></div></div>');
-    const nav = wrap.querySelector(".views");
-    for (const kind of ["page", "signed-out", "section", "dialog", "menu"]) {
-      const group = page.views.filter((v) => v.kind === kind);
-      if (!group.length) continue;
-      const box = el(`<div class="vgroup">${kind === "page" || kind === "signed-out" ? "" : `<span class="vkind">${KIND_LABEL[kind]}</span>`}</div>`);
-      for (const v of group) box.append(el(`<a href="${pageHref(page.id, v.id)}" aria-current="${v === view}" title="${esc(v.label)} · changed in ${plural(changesOf(v), "snapshot")}">${esc(kind === "page" ? "Whole page" : v.label)}</a>`));
-      nav.append(box);
+
+    // Views: one tab per kind, then the views of the chosen kind when there are several.
+    const kinds = ["page", "signed-out", "section", "dialog", "menu"].filter((k) => page.views.some((v) => v.kind === k));
+    const tabs = el('<div class="vtabs"><nav class="vkinds" aria-label="Views of this page"></nav></div>');
+    for (const k of kinds) {
+      const group = page.views.filter((v) => v.kind === k);
+      const label = k === "page" ? "Whole page" : k === "signed-out" ? "Signed out" : KIND_LABEL[k];
+      tabs.firstElementChild.append(el(`<a href="${pageHref(page.id, group.includes(view) ? view.id : group[0].id)}" aria-current="${group.includes(view)}">${esc(label)}${group.length > 1 || !["page", "signed-out"].includes(k) ? ` <span class="cnt">${group.length}</span>` : ""}</a>`));
     }
+    const siblings = page.views.filter((v) => v.kind === view.kind);
+    if (siblings.length > 1) {
+      const sub = el('<nav class="vsub" aria-label="Which one"></nav>');
+      for (const v of siblings) sub.append(el(`<a href="${pageHref(page.id, v.id)}" aria-current="${v === view}" title="${esc(v.label)} · changed in ${plural(changesOf(v), "snapshot")}">${esc(v.label)}</a>`));
+      tabs.append(sub);
+    }
+    pad.append(tabs);
 
-    const detail = wrap.querySelector(".detail");
-
-    const strip = el('<div class="strip"></div>');
+    // Every snapshot of this view, newest first: versions to pick, and folded runs between them.
     const series = seriesFor(`${page.id}${view.id === "page" ? "" : " · " + view.label}`, view);
     playBtn.addEventListener("click", () => { const first = series.frames.findIndex(Boolean); if (first >= 0) openLightbox(series, first, true); });
+    const shown = [];
+    const rail = el('<aside class="versions" aria-label="Versions"></aside>');
     let run = null;
     const flush = () => {
       if (!run) return;
       const parts = [];
+      if (run.same) parts.push(`${plural(run.same, "snapshot")}, no change`);
       if (run.without) parts.push(`${plural(run.without, "snapshot")} without this view`);
-      if (run.missing) parts.push(`${plural(run.missing, "snapshot")} where the page exists but could not be captured`);
-      if (run.redirect) parts.push(`${plural(run.redirect, "snapshot")} redirecting to <a class="mono" href="${pageHref(run.redirectTo)}">${esc(run.redirectTo)}</a>`);
-      if (run.same) parts.push(`${run.same} unchanged`);
-      const card = el(`<div class="frame skip ${narrow() ? "narrow" : ""}"><header><b>${esc(run.from.slice(5))}</b>${run.from !== run.to ? `<span class="mono">→ ${esc(run.to.slice(5))}</span>` : ""}</header>
-        <div class="gap">${parts.join("<br>")}${run.same ? '<br><button class="linkbtn">Show them</button>' : ""}</div></div>`);
-      card.querySelector("button")?.addEventListener("click", () => { state.showSame = true; render(); });
-      strip.append(card);
+      if (run.missing) parts.push(`${plural(run.missing, "snapshot")} not captured`);
+      if (run.redirect) parts.push(`redirects to <a class="mono" href="${pageHref(run.redirectTo)}">${esc(run.redirectTo)}</a>`);
+      rail.append(el(`<div class="vfold"><i></i>${parts.join(" · ")}</div>`));
       run = null;
     };
-    const skip = (s, kind, extra) => { run ??= { from: s.date, to: s.date, without: 0, same: 0, missing: 0, redirect: 0 }; run.to = s.date; run[kind]++; if (extra) run.redirectTo = extra; };
-    snaps.forEach((s, i) => {
-      const st = viewStatus(view, i);
-      const ps = status(page, i);
-      if (!st.shot && ps.kind === "absent") return;
-      if (st.kind === "same" && !state.showSame) { skip(s, "same"); return; }
-      if (!st.shot && view.id !== "page") { skip(s, "without"); return; }
-      // A snapshot with nothing to show is noted in the small card, not given a frame of its own.
-      if (!st.shot && ps.kind === "missing") { skip(s, "missing"); return; }
-      if (!st.shot && ps.kind === "redirect") { skip(s, "redirect", ps.to); return; }
+    const skip = (kind, extra) => { run ??= { without: 0, same: 0, missing: 0, redirect: 0 }; run[kind]++; if (extra) run.redirectTo = extra; };
+    const rows = [];
+    for (let i = snaps.length - 1; i >= 0; i--) {
+      const s = snaps[i], st = viewStatus(view, i), ps = status(page, i);
+      if (!st.shot && ps.kind === "absent") continue;
+      if (st.kind === "same" && !state.showSame) { skip("same"); continue; }
+      if (!st.shot) { skip(ps.kind === "redirect" ? "redirect" : ps.kind === "missing" ? "missing" : "without", ps.to); continue; }
+      if (!img(st.shot)) continue;
       flush();
-      const frame = el(`<div class="frame ${narrow() ? "narrow" : ""}"><header><b>${esc(s.date)}</b><span class="mono">${esc(s.id)}</span>${pillFor(st)}</header></div>`);
-      if (st.shot && img(st.shot)) {
-        const b = el(`<button class="shot" title="Open full size"><img loading="lazy" src="${esc(img(st.shot).mid)}" alt="${esc(page.id)} on ${esc(s.date)}"></button>`);
-        b.addEventListener("click", () => openLightbox(series, i));
-        frame.append(b);
-      } else {
-        const ps = status(page, i);
-        const why = ps.kind === "redirect" ? `Redirects to <a class="mono" href="${pageHref(ps.to)}">${esc(ps.to)}</a>` : ps.kind === "missing" ? "Exists, but could not be captured" : "Not found on the page at this point";
-        frame.append(el(`<div class="gap">${why}</div>`));
-      }
-      frame.append(el(`<div class="caption" title="${esc(s.subject)}">${esc(s.subject)}</div>`));
-      if (st.shot?.sources) {
-        const src = st.shot.sources;
-        const d = el(`<details class="sources"><summary>${plural(src.total, "source file")} changed in ${plural(src.commits, "commit")}</summary><ul>${src.changed.map((f) => `<li class="mono">${esc(f)}</li>`).join("")}${src.total > src.changed.length ? `<li class="muted">… and ${src.total - src.changed.length} more</li>` : ""}</ul></details>`);
-        frame.append(d);
-      }
-      strip.append(frame);
-    });
-    flush();
-    detail.append(strip);
-    const withShots = snaps.filter((s, i) => img(view.shots[s.id]) && (state.showSame || viewStatus(view, i).kind !== "same"));
-    if (withShots.length >= 2) {
-      detail.append(compare(view, withShots));
+      shown.unshift(i);
+      const kind = st.kind === "base" ? "new" : st.kind;
+      const row = el(`<button class="vrow" data-i="${i}"><span class="vthumb"><img loading="lazy" src="${esc(img(st.shot).card)}" alt=""></span><span class="vmeta"><span class="vdate"><span class="cdot ${kind === "same" ? "" : kind}"></span>${esc(s.date)}</span><span class="faint small" title="${esc(s.subject)}">${esc(s.subject)}</span></span></button>`);
+      rows.push(row);
+      rail.append(row);
     }
-    pad.append(wrap);
+    flush();
+    if (!shown.length) { pad.append(el('<div class="empty">No screenshot of this view matches the current display options.</div>')); content.replaceChildren(pad); return; }
+
+    const key = `${page.id}|${view.id}`;
+    const picked = state.pageAt[key];
+    const b = shown.includes(picked) ? picked : shown[shown.length - 1];
+    const earlier = shown.filter((i) => i < b);
+    const a = shown.includes(state.cmpA[key]) && state.cmpA[key] !== b ? state.cmpA[key] : earlier[earlier.length - 1] ?? shown.find((i) => i !== b);
+    for (const row of rows) {
+      const i = Number(row.dataset.i);
+      if (i === b) row.setAttribute("aria-current", "true");
+      if (state.compare && i === a) row.classList.add("isA");
+      row.addEventListener("click", () => { state.pageAt[key] = i; delete state.cmpA[key]; render(); });
+    }
+
+    const body = el('<div class="pagebody"><main class="hero"></main></div>');
+    body.append(rail);
+    const hero = body.querySelector(".hero");
+    if (state.compare && a != null) {
+      hero.append(compareTool(series, a, b, { onPick: (na, nb) => { state.cmpA[key] = na; state.pageAt[key] = nb; render(); } }));
+    } else {
+      const st = viewStatus(view, b), s = snaps[b];
+      const what = { new: "Added", base: "First snapshot", major: "Redesigned", minor: "Tweaked", same: "Unchanged" }[st.kind] ?? "";
+      hero.append(el(`<div class="herohead"><span class="cdot ${st.kind === "same" ? "" : st.kind}"></span><span>${what} on <b>${esc(s.date)}</b></span><span class="faint">${st.diff != null && st.kind !== "same" ? `${Math.round(st.diff * 100)} % of pixels · ` : ""}${esc(s.subject)} · <span class="mono">${esc(s.id)}</span></span></div>`));
+      const frame = el(`<div class="heroframe ${narrow() ? "narrow" : ""}"><button class="herostack" title="Open full size"><img src="${esc(img(st.shot).mid)}" alt="${esc(page.id)} on ${esc(s.date)}"><canvas></canvas></button></div>`);
+      frame.querySelector("button").addEventListener("click", () => openLightbox(series, b));
+      const prevShown = earlier.length ? earlier[earlier.length - 1] : null;
+      drawMask(frame.querySelector("canvas"), state.tint && prevShown != null ? st.shot.masks?.[state.viewport] ?? null : null);
+      hero.append(frame);
+      if (st.shot.sources) {
+        const src = st.shot.sources;
+        hero.append(el(`<details class="sources"><summary>${plural(src.total, "source file")} changed in ${plural(src.commits, "commit")}</summary><ul>${src.changed.map((f) => `<li class="mono">${esc(f)}</li>`).join("")}${src.total > src.changed.length ? `<li class="faint">… and ${src.total - src.changed.length} more</li>` : ""}</ul></details>`));
+      }
+    }
+    pad.append(body);
     content.replaceChildren(pad);
+    rail.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
+  }
+  /** Step the selected version of the page on screen: dir -1 is older, 1 newer. */
+  function stepVersion(dir) {
+    const rows = [...document.querySelectorAll(".versions .vrow")].map((r) => Number(r.dataset.i)).sort((x, y) => x - y);
+    const cur = Number(document.querySelector('.versions .vrow[aria-current="true"]')?.dataset.i);
+    const to = rows[rows.indexOf(cur) + dir];
+    if (to == null) return;
+    const [id, view] = location.hash.slice(7).split("/").map(decodeURIComponent);
+    const page = pageById[id];
+    const v = page?.views.find((x) => x.id === view) ?? mainView(page) ?? page?.views[0];
+    if (!v) return;
+    state.pageAt[`${id}|${v.id}`] = to;
+    render();
   }
 
-  function compare(view, withShots) {
-    const options = (sel) => withShots.map((s) => `<option value="${s.id}" ${s.id === sel ? "selected" : ""}>${esc(s.date)} · ${esc(s.id)}</option>`).join("");
-    const box = el(`<div class="compare"><div class="cmptitle"><h2 class="h2big">Compare two points in time</h2><span class="spacer"></span><button class="btn" data-full title="Fill the window (Esc to leave)">Full screen</button></div>
-      <div class="controls"><select class="field">${options(withShots[0].id)}</select><span class="cmphint">Drag the line over the image</span><select class="field">${options(withShots[withShots.length - 1].id)}</select></div>
-      <div class="stage"><img class="before" alt=""><img class="after" alt=""><canvas class="tintc"></canvas><div class="handle" role="slider" aria-label="Reveal" aria-valuemin="0" aria-valuemax="100" tabindex="0"><span class="grip">⟷</span></div></div></div>`);
-    const [a, b] = box.querySelectorAll("select");
-    const stage = box.querySelector(".stage"), before = box.querySelector(".before"), after = box.querySelector(".after"), handle = box.querySelector(".handle");
-    let split = 50;
-    const paint = () => { after.style.clipPath = `inset(0 0 0 ${split}%)`; handle.style.left = split + "%"; handle.setAttribute("aria-valuenow", Math.round(split)); };
-    const tintc = box.querySelector(".tintc");
-    // The tint for an arbitrary pair is computed here from the two images, with the same
-    // block comparison the build uses.
-    const retint = async () => {
-      if (!state.tint) { tintc.style.display = "none"; return; }
-      const loadImg = (src) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
-      const [A, B] = await Promise.all([loadImg(before.src), loadImg(after.src)]);
-      if (!A || !B) return;
-      const W = 96, BL = 8, cols = W / BL;
-      const sampleOf = (im) => { const h = Math.max(1, Math.round((im.naturalHeight * W) / im.naturalWidth)); const cv = document.createElement("canvas"); cv.width = W; cv.height = h; const g = cv.getContext("2d"); g.drawImage(im, 0, 0, W, h); return { d: g.getImageData(0, 0, W, h).data, h }; };
-      const [x, y] = [sampleOf(A), sampleOf(B)];
-      const rows = Math.ceil(Math.max(x.h, y.h) / BL), shared = Math.min(x.h, y.h);
-      const runs = []; let current = 0, run = 0;
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        let hit = r * BL >= shared;
-        if (!hit) { let sum = 0, n = 0; for (let yy = r * BL; yy < Math.min((r + 1) * BL, shared); yy++) for (let xx = c * BL; xx < (c + 1) * BL; xx++) { const i = (yy * W + xx) * 4; sum += Math.abs(x.d[i] - y.d[i]) + Math.abs(x.d[i + 1] - y.d[i + 1]) + Math.abs(x.d[i + 2] - y.d[i + 2]); n += 3; } hit = sum / n > 10; }
-        const bit = hit ? 1 : 0; if (bit === current) run++; else { runs.push(run); current = bit; run = 1; }
+  // ---------- Compare ----------
+  const CMP_MODES = [["side", "Side by side"], ["slider", "Slider"], ["onion", "Onion skin"], ["diff", "Difference"]];
+  /**
+   * Two snapshots of one view, in one of four modes. Used inline on a page and full screen
+   * from the lightbox; series is the view's frames by snapshot index, a and b the two picked.
+   */
+  function compareTool(series, a, b, { onPick, standalone = false, onClose } = {}) {
+    const avail = series.frames.map((f, i) => (f ? i : null)).filter((i) => i != null);
+    const options = (sel) => avail.map((i) => `<option value="${i}" ${i === sel ? "selected" : ""}>${esc(snaps[i].date)} · ${esc(snaps[i].subject.slice(0, 60))}</option>`).join("");
+    const box = el(`<div class="cmp ${standalone ? "full" : ""}" role="${standalone ? "dialog" : "region"}" aria-label="Compare two snapshots">
+      <div class="cmpbar">
+        ${standalone ? `<span class="where mono">${esc(series.title)}</span>` : ""}
+        <div class="seg" role="group" aria-label="Compare mode">${CMP_MODES.map(([k, t]) => `<button data-mode="${k}" aria-pressed="${state.cmpMode === k}">${t}</button>`).join("")}</div>
+        <label class="onion" ${state.cmpMode === "onion" ? "" : "hidden"}>A <input type="range" min="0" max="100" value="50" aria-label="Blend"> B</label>
+        <span class="spacer"></span>
+        <label class="pick"><span>A</span><select class="field">${options(a)}</select></label>
+        <button class="btn icon" data-swap title="Swap A and B" aria-label="Swap A and B">⇄</button>
+        <label class="pick"><span>B</span><select class="field">${options(b)}</select></label>
+        <button class="btn" data-full>${standalone ? "Close" : "Full screen"}</button>
+      </div>
+      <div class="cmpstage"></div></div>`);
+    const [selA, selB] = box.querySelectorAll("select");
+    const stage = box.querySelector(".cmpstage");
+    const src = (i) => series.frames[i].image.full;
+    const cap = (i, label) => `<figcaption><b>${label} · ${esc(snaps[i].date)}</b> <span class="faint">${esc(snaps[i].subject)}</span></figcaption>`;
+    let split = 50, blend = 50;
+    const paint = () => {
+      const A = Number(selA.value), B = Number(selB.value), mode = state.cmpMode;
+      box.querySelector(".onion").hidden = mode !== "onion";
+      if (mode === "side") {
+        stage.className = "cmpstage sbs";
+        stage.innerHTML = `<figure>${cap(A, "A")}<img src="${esc(src(A))}" alt=""></figure><figure>${cap(B, "B")}<img src="${esc(src(B))}" alt=""></figure>`;
+        return;
       }
-      runs.push(run);
-      drawMask(tintc, { cols, rows, runs });
-      tintc.style.height = before.getBoundingClientRect().height + "px";
+      stage.className = `cmpstage layered ${mode}`;
+      stage.innerHTML = `<div class="caps">${cap(A, "A")}${cap(B, "B")}</div><div class="layers"><img class="under" src="${esc(src(A))}" alt=""><img class="over" src="${esc(src(B))}" alt="">${mode === "slider" ? '<div class="handle" role="slider" aria-label="Divider between A and B" aria-valuemin="0" aria-valuemax="100" tabindex="0"><span class="grip">⟷</span></div>' : ""}</div>`;
+      const over = stage.querySelector(".over"), layers = stage.querySelector(".layers");
+      if (mode === "onion") over.style.opacity = blend / 100;
+      if (mode === "slider") {
+        const handle = stage.querySelector(".handle");
+        const set = () => { over.style.clipPath = `inset(0 0 0 ${split}%)`; handle.style.left = split + "%"; handle.setAttribute("aria-valuenow", Math.round(split)); };
+        const fromPointer = (e) => { const r = layers.getBoundingClientRect(); split = Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)); set(); };
+        layers.addEventListener("pointerdown", (e) => {
+          if (e.button !== 0) return;
+          e.preventDefault(); fromPointer(e);
+          const move = (ev) => fromPointer(ev);
+          const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+          window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+        });
+        handle.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); e.stopPropagation(); split = Math.min(100, Math.max(0, split + (e.key === "ArrowLeft" ? -2 : 2))); set(); } });
+        set();
+      }
     };
-    const load = () => { before.src = img(view.shots[a.value]).full; after.src = img(view.shots[b.value]).full; paint(); before.onload = retint; };
-    [a, b].forEach((n) => n.addEventListener("input", load));
-    const setFromPointer = (e) => { const r = stage.getBoundingClientRect(); split = Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)); paint(); };
-    stage.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      setFromPointer(e);
-      const move = (ev) => setFromPointer(ev);
-      const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
-      window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
-    });
-    const fullBtn = box.querySelector("[data-full]");
-    const setFull = (on) => {
-      state.compareFull = on;
-      box.classList.toggle("full", on);
-      fullBtn.textContent = on ? "Exit full screen" : "Full screen";
-      if (on) { document.addEventListener("keydown", onEsc, true); stage.focus?.(); } else document.removeEventListener("keydown", onEsc, true);
-      requestAnimationFrame(retint);
-    };
+    box.querySelectorAll("[data-mode]").forEach((btn) => btn.addEventListener("click", () => {
+      state.cmpMode = btn.dataset.mode;
+      box.querySelectorAll("[data-mode]").forEach((x) => x.setAttribute("aria-pressed", String(x === btn)));
+      paint();
+    }));
+    box.querySelector(".onion input").addEventListener("input", (e) => { blend = Number(e.target.value); const over = stage.querySelector(".over"); if (over) over.style.opacity = blend / 100; });
+    const picked = () => { if (onPick) onPick(Number(selA.value), Number(selB.value)); else paint(); };
+    [selA, selB].forEach((s) => s.addEventListener("input", picked));
+    box.querySelector("[data-swap]").addEventListener("click", () => { [selA.value, selB.value] = [selB.value, selA.value]; picked(); });
+    const close = () => { document.removeEventListener("keydown", onEsc, true); if (standalone) { box.remove(); onClose?.(); } else { state.cmpFull = false; box.classList.remove("full"); fullBtn.textContent = "Full screen"; } };
     const onEsc = (e) => {
-      if (!box.isConnected) { document.removeEventListener("keydown", onEsc, true); return; } // replaced by a re-render
-      if (e.key === "Escape" && !lb.box.classList.contains("open")) { e.preventDefault(); e.stopPropagation(); setFull(false); }
+      if (!box.isConnected) { document.removeEventListener("keydown", onEsc, true); return; }
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
     };
-    fullBtn.addEventListener("click", () => setFull(!box.classList.contains("full")));
-    if (state.compareFull) setFull(true); // kept across re-renders (a resize), dropped when leaving the page
-    window.addEventListener("hashchange", () => setFull(false), { once: true });
-    handle.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") { split = Math.max(0, split - 2); paint(); } if (e.key === "ArrowRight") { split = Math.min(100, split + 2); paint(); } });
-    load();
+    const fullBtn = box.querySelector("[data-full]");
+    fullBtn.addEventListener("click", () => {
+      if (standalone || box.classList.contains("full")) { close(); return; }
+      state.cmpFull = true; box.classList.add("full"); fullBtn.textContent = "Exit full screen";
+      document.addEventListener("keydown", onEsc, true);
+    });
+    if (standalone) document.addEventListener("keydown", onEsc, true);
+    // Full screen survives a re-render after picking another snapshot.
+    if (!standalone && state.cmpFull) { box.classList.add("full"); fullBtn.textContent = "Exit full screen"; document.addEventListener("keydown", onEsc, true); }
+    paint();
     return box;
   }
 
@@ -1512,7 +1592,15 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     const mask = state.tint && prevIndex != null ? frame.mask : null;
     drawMask(tintCanvas, mask);
     document.getElementById("lbWhen").textContent += mask ? " · changes since the previous snapshot are tinted" : "";
-    document.getElementById("lbSteps").innerHTML = lb.series.frames.map((f, i) => (f && (state.showSame || !f.same || i === lb.index) ? `<i class="${i === lb.index ? "on" : ""}"></i>` : "")).join("");
+    const stripEl = document.getElementById("lbStrip");
+    stripEl.replaceChildren(...lb.series.frames.map((f, i) => {
+      if (!f || (f.same && !state.showSame && i !== lb.index)) return null;
+      const b = el(`<button class="${i === lb.index ? "on" : ""}" title="${esc(f.snap.date)} · ${esc(f.snap.subject)}"><img loading="lazy" src="${esc(f.image.card)}" alt=""><span>${esc(dayMonth(f.snap.date))}</span></button>`);
+      b.addEventListener("click", () => { setPlaying(false); lb.index = i; paintLightbox(); });
+      return b;
+    }).filter(Boolean));
+    stripEl.querySelector(".on")?.scrollIntoView({ block: "nearest", inline: "center" });
+    document.getElementById("lbCompare").disabled = prevIndex == null;
     document.getElementById("lbPrev").disabled = nextFrame(-1) == null;
     document.getElementById("lbNext").disabled = nextFrame(1) == null;
   }
@@ -1520,6 +1608,14 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   document.getElementById("lbPrev").addEventListener("click", () => step(-1));
   document.getElementById("lbNext").addEventListener("click", () => step(1));
   document.getElementById("lbClose").addEventListener("click", closeLightbox);
+  // Compare opens full screen over the lightbox, with the version before as A; closing it returns here.
+  document.getElementById("lbCompare").addEventListener("click", () => {
+    const a = nextFrame(-1);
+    if (a == null) return;
+    setPlaying(false);
+    lb.box.classList.add("behind");
+    document.body.append(compareTool(lb.series, a, lb.index, { standalone: true, onClose: () => { lb.box.classList.remove("behind"); lbBody.focus({ preventScroll: true }); } }));
+  });
   document.getElementById("lbPlay").addEventListener("click", () => setPlaying(!lb.timer));
   document.getElementById("lbOut").addEventListener("click", () => zoomBy(1 / 1.25));
   document.getElementById("lbIn").addEventListener("click", () => zoomBy(1.25));
@@ -1544,7 +1640,7 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     Home: () => lbBody.scrollTo({ top: 0 }), End: () => lbBody.scrollTo({ top: lbBody.scrollHeight }),
   };
   document.addEventListener("keydown", (e) => {
-    if (!lb.box.classList.contains("open") || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!lb.box.classList.contains("open") || lb.box.classList.contains("behind") || e.metaKey || e.ctrlKey || e.altKey) return;
     const action = lbKeys[e.key];
     if (action) { e.preventDefault(); e.stopPropagation(); action(); }
   }, true);
@@ -1555,12 +1651,14 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     const sectionWanted = /\?section=([^&]+)/.exec(hash)?.[1];
     if (sectionWanted) { hash = hash.split("?")[0]; const d = document.querySelector(`#tree details[data-section="${CSS.escape(decodeURIComponent(sectionWanted))}"]`); if (d) d.open = true; }
     const keep = render.last === hash ? [content.scrollLeft, content.scrollTop] : null;
+    if (!keep) state.cmpFull = false;
     render.last = hash;
     document.getElementById("tip").style.display = "none";
     document.body.classList.remove("side-open");
     state.focusSet = connected();
     renderFocusBar();
     document.body.classList.toggle("tinted", state.tint);
+    document.body.classList.toggle("comparing", state.compare);
     let active = "graph", current = null;
     if (hash.startsWith("#/page/")) {
       const [id, view] = hash.slice(7).split("/").map(decodeURIComponent);
@@ -1650,6 +1748,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
     if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && !e.metaKey && !e.ctrlKey && !e.altKey && location.hash.startsWith("#/snapshot/") && !/input|select|textarea/i.test(document.activeElement?.tagName ?? "")) {
       const at = snapIndex[location.hash.slice(11)], to = at == null ? null : snaps[at + (e.key === "ArrowLeft" ? -1 : 1)];
       if (to) { e.preventDefault(); location.hash = "#/snapshot/" + to.id; }
+    }
+    // On a page, the arrow keys pick the version before or after; C switches compare on and off.
+    if (location.hash.startsWith("#/page/") && !e.metaKey && !e.ctrlKey && !e.altKey && !/input|select|textarea/i.test(document.activeElement?.tagName ?? "") && !document.activeElement?.closest?.(".handle")) {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); stepVersion(e.key === "ArrowLeft" ? -1 : 1); }
+      if (e.key === "c") { state.compare = !state.compare; render(); }
     }
   });
   window.addEventListener("hashchange", render);
