@@ -244,6 +244,17 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   }
 
   /**
+   * Give the page another viewport and let it settle there. A page that already has that
+   * size has settled at it (every caller waits for the page first), so it is shot as it is.
+   */
+  async function resizeTo(page, size) {
+    const current = page.viewportSize();
+    if (current?.width === size.width && current?.height === size.height) return;
+    await page.setViewportSize(size);
+    await settle(page, 4);
+  }
+
+  /**
    * Whole-page shot at every viewport. `pages` maps colour scheme to a page already showing
    * the right content. The viewport is grown to the document height first, so fixed bars
    * and floating buttons sit at the real bottom instead of mid-page.
@@ -254,8 +265,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       const viewport = viewports[viewportName];
       const page = pages[schemeOf(viewportName)];
       if (!page) continue; // states are shot in the primary scheme only
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await settle(page, 4);
+      await resizeTo(page, { width: viewport.width, height: viewport.height });
       const height = await page.evaluate(() => document.documentElement.scrollHeight).catch(() => viewport.height);
       if (height > viewport.height) {
         await page.setViewportSize({ width: viewport.width, height: Math.min(height, c.maxPageHeight) });
@@ -277,8 +287,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     for (const viewportName of viewportNames) {
       if (schemeOf(viewportName) !== primaryScheme) continue;
       const viewport = viewports[viewportName];
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await settle(page, 4);
+      await resizeTo(page, { width: viewport.width, height: viewport.height });
       const file = `${name}.${viewportName}.png`;
       await page.screenshot({ ...shotOptions, path: path.join(outDir, file) });
       files[viewportName] = file;
