@@ -394,7 +394,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
               occurrence: (seen[key] = (seen[key] ?? -1) + 1),
               label,
               key,
-              usable: rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && !el.disabled && el.getAttribute("aria-disabled") !== "true" && el.type !== "submit",
+              usable: rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && !el.disabled && el.getAttribute("aria-disabled") !== "true" && !(el.type === "submit" && el.form),
               switcher: role === "tab" || role === "radio" || el.hasAttribute("aria-pressed") || el.hasAttribute("aria-selected"),
               selected: ["aria-selected", "aria-pressed", "aria-checked"].some((a) => el.getAttribute(a) === "true"),
               chrome: Boolean(el.closest("header, nav, footer")),
