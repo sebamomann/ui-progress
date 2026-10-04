@@ -20,12 +20,16 @@ export function changelogCandidates(p, config) {
     const here = H.pages.filter((pg) => pg.presence[s.id]);
     const added = prev ? here.filter((pg) => !pg.presence[prev.id]) : here;
     const removed = prev ? H.pages.filter((pg) => pg.presence[prev.id] && !pg.presence[s.id]) : [];
-    const redesigned = here.filter((pg) => { const v = pg.views.find((x) => x.id === "page"); const sh = v?.shots[s.id]; const d = sh?.change ? Object.values(sh.change)[0] : null; return d != null && d >= major; });
+    // The page's first viewport decides; a change marked content-only kept its design.
+    const changeOf = (pg) => { const sh = pg.views.find((x) => x.id === "page")?.shots[s.id]; const vp = sh?.change ? Object.keys(sh.change)[0] : null; return vp ? { diff: sh.change[vp], content: Boolean(sh.content?.[vp]) } : null; };
+    const redesigned = here.filter((pg) => { const c = changeOf(pg); return c && !c.content && c.diff >= major; });
+    const contentOnly = here.filter((pg) => changeOf(pg)?.content);
     const edges = H.edges.filter((e) => e.at === s.id && e.source === "agent");
     lines.push(`## ${s.date} ${s.id} — ${s.subject}`);
     if (added.length) lines.push(`  added: ${added.map((pg) => pg.id).join(", ")}`);
     if (removed.length) lines.push(`  removed: ${removed.map((pg) => pg.id).join(", ")}`);
     if (redesigned.length) lines.push(`  redesigned: ${redesigned.map((pg) => pg.id).join(", ")}`);
+    if (contentOnly.length) lines.push(`  content only (same design, not a UI change): ${contentOnly.map((pg) => pg.id).join(", ")}`);
     for (const e of edges) lines.push(`  lineage: ${e.from} ${e.kind ?? e.type} ${e.to}${e.note ? ` (${e.note})` : ""}`);
     if (prev) {
       const a = shaOf(prev.id), b = shaOf(s.id);

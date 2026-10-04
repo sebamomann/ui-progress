@@ -679,6 +679,9 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
     if (!earlier) return { kind: i === 0 ? "base" : "new", shot };
     const diff = shot.change?.[state.viewport] ?? Object.values(shot.change ?? {})[0];
     if (diff == null) return { kind: "same", shot };
+    // Pixels moved, but the page is built and styled as before (see thresholds.contentOnly).
+    const content = diff >= MINOR && Boolean(shot.content?.[state.viewport] ?? (shot.content && Object.values(shot.content)[0]));
+    if (content) return { kind: "same", content: true, shot, diff };
     return { kind: diff >= MAJOR ? "major" : diff >= MINOR ? "minor" : "same", shot, diff };
   }
   /** The page as a whole at a snapshot. */
@@ -1315,8 +1318,9 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
       hero.append(compareTool(series, a, b, { onPick: (na, nb) => { state.cmpA[key] = na; state.pageAt[key] = nb; render(); } }));
     } else {
       const st = viewStatus(view, b), s = snaps[b];
-      const what = { new: "Added", base: "First snapshot", major: "Redesigned", minor: "Tweaked", same: "Unchanged" }[st.kind] ?? "";
-      hero.append(el(`<div class="herohead"><span class="cdot ${st.kind === "same" ? "" : st.kind}"></span><span>${what} on <b>${esc(s.date)}</b></span><span class="faint">${st.diff != null && st.kind !== "same" ? `${Math.round(st.diff * 100)} % of pixels · ` : ""}${esc(s.subject)} · <span class="mono">${esc(s.id)}</span></span></div>`));
+      const what = st.content ? "Content changed" : { new: "Added", base: "First snapshot", major: "Redesigned", minor: "Tweaked", same: "Unchanged" }[st.kind] ?? "";
+      const pixels = st.diff != null && st.kind !== "same" ? `${Math.round(st.diff * 100)} % of pixels · ` : st.content ? `${Math.round(st.diff * 100)} % of pixels, same design · ` : "";
+      hero.append(el(`<div class="herohead"><span class="cdot ${st.kind === "same" ? "" : st.kind}"></span><span>${what} on <b>${esc(s.date)}</b></span><span class="faint">${pixels}${esc(s.subject)} · <span class="mono">${esc(s.id)}</span></span></div>`));
       const frame = el(`<div class="heroframe ${narrow() ? "narrow" : ""}"><button class="herostack" title="Open full size"><img src="${esc(img(st.shot).mid)}" alt="${esc(page.id)} on ${esc(s.date)}"><canvas></canvas></button></div>`);
       frame.querySelector("button").addEventListener("click", () => openLightbox(series, b));
       const prevShown = earlier.length ? earlier[earlier.length - 1] : null;
@@ -1325,6 +1329,11 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
       if (st.shot.sources) {
         const src = st.shot.sources;
         hero.append(el(`<details class="sources"><summary>${plural(src.total, "source file")} changed in ${plural(src.commits, "commit")}</summary><ul>${src.changed.map((f) => `<li class="mono">${esc(f)}</li>`).join("")}${src.total > src.changed.length ? `<li class="faint">… and ${src.total - src.changed.length} more</li>` : ""}</ul></details>`));
+      }
+      const looks = st.kind !== "same" ? st.shot.styles : null;
+      if (looks && (looks.added.length || looks.removed.length)) {
+        const items = [...looks.added.map((n) => `<li><span class="faint">new</span> <span class="mono">${esc(n)}</span></li>`), ...looks.removed.map((n) => `<li><span class="faint">gone</span> <span class="mono">${esc(n)}</span></li>`)];
+        hero.append(el(`<details class="sources"><summary>Design: ${[looks.added.length && `${plural(looks.added.length, "element look")} new`, looks.removed.length && `${looks.removed.length} gone`].filter(Boolean).join(", ")}</summary><ul>${items.join("")}</ul></details>`));
       }
     }
     pad.append(body);
