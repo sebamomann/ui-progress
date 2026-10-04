@@ -152,10 +152,13 @@ date or counter does not register while a moved layout does. Identical files are
 unchanged.
 
 Pixels alone cannot tell a new changelog entry from a redesign: one more entry pushes
-everything below it down. So every shot also records a style fingerprint: the visible
-elements by tag, role and computed styles (type, colour, box, layout), with text, sizes,
-class names and image sources left out, and with siblings of the same shape counted once.
-When the fingerprint is the same, the change is content (new entries, other text, another
-record shown in the same template); when it differs, the viewer lists the element looks that
-were added or removed. Snapshots captured before 1.7.0 have no fingerprint and are judged by
+everything below it down. So every shot also records a style fingerprint: the set of
+distinct element looks on the page, each one an element's tag, role and computed styles
+(type, colour, box, layout). Text, sizes, positions, class names, image sources, grid track
+widths and gradient stops are left out, since they follow the data. When the set is the
+same, the change is content (new entries, other text, another record shown in the same
+template); when it differs, the viewer lists the element looks that were added or removed.
+
+The fingerprint cannot hide data that differs in kind: a record with a link where the other
+had none adds the link's look. Keep the seed deterministic (see the troubleshooting guide). Snapshots captured before 1.7.0 have no fingerprint and are judged by
 pixels alone until they are captured again.

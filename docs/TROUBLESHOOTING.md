@@ -25,6 +25,7 @@ message). Set `UI_PROGRESS_DEBUG=1` for stack traces from the CLI itself.
 | A dynamic route is `unresolved` | Nothing links to it and `resolve` has no URL for it | Seed a record for it and return its URL from `resolve` |
 | A page is captured empty | Its feature is not seeded | Seed it. An empty state is a gap, not a result |
 | Screenshot taken mid-animation | Animation longer than the wait, or looping | Raise `capture.settleRounds`; looping animations cannot settle, hide them with `capture.hide` |
+| Many pages marked "tweaked" in a snapshot whose commits did not touch them | The seed is not deterministic: records created in parallel (for example `Promise.all` over inserts) get different ids on each run, so the same URL shows another record | Create seed records one after another, or let the adapter run the seed with a single database connection; pick the URLs in `resolve` by a stable field (a name), not "the first id" |
 | A form, list or panel that fades in is missing from the screenshot | It appears after a pause longer than `capture.settleQuietMs`, or only through an animation reduced motion turns off | Raise `capture.settleQuietMs`, name it in `capture.waitFor`, or set `capture.reducedMotion: false` if it never shows |
 | Sticky header or floating button in the middle of a tall screenshot | The element is positioned by script, not CSS | Add its selector to `capture.hide` |
 | A dialog is missing | Its button's label matches `capture.unsafe`, or the click budget ran out | Narrow `unsafe`, raise `states.maxClicks` |

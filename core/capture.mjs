@@ -191,66 +191,55 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   }
 
   /**
-   * How the page is built, not what it says: every visible element by its tag, role and the
-   * computed styles that make up a design (type, colour, box, layout), with text, sizes,
-   * class names and image sources left out. Siblings of the same shape count once, so a
-   * list with one more entry, an edited paragraph or another record in the same template
-   * gives the same fingerprint; a new kind of element or a restyled one does not.
-   * `tree` hashes the structure, `styles` lists the distinct element looks (described in
-   * `styleNames`, written to the manifest), so the build can say what was added or removed.
+   * How the page is styled, not what it says: the distinct looks of its visible elements, each
+   * one its tag, role and the computed styles that make up a design (type, colour, box,
+   * layout). Text, sizes, positions, class names, image sources, track widths and gradient
+   * stops are left out, since they follow the data. More entries, other text or another
+   * record in the same template give the same set; a new kind of element or a restyled one
+   * does not. Each look is described in `styleNames` (written to the manifest), so the build
+   * can say what was added or removed.
    */
   const styleNames = {};
   async function fingerprintOf(page) {
     const found = await page
       .evaluate(() => {
-        const PROPS = ["display", "position", "flex-direction", "flex-wrap", "justify-content", "align-items", "grid-template-columns", "gap", "font-family", "font-size", "font-weight", "font-style", "line-height", "letter-spacing", "text-transform", "text-align", "text-decoration-line", "color", "background-color", "background-image", "border-top-width", "border-right-width", "border-bottom-width", "border-left-width", "border-top-style", "border-top-color", "border-radius", "box-shadow", "padding-top", "padding-right", "padding-bottom", "padding-left", "margin-top", "margin-bottom", "opacity", "max-width", "overflow", "list-style-type", "object-fit", "filter", "backdrop-filter"];
+        const PROPS = ["display", "position", "flex-direction", "flex-wrap", "justify-content", "align-items", "grid-template-columns", "gap", "font-family", "font-size", "font-weight", "font-style", "line-height", "letter-spacing", "text-transform", "text-align", "text-decoration-line", "color", "background-color", "background-image", "border-top-width", "border-right-width", "border-bottom-width", "border-left-width", "border-top-style", "border-top-color", "border-radius", "box-shadow", "padding-top", "padding-right", "padding-bottom", "padding-left", "margin-top", "margin-bottom", "max-width", "overflow", "list-style-type", "object-fit", "filter", "backdrop-filter"];
+        // Values that follow the content: resolved grid tracks (kept as a count) and the
+        // arguments of images and gradients (a chart drawn as a conic gradient).
+        const normal = {
+          "grid-template-columns": (v) => (v === "none" ? v : `${v.split(/\s+(?![^(]*\))/).length} tracks`),
+          "background-image": (v) => v.replace(/\((?:[^()]|\([^()]*\))*\)/g, "()"),
+        };
         const SKIP = new Set(["SCRIPT", "STYLE", "LINK", "META", "TEMPLATE", "NOSCRIPT", "HEAD"]);
-        const LEAF = new Set(["SVG", "IMG", "PICTURE", "VIDEO", "CANVAS", "IFRAME", "svg"]);
+        const LEAF = new Set(["IMG", "PICTURE", "VIDEO", "CANVAS", "IFRAME", "svg"]);
         const hash = (text) => { let h = 0x811c9dc5; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
         const styles = new Map();
         let budget = 8000;
-        /** Collapse repeats: runs of one shape, then repeated blocks of two to four shapes. */
-        const fold = (list) => {
-          let out = list.filter((s, i) => s !== list[i - 1]);
-          for (let k = 2; k <= 4; k++) {
-            const res = [];
-            for (let i = 0; i < out.length;) {
-              const key = out.slice(i, i + k).join("|");
-              let j = i + k;
-              while (j + k <= out.length && out.slice(j, j + k).join("|") === key) j += k;
-              if (j > i + k) { res.push(...out.slice(i, i + k)); i = j; } else res.push(out[i++]);
-            }
-            out = res;
-          }
-          return out;
-        };
         const walk = (el) => {
-          if (SKIP.has(el.tagName) || --budget < 0) return null;
+          if (SKIP.has(el.tagName) || --budget < 0) return;
           const cs = getComputedStyle(el);
-          if (cs.display === "none" || cs.visibility === "hidden") return null;
+          if (cs.display === "none" || cs.visibility === "hidden") return;
+          if (!LEAF.has(el.tagName)) for (const child of el.children) walk(child);
           const rect = el.getBoundingClientRect();
-          const children = LEAF.has(el.tagName) ? [] : fold([...el.children].map(walk).filter(Boolean));
-          if ((rect.width === 0 || rect.height === 0) && !children.length) return null;
+          if (rect.width === 0 || rect.height === 0) return;
           const tag = el.tagName.toLowerCase();
           const role = el.getAttribute("role") ?? (tag === "input" ? el.type : "");
-          const look = PROPS.map((prop) => cs.getPropertyValue(prop).replace(/url\([^)]*\)/g, "url()")).join(";");
+          const look = PROPS.map((prop) => { const v = cs.getPropertyValue(prop); return normal[prop] ? normal[prop](v) : v; }).join(";");
           const key = hash(`${tag}|${role}|${look}`);
-          if (!styles.has(key)) {
-            const family = cs.fontFamily.split(",")[0].replace(/["']/g, "").trim();
-            const bg = cs.backgroundColor === "rgba(0, 0, 0, 0)" ? "" : ` on ${cs.backgroundColor}`;
-            const radius = cs.borderRadius !== "0px" ? ` · radius ${cs.borderRadius}` : "";
-            const shadow = cs.boxShadow !== "none" ? " · shadow" : "";
-            styles.set(key, `${tag}${role ? `[${role}]` : ""} · ${cs.fontSize}/${cs.fontWeight} ${family} · ${cs.color}${bg}${radius}${shadow} · ${cs.display}`);
-          }
-          return hash(`${key}(${children.join(",")})`);
+          if (styles.has(key)) return;
+          const family = cs.fontFamily.split(",")[0].replace(/["']/g, "").trim();
+          const bg = cs.backgroundColor === "rgba(0, 0, 0, 0)" ? "" : ` on ${cs.backgroundColor}`;
+          const radius = cs.borderRadius !== "0px" ? ` · radius ${cs.borderRadius}` : "";
+          const shadow = cs.boxShadow !== "none" ? " · shadow" : "";
+          styles.set(key, `${tag}${role ? `[${role}]` : ""} · ${cs.fontSize}/${cs.fontWeight} ${family} · ${cs.color}${bg}${radius}${shadow} · ${cs.display}`);
         };
-        const tree = walk(document.body) ?? "";
-        return { tree, styles: [...styles] };
+        walk(document.body);
+        return [...styles];
       })
       .catch(() => null);
     if (!found) return null;
-    for (const [key, name] of found.styles) styleNames[key] ??= name;
-    return { tree: found.tree, styles: found.styles.map(([key]) => key).sort() };
+    for (const [key, name] of found) styleNames[key] ??= name;
+    return { styles: found.map(([key]) => key).sort() };
   }
 
   /**

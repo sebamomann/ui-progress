@@ -323,7 +323,7 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
               // text, another record in the same template. Counted as unchanged.
               const [was, now] = [previous.design?.[viewport], shot.design?.[viewport]];
               if (config.thresholds.contentOnly && was && now && diff >= config.thresholds.tweak) {
-                if (was.tree === now.tree) (shot.content ??= {})[viewport] = true;
+                if (was.styles.join() === now.styles.join()) (shot.content ??= {})[viewport] = true;
                 else if (viewport === mainViewport && !shot.styles) {
                   const before = new Set(was.styles), after = new Set(now.styles);
                   const named = (keys) => [...new Set(keys.map((k) => styleNames[k]).filter(Boolean))].slice(0, 6);
