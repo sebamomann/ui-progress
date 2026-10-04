@@ -83,6 +83,10 @@ export const DEFAULTS = {
   data: { isolation: "throwaway", protect: [] },
   login: null,
   lineage: { pagePaths: ["."] },
+  // `ui-progress combine`: of the snapshots in one period ("day", "12h", "2d", "week"), keep
+  // the newest. keepRecent: periods newer than this stay as they are. dayStartsAt: work
+  // before this hour counts to the day before (local time).
+  combine: { period: "day", keepRecent: "2d", dayStartsAt: "04:00" },
   // auto: a hook sends the agent back to capture when a session changed UI files.
   // remind: only the note at session start. off: nothing.
   // instructionsFile: whether the user wanted the capture rule in AGENTS.md / CLAUDE.md

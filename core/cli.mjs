@@ -18,6 +18,7 @@ import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
 import { AGENT_TASKS, appendRun, duration, estimate, noteAgent, parseDuration, renderStats, summarize } from "./stats.mjs";
 import { clearUnbuildable, markUnbuildable, readUnbuildable, unbuildableEntry } from "./unbuildable.mjs";
+import { applyCombine, combinedEntry, coveringGroup, planCombine, uncombine } from "./combine.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -50,6 +51,11 @@ Capturing
   unbuildable [list]            commits recorded as not building, and what stands in for them
   unbuildable add <sha> --reason "..." [--replaced-by <sha>]
   unbuildable remove <sha>      try the commit again next time
+  combine [--period day|12h|2d|week] [--keep-recent 2d] [--dry-run]
+                                keep only the newest snapshot of each period (config combine);
+                                the folded commits are kept in combined.json and not captured
+                                again; a snapshot that is the only one showing a page stays
+  uncombine <sha|period>        plan and capture folded commits again (their pictures are gone)
 
 Keeping it current
   pending [--json]              is HEAD captured? which commits would one snapshot of HEAD cover?
@@ -208,7 +214,7 @@ async function plan(flags) {
   if (!result) throw new Error("Mode is manual and there is no plan.json. Write one, or pick another --mode.");
   if (!flags.print && mode !== "manual") writeJson(p.plan, result);
   console.log(`${result.entries.length} snapshots planned (${result.mode}) out of ${result.commitsInRange ?? "?"} commits${flags.print ? " — not saved" : ""}\n`);
-  const rows = result.entries.map((e) => [isDone(p, snapshotId(p, e.sha)) ? "done" : "todo", e.date, e.short, e.reason.slice(0, 70)]);
+  const rows = result.entries.map((e) => { const covered = coveringGroup(p, config, e.sha); return [isDone(p, snapshotId(p, e.sha)) ? "done" : covered ? `in ${covered.group.short}` : "todo", e.date, e.short, e.reason.slice(0, 70)]; });
   console.log(table(rows));
   const line = estimateLine(p, config, rows.filter((r) => r[0] === "todo").length);
   if (line) console.log(`\n${line}`);
@@ -225,8 +231,22 @@ async function snapshot(flags, positional) {
   if (flags.plan) {
     const planned = readJson(p.plan);
     if (!planned) throw new Error("No plan.json. Run: ui-progress plan --mode pilot");
-    shas = planned.entries.filter((e) => flags.force || !isDone(p, snapshotId(p, e.sha))).map((e) => e.sha);
+    // A commit of a combined period is covered by that period's snapshot, whichever commit
+    // of the period the plan picked.
+    shas = planned.entries.filter((e) => flags.force || (!isDone(p, snapshotId(p, e.sha)) && !coveringGroup(p, config, e.sha))).map((e) => e.sha);
     if (flags.limit) shas = shas.slice(0, Number(flags.limit));
+  }
+  // Commits folded into a combined snapshot are covered by it; --force captures one anyway
+  // and takes it out of its group.
+  if (!flags.port) {
+    const kept = [];
+    for (const sha of shas) {
+      const folded = combinedEntry(p, sha);
+      if (!folded) kept.push(sha);
+      else if (flags.force) { uncombine(p, sha); console.log(`${folded.folded.short} was folded into ${folded.group.short} (${folded.group.bucket}); captured anyway and taken out of that group.`); kept.push(sha); }
+      else console.log(`${folded.folded.short} is folded into ${folded.group.short} (${folded.group.bucket}), which covers it. To capture it anyway: --force`);
+    }
+    shas = kept;
   }
   // Commits recorded as unbuildable are not tried again: their stand-in is taken instead.
   if (!flags.force && !flags.port) {
@@ -235,7 +255,7 @@ async function snapshot(flags, positional) {
       const entry = unbuildableEntry(p, sha);
       if (!entry) kept.push(sha);
       else {
-        const stand = entry.replacedBySha && !isDone(p, snapshotId(p, entry.replacedBySha)) && !kept.includes(entry.replacedBySha) ? entry.replacedBySha : null;
+        const stand = entry.replacedBySha && !isDone(p, snapshotId(p, entry.replacedBySha)) && !combinedEntry(p, entry.replacedBySha) && !kept.includes(entry.replacedBySha) ? entry.replacedBySha : null;
         console.log(`${entry.short} is recorded as unbuildable${entry.phase ? ` (${entry.phase}: ${entry.cause})` : ""}${stand ? `; capturing its stand-in ${entry.replacedBy} instead` : entry.replacedBy ? `; its stand-in ${entry.replacedBy} is already captured` : ""}. To try it anyway: --force`);
         if (stand) kept.push(stand);
       }
@@ -295,7 +315,7 @@ async function snapshot(flags, positional) {
     const broken = [{ ...first, sha: fullOf(sha) }];
     const stop = (c) => taken.has(c) || isDone(p, snapshotId(p, c));
     for (const candidate of fixUpCandidates(p.repo, broken[0].sha, { ...config.run.fallback, branch: config.sampling.branch ?? "HEAD", stop })) {
-      if (unbuildableEntry(p, candidate.sha)) continue;
+      if (unbuildableEntry(p, candidate.sha) || combinedEntry(p, candidate.sha)) continue;
       taken.add(candidate.sha);
       console.log(`      ${first.short} failed in ${first.failed}; trying ${candidate.short}, ${candidate.minutes} min later ("${candidate.subject.slice(0, 60)}") ...`);
       const result = await runChild(candidate.sha, slot);
@@ -346,6 +366,25 @@ async function snapshot(flags, positional) {
 }
 
 /** Bring an older version's snapshot folders into today's layout (under the lock). */
+function combine(flags) {
+  const { p, config } = context();
+  const value = (k) => (flags[k] && flags[k] !== true ? flags[k] : undefined);
+  const plan = planCombine(p, config, { period: value("period"), keepRecent: value("keep-recent") });
+  const folding = plan.groups.reduce((n, g) => n + g.folded.length, 0);
+  if (!plan.groups.length) { console.log(`Nothing to combine by ${plan.period}: no period older than combine.keepRecent has more than one snapshot.`); return; }
+  for (const g of plan.groups) {
+    console.log(`${g.bucket}: keep ${g.into.short} (${g.into.subject.slice(0, 50)})${g.folded.length ? `, fold ${g.folded.map((s) => s.short).join(", ")}` : ""}`);
+    for (const k of g.kept) console.log(`    keeps ${k.snap.short} too: ${k.why}`);
+  }
+  console.log(`\n${folding} snapshot(s) to fold into ${plan.groups.filter((g) => g.folded.length).length}.`);
+  if (flags["dry-run"]) { console.log("Dry run: nothing changed."); return; }
+  acquireLock(p, "ui-progress combine");
+  migrated(p);
+  const { folded } = applyCombine(p, plan);
+  const freed = gc(p);
+  console.log(`Folded ${folded} snapshot(s), recorded in combined.json. Removed ${freed.files} screenshot(s) nothing refers to any more (${megabytes(freed.bytes)}). Run: ui-progress build`);
+}
+
 function migrated(p) {
   const { moved } = migrateStore(p);
   if (moved) console.log(`Moved ${moved} screenshot reference(s) of snapshots made by an older version into the store (snapshots/${STORE}/).`);
@@ -489,6 +528,13 @@ export async function main(argv) {
     else if (command === "snapshot") await snapshot(flags, positional);
     else if (command === "status") status(flags);
     else if (command === "unbuildable") unbuildable(flags, positional);
+    else if (command === "combine") combine(flags);
+    else if (command === "uncombine") {
+      const { p } = context();
+      if (!positional[0]) throw new Error("uncombine <sha|period>: a folded commit, a survivor, or a period label from combined.json");
+      const released = uncombine(p, positional[0]);
+      console.log(released.length ? `Released ${released.length} commit(s); they can be planned and captured again:\n${released.map((c) => `  ${c.short} ${c.date} ${c.subject.slice(0, 60)}`).join("\n")}` : `Nothing in combined.json matches "${positional[0]}".`);
+    }
     else if (command === "pending") {
       const { p, config } = context();
       const state = pendingState(p, config);

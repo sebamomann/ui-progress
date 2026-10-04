@@ -163,6 +163,10 @@ selectors before the long run. Add to it whenever a later session adds a filter 
    its place ("stands in for …" in the output and in `plan.json`). The broken commit goes
    into `.ui-progress/unbuildable.json`, which every later plan and run skips. Do not
    retry those commits, and do not undo the swap.
+   Likewise, commits listed in `.ui-progress/combined.json` were folded into another
+   snapshot on purpose (`ui-progress combine`): do not capture them or their period again
+   unless the user asks for that commit (`snapshot --force <sha>`). Combine only when the
+   user asks, with `--dry-run` first.
    Failures that remain are recorded as findings. Read `.ui-progress/snapshots/<sha>/run.log`
    and `server.log` (the failure line already quotes the first error found there), fix the
    adapter, rerun `ui-progress snapshot <sha>`. A stand-in that "failed the same way"

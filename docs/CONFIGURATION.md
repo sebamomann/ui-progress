@@ -133,6 +133,33 @@ For a plain form, instead of an adapter `login` function:
 The hooks come with the plugin and need no setup. For agents that do not load the plugin,
 `ui-progress instructions --write` adds the same rule to `AGENTS.md` (or `CLAUDE.md`).
 
+## `combine`: fewer snapshots for busy periods
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `period` | `"day"` | What `ui-progress combine` folds into one snapshot: `day`, `week`, or a number with `h`, `d` or `w` (`12h`, `2d`, `1w`) |
+| `keepRecent` | `"2d"` | Periods newer than this are left as they are, so the latest work still shows step by step. `0` combines everything |
+| `dayStartsAt` | `"04:00"` | Local time at which a day starts: commits before it count to the day before, so a late night stays one day |
+
+Days with several snapshots (one per finished task) make the history long, while the pages
+worked on are often unrelated. `ui-progress combine` keeps the newest snapshot of each period
+on the mainline: its commit contains every earlier commit of the period, so every page shows
+its state at the end of the period; only the order of changes within the period is lost.
+Run it with `--dry-run` first. It changes nothing on its own; nothing runs it automatically.
+
+- Folded snapshots are deleted, and their screenshots go when nothing else refers to them.
+- The choice is kept in `.ui-progress/combined.json` (commit it, like `unbuildable.json`):
+  `snapshot --plan`, `plan` and the fallback treat every commit of a combined period that the
+  kept snapshot contains as covered, so nothing captures that period again. `snapshot <sha>`
+  on a folded commit says which snapshot covers it.
+- `snapshot --force <sha>` captures a folded commit anyway and takes it out of its group.
+  `ui-progress uncombine <sha|period>` releases commits without capturing them.
+- A snapshot that is the only one showing a page is kept, and the dry run says so.
+- Combining again with a longer period merges the earlier groups into the new one.
+- Snapshots of commits off the mainline (a side branch) are not combined.
+- Lineage edges and Story chapters are placed by commit and date, so they follow on their own;
+  run stats in `runs.jsonl` stay as they were.
+
 ## `lineage`
 
 | Key | Default | Meaning |
