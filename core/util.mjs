@@ -4,7 +4,7 @@ import path from "node:path";
 import { spawn, execFileSync } from "node:child_process";
 import net from "node:net";
 
-export const VERSION = "1.4.0";
+export const VERSION = "1.5.0";
 
 export function git(repo, ...args) {
   return execFileSync("git", ["-C", repo, ...args], { encoding: "utf8", maxBuffer: 512 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
