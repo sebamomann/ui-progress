@@ -163,10 +163,10 @@ body.no-side .side { display: none; }
 .key.minor { border: 2px solid var(--minor); }
 .key.same { width: 6px; height: 6px; background: var(--lane); }
 .key.line { width: 18px; height: 2px; border-radius: 0; background: var(--lane); }
-.key.split { width: 18px; height: 2px; border-radius: 0; background: var(--new); }
-.key.merge { width: 18px; height: 2px; border-radius: 0; background: var(--gone); }
-.key.move { width: 18px; height: 2px; border-radius: 0; background: var(--accent); }
-.key.clone { width: 18px; height: 0; border-radius: 0; border-top: 2px dashed var(--accent); }
+.key.split { width: 18px; height: 2px; border-radius: 0; background: var(--lane); }
+.key.merge { width: 18px; height: 3px; border-radius: 0; background: var(--lane); }
+.key.move { width: 18px; height: 0; border-radius: 0; border-top: 2px dotted var(--lane); }
+.key.clone { width: 18px; height: 0; border-radius: 0; border-top: 2px dashed var(--lane); }
 
 /* ---------- Graph ---------- */
 .intro { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--accent); font-size: 13px; line-height: 1.5; color: var(--muted); }
@@ -204,7 +204,7 @@ body.no-side .side { display: none; }
 .graph .day { stroke: var(--line); opacity: .5; }
 .graph .band { fill: var(--raised); }
 .graph .bandline { stroke: var(--line); }
-.graph .lane { stroke: var(--lane); stroke-width: 2; }
+.graph .lane { stroke: var(--lane); stroke-width: 3; stroke-linecap: round; }
 .graph .lane.unseen { stroke-dasharray: 2 4; opacity: .7; }
 .graph .lane, .graph .birth, .graph .death { pointer-events: none; }
 .graph .rowhit { fill: transparent; cursor: pointer; }
@@ -217,12 +217,31 @@ body.no-side .side { display: none; }
 .graph .node.missing { fill: var(--faint); }
 .graph .birth { stroke: var(--new); stroke-width: 2; }
 .graph .death { stroke: var(--gone); stroke-width: 2; }
-.edge { fill: none; stroke-width: 1.5; }
-.edge.branch { stroke: var(--lane); }
-.edge.split { stroke: var(--new); stroke-width: 2; }
-.edge.merged, .edge.replaced { stroke: var(--gone); stroke-width: 2; }
-.edge.redirect, .edge.rename { stroke: var(--accent); stroke-width: 2; }
-.edge.clone { stroke: var(--accent); stroke-dasharray: 4 3; }
+.edge { fill: none; stroke-width: 2; stroke: var(--lane); stroke-linecap: round; stroke-linejoin: round; }
+.edge.clone { stroke-dasharray: 5 4; }
+.edge.redirect, .edge.rename { stroke-dasharray: 1 4; }
+.edge.merged, .edge.replaced { stroke-width: 2.5; }
+.edge.sel { stroke: var(--accent); stroke-width: 2.5; }
+.graph .lane.sel { stroke: var(--accent); stroke-width: 3.5; }
+.graph .rowhit.sel { fill: var(--accent-soft); }
+.lrow.sel { background: var(--accent-soft); }
+.lrow.sel a { color: var(--accent); }
+.graphrow { flex: 1; min-height: 0; display: flex; }
+.graphrow .graph { flex: 1; min-width: 0; height: auto; }
+.inspector { flex: 0 0 340px; border-left: 1px solid var(--line); background: var(--surface); padding: 20px; overflow: auto; display: flex; flex-direction: column; gap: 16px; }
+.inspector > * { flex-shrink: 0; }
+.inspempty { display: flex; flex-direction: column; gap: 6px; color: var(--faint); font-size: 13px; padding-top: 24px; }
+.inspempty b { color: var(--text); font-weight: 600; font-size: 15px; }
+.insphead { display: flex; flex-direction: column; gap: 2px; }
+.insproute { font-size: 17px; overflow-wrap: anywhere; }
+.insplines p { margin: 0 0 6px; color: var(--muted); font-size: 13.5px; }
+.insplines b { color: var(--text); font-weight: 500; }
+.inspnote { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--raised); color: var(--muted); font-size: 13px; }
+.inspchanges { display: flex; flex-direction: column; gap: 4px; }
+.inspchanges a { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); padding: 2px 0; }
+.inspchanges a .faint { margin-left: auto; }
+.inspactions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 .tip { position: fixed; z-index: 40; pointer-events: none; background: var(--text); color: var(--bg); padding: 6px 9px; border-radius: 7px; font-size: 12px; max-width: 340px; box-shadow: var(--shadow); display: none; line-height: 1.45; }
 .tip b { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
 
@@ -762,8 +781,12 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
   /** One relation as a curve from row a to row b at x; with a hover text saying what happened. */
   function edgePath(e, ex, ay, by) {
     const path = svgEl("path", { class: `edge ${e.type}` });
-    if (isOutOf(e)) path.setAttribute("d", `M${ex - 14} ${ay} C ${ex - 2} ${ay}, ${ex - 12} ${by}, ${ex} ${by}`);
-    else { path.setAttribute("d", `M${ex} ${ay} C ${ex + 14} ${ay}, ${ex + 2} ${by}, ${ex + 16} ${by}`); path.setAttribute("marker-end", "url(#arrow)"); }
+    // Like a rail branch: along the first row, a rounded turn, straight across, a rounded turn
+    // onto the other row. Out of a page the turn comes before the date; into one, after it.
+    const r = Math.min(8, Math.abs(by - ay) / 2), dir = by > ay ? 1 : -1;
+    const elbow = (x0) => `M${x0 - 10} ${ay} L${x0 - r} ${ay} Q${x0} ${ay} ${x0} ${ay + dir * r} L${x0} ${by - dir * r} Q${x0} ${by} ${x0 + r} ${by} L${x0 + 10} ${by}`;
+    if (isOutOf(e)) path.setAttribute("d", elbow(ex - 10));
+    else { path.setAttribute("d", elbow(ex + 6)); path.setAttribute("marker-end", "url(#arrow)"); }
     const verb = { branch: "was added under", split: "was split off from", extract: "was moved out of", clone: "was built from a copy of", merged: "was folded into", replaced: "was replaced by", redirect: "now redirects to", rename: "was renamed to" }[e.kind === "extract" ? "extract" : e.type];
     const head = isOutOf(e) ? `<b>${esc(e.to)}</b> ${verb} <b>${esc(e.from)}</b>` : `<b>${esc(e.from)}</b> ${verb} <b>${esc(e.to)}</b>`;
     path.style.pointerEvents = "stroke";
@@ -786,10 +809,10 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
   function renderGraph() {
     const zoomBar = el(`<div class="zoom"><span class="seg"><button data-zoom="out" title="Zoom out">−</button><button data-zoom="fit" title="Show the whole history">Fit</button><button data-zoom="in" title="Zoom in">+</button></span><span class="zoomlvl">${state.zoom === 1 ? "whole history" : "×" + (state.zoom < 10 ? state.zoom.toFixed(1) : Math.round(state.zoom))}</span></div>`);
     header("Graph", `${H.pages.length} pages · ${plural(snaps.length, "snapshot")} of ${H.project.commits} commits · ${esc(H.project.from)} to ${esc(H.project.to)}`, [zoomBar],
-      `<p>Each line is one page, from the day it was added to the day it was removed. A line that curves <b>out of</b> another came from that page (split off, or built from a copy); a line that curves <b>into</b> another was folded into it. Dots are the snapshots where screenshots exist; a numbered dot stands for several snapshots too close together to show apart at this zoom.</p>
-       <p>Hover a dot or a curve for details, click a line to open the page, and use the target icon next to a page to show only what is connected to it. Zoom the time axis with Ctrl or ⌘ + scroll (or pinch); drag to pan.</p>`);
+      `<p>Each line is one page, from the day it was added to the day it was removed. A branch <b>out of</b> another line came from that page (split off, or built from a copy; dashed for a copy); a branch with an arrow <b>into</b> another was folded into it. Dots are the snapshots where screenshots exist; a numbered dot stands for several snapshots too close together to show apart at this zoom.</p>
+       <p>Hover a dot or a branch for details. Click a line to see the page in the panel on the right, double-click to open it, and use the target icon next to a page to show only what is connected to it. Zoom the time axis with Ctrl or ⌘ + scroll (or pinch); drag to pan.</p>`);
     const pages = H.pages.filter(matches);
-    const wrap = el('<div style="display:flex;flex-direction:column;height:100%"></div>');
+    const wrap = el('<div style="display:flex;flex-direction:column;height:100%;min-height:0"></div>');
     let seenIntro = false;
     try { seenIntro = localStorage.getItem("ui-history-intro") === "1"; } catch { /* storage unavailable */ }
     if (!seenIntro && !state.focusSet) {
@@ -810,7 +833,10 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
     const ROW = 24, SEC = 22, AXIS = 44, LEFT = 18, RIGHT = 28;
     const t0 = Date.parse(H.project.from), t1 = Math.max(Date.parse(H.project.to), t0 + 86400000);
     const labelW = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--label-w"));
-    const fitWidth = Math.max(720, content.clientWidth - labelW - 2);
+    const inspectorW = content.clientWidth >= 1100 ? 340 : 0;
+    const fitWidth = Math.max(720, content.clientWidth - labelW - inspectorW - 2);
+    const sel = state.graphSel && pageById[state.graphSel] ? state.graphSel : null;
+    const pick = (id) => { state.graphSel = state.graphSel === id ? null : id; render(); };
     const width = Math.round(fitWidth * state.zoom);
     const pxPerDay = (width - LEFT - RIGHT) / ((t1 - t0) / 86400000);
     const x = (date) => LEFT + ((Math.min(Math.max(Date.parse(date), t0), t1) - t0) / (t1 - t0)) * (width - LEFT - RIGHT);
@@ -825,8 +851,9 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
     for (const p of pages) {
       if (p.section !== section) { section = p.section; labels.append(el(`<div class="gsection">${esc(section)}</div>`)); bands.push(y); y += SEC; }
       const a = el(`<a class="${p.seen ? "" : "unseen"}" href="${pageHref(p.id)}" title="${esc(p.id)}">${routeHtml(p.id)}</a>`);
-      a.addEventListener("click", (e) => { if (state.dragged) e.preventDefault(); });
-      const lrow = el('<div class="lrow"></div>');
+      // A click picks the page for the panel on the right; with a modifier key it opens as a link.
+      a.addEventListener("click", (e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); if (!state.dragged) pick(p.id); });
+      const lrow = el(`<div class="lrow ${p.id === sel ? "sel" : ""}"></div>`);
       lrow.append(a, focusButton(p.id));
       labels.append(lrow);
       rows[p.id] = { y: y + ROW / 2, label: lrow };
@@ -880,7 +907,9 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
       const hit = svgEl("rect", { class: "rowhit", x: 0, y: row.y - ROW / 2, width, height: ROW });
       hit.addEventListener("mouseenter", () => row.label.classList.add("hot"));
       hit.addEventListener("mouseleave", () => row.label.classList.remove("hot"));
-      hit.addEventListener("click", () => { if (!state.dragged) location.hash = pageHref(p.id); });
+      hit.addEventListener("click", () => { if (!state.dragged) pick(p.id); });
+      hit.addEventListener("dblclick", () => { location.hash = pageHref(p.id); });
+      if (p.id === sel) hit.classList.add("sel");
       row.label.addEventListener("mouseenter", () => hit.classList.add("hot"));
       row.label.addEventListener("mouseleave", () => hit.classList.remove("hot"));
       gHit.append(hit);
@@ -892,7 +921,7 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
         const lastSpan = k === spans.length - 1;
         const stop = lastSpan && end && !span.to ? end.date : span.to ?? H.project.to;
         const x1 = x(span.from), x2 = Math.max(x(stop), x1 + 2);
-        gLanes.append(svgEl("line", { class: `lane ${p.seen ? "" : "unseen"}`, x1, x2, y1: row.y, y2: row.y }));
+        gLanes.append(svgEl("line", { class: `lane ${p.seen ? "" : "unseen"} ${p.id === sel ? "sel" : ""}`, x1, x2, y1: row.y, y2: row.y }));
         gLanes.append(svgEl("line", { class: "birth", x1, x2: x1, y1: row.y - 5, y2: row.y + 5 }));
         if (span.to && !(lastSpan && end)) {
           gLanes.append(svgEl("line", { class: "death", x1: x2 - 4, x2: x2 + 4, y1: row.y - 4, y2: row.y + 4 }));
@@ -924,7 +953,8 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
         const detail = g.items.map((it) => { const n = p.views.filter((v) => v.shots[it.s.id]).length; return `${esc(it.s.date)} · ${STATUS_TEXT[it.st.kind]}${n > 1 ? ` · ${plural(n, "view")}` : ""}`; }).join("<br>");
         node.addEventListener("mousemove", (e) => showTip(e, `<b>${esc(p.id)}</b><br>${detail}`));
         node.addEventListener("mouseleave", hideTip);
-        node.addEventListener("click", () => { if (!state.dragged) location.hash = pageHref(p.id); });
+        node.addEventListener("click", () => { if (!state.dragged) pick(p.id); });
+        node.addEventListener("dblclick", () => { location.hash = pageHref(p.id); });
         gNodes.append(node);
         if (cluster) { const t = svgEl("text", { class: `count ${top.st.kind === "major" ? "onfill" : ""}`, x: cx, y: row.y + 3, "text-anchor": "middle" }); t.textContent = g.items.length; gNodes.append(t); }
       }
@@ -933,11 +963,16 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
     for (const e of H.edges) {
       const a = rows[e.from], b = rows[e.to];
       if (!a || !b || !e.date || !linkOn(e)) continue;
-      gEdges.append(edgePath(e, x(e.date), a.y, b.y));
+      const path = edgePath(e, x(e.date), a.y, b.y);
+      if (sel && (e.from === sel || e.to === sel)) path.classList.add("sel");
+      gEdges.append(path);
     }
     graph.querySelector(".axis").append(axisSvg);
     graph.querySelector(".body").append(svg);
-    wrap.append(graph);
+    const row = el('<div class="graphrow"></div>');
+    row.append(graph);
+    if (inspectorW) row.append(inspector(sel));
+    wrap.append(row);
     content.replaceChildren(wrap);
     const plot = graph;
     plot.scrollLeft = state.graphLeft;
@@ -982,6 +1017,48 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
       const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); plot.classList.remove("panning"); setTimeout(() => (state.dragged = false), 0); };
       window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
     });
+  }
+
+  /** The panel beside the graph: the picked page in a picture and a few sentences. */
+  function inspector(id) {
+    const box = el('<aside class="inspector" aria-label="Selected page"></aside>');
+    if (!id) { box.append(el('<div class="inspempty"><b>Pick a line</b><span>Click a page or its line to see it here. Double-click opens it.</span></div>')); return box; }
+    const page = pageById[id], view = mainView(page);
+    box.append(el(`<div class="insphead"><span class="faint small">${esc(page.section)}</span><span class="mono insproute">${routeHtml(page.id)}</span></div>`));
+    const lastShot = view ? [...snaps.keys()].reverse().find((i) => img(view.shots[snaps[i].id])) : undefined;
+    if (lastShot != null) box.append(shotButton(page, lastShot, null));
+    const lines = [];
+    const added = page.history.find((h) => h.kind === "added");
+    if (added) lines.push(`Added on <b>${esc(added.date)}</b>.`);
+    // Relations of one kind share a sentence: "Split off: a, b and c · 2026-09-20".
+    const groups = new Map();
+    for (const e of H.edges.filter((x) => x.source !== "git" && (x.from === id || x.to === id))) {
+      const out = e.from === id;
+      const text = (EDGE_TEXT[e.kind === "extract" ? "extract" : e.type] ?? ["Linked to", "Linked from"])[out ? 0 : 1];
+      (groups.get(text) ?? groups.set(text, []).get(text)).push({ other: out ? e.to : e.from, date: e.date });
+    }
+    for (const [text, items] of groups) {
+      const dates = [...new Set(items.map((x) => x.date).filter(Boolean))];
+      lines.push(`${esc(text)} ${items.map(({ other }) => `<a class="mono" href="${pageHref(other)}">${esc(other)}</a>`).join(", ")}${dates.length ? ` <span class="faint">· ${dates.map(esc).join(", ")}</span>` : ""}`);
+    }
+    const last = lastChange(page);
+    if (last?.kind === "gone") lines.push(`Removed on <b>${esc(last.date)}</b>.`);
+    box.append(el(`<div class="insplines">${lines.map((l) => `<p>${l}</p>`).join("")}</div>`));
+    const note = H.edges.find((x) => x.note && (x.from === id || x.to === id));
+    if (note) box.append(el(`<blockquote class="inspnote">${esc(note.note)}${note.confidence ? ` <span class="faint">· ${esc(note.confidence)} confidence</span>` : ""}</blockquote>`));
+    const changes = view ? snaps.map((s, i) => ({ s, k: viewStatus(view, i).kind })).filter((c) => ["new", "base", "major", "minor"].includes(c.k)).reverse() : [];
+    if (changes.length) {
+      const list = el(`<div class="inspchanges"><div class="faint small">Changes · ${changes.length}</div></div>`);
+      for (const c of changes.slice(0, 8)) list.append(el(`<a href="#/snapshot/${c.s.id}"><span class="cdot ${c.k}"></span>${esc({ new: "Added", base: "First snapshot", major: "Redesigned", minor: "Tweaked" }[c.k])}<span class="faint">${esc(c.s.date)}</span></a>`));
+      if (changes.length > 8) list.append(el(`<span class="faint small">and ${changes.length - 8} earlier</span>`));
+      box.append(list);
+    }
+    const actions = el(`<div class="inspactions"><a class="btn primary" href="${pageHref(id)}">Open page</a></div>`);
+    const focus = el(`<button class="btn" aria-pressed="${state.focus.has(id)}">${state.focus.has(id) ? "Show everything" : "Only connected"}</button>`);
+    focus.addEventListener("click", () => toggleFocus(id));
+    actions.append(focus);
+    box.append(actions);
+    return box;
   }
 
   // ---------- Screens over time ----------
