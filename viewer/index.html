@@ -1641,7 +1641,7 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
       if (i > 0 && !changedIn(d)) { quiet.push(i); continue; }
       flushQuiet();
       const row = el(`<a class="logrow" href="#/snapshot/${s.id}"><span class="when"><b>${esc(dayMonth(s.date))}</b><span class="mono">${esc(s.id)}</span></span><span class="rail"><i class="knot"></i></span>
-        <span class="what"><span class="subj">${esc(s.subject)}</span><span class="facts">${i === 0 ? '<span class="fact">The first snapshot</span>' : factsHtml(d)}<span class="fact faint">${plural(s.pages, "page")}</span></span></span><span class="thumbs"></span></a>`);
+        <span class="what"><span class="subj">${esc(s.subject)}${s.covers?.length ? ` <span class="faint small">· combines ${s.covers.length + 1}</span>` : ""}</span><span class="facts">${i === 0 ? '<span class="fact">The first snapshot</span>' : factsHtml(d)}<span class="fact faint">${plural(s.pages, "page")}</span></span></span><span class="thumbs"></span></a>`);
       const changed = i === 0 ? d.here.slice(0, 4).map((p) => [p, null]) : [...d.added.map((p) => [p, "new"]), ...d.redesigned.map((p) => [p, "major"]), ...d.tweaked.map((p) => [p, "minor"])].slice(0, 4);
       for (const [p, kind] of changed) row.querySelector(".thumbs").append(shotButton(p, i, kind));
       log.append(row);
@@ -1674,6 +1674,8 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
     header(s.subject, `<a href="#/snapshots">Snapshots</a> › ${esc(s.date)}${captured}`, [prev, next].filter(Boolean),
       "<p>What changed in this commit since the snapshot before, then every other page as it looked at that point. The bars at the top are all snapshots; ← and → step through them.</p>");
     const pad = el('<div class="pad report"></div>');
+    // Snapshots folded into this one (ui-progress combine): their commits, oldest first.
+    if (s.covers?.length) pad.append(el(`<details class="sources"><summary>Combines ${plural(s.covers.length + 1, "snapshot")}: ${plural(s.covers.length, "earlier one")} of this period folded in</summary><ul>${s.covers.map((c) => `<li><span class="faint">${esc(c.date)}</span> <span class="mono">${esc(c.short)}</span> ${esc(c.subject)}</li>`).join("")}</ul></details>`));
     pad.append(timeStrip(i));
     const same = d.here.filter((p) => ["same", "base"].includes(status(p, i).kind));
     const parts = [[d.added, "added"], [d.redesigned, "redesigned"], [d.tweaked, "tweaked"], [d.removed, "removed"], [d.folded, "folded into another page"]].filter(([l]) => l.length).map(([l, w]) => `${plural(l.length, "page")} ${w}`);

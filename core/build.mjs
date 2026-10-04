@@ -166,7 +166,7 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
     const info = readJson(path.join(dir, "snapshot.json"));
     const manifest = readJson(path.join(dir, "shots", "manifest.json"));
     if (!fs.existsSync(path.join(dir, "OK")) || !info || !manifest || !isCommitSnapshot(info)) continue;
-    snapshots.push({ id: short, sha: info.sha, date: info.date, subject: info.subject, notes: info.notes ?? [], manifest });
+    snapshots.push({ id: short, sha: info.sha, date: info.date, subject: info.subject, notes: info.notes ?? [], covers: info.covers ?? [], manifest });
   }
   if (!snapshots.length) throw new Error("No finished snapshots yet. Run: ui-progress snapshot --plan");
   // Snapshots are ordered by their place in the mainline history, not by date: commit dates
