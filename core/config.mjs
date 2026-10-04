@@ -34,10 +34,11 @@ export const DEFAULTS = {
     states: { enabled: true, maxClicks: 20, maxPerPage: 12, depth: 2, depthClicks: 3, sectionChange: 0.2, budgetMs: 45000, totalBudgetMs: 900000 },
     // Copy a page forward from the previous snapshot when none of its source files changed.
     // globalPaths: a change there recaptures everything. translationPaths: JSON message
-    // files whose changed top-level keys (namespaces) decide which pages are affected.
+    // files whose changed keys decide which pages are affected. ignorePaths: tooling that
+    // cannot change what a page shows (linters, formatters, test runners), never a change.
     // visualMatch: a page rendered again that looks exactly as in a neighbouring snapshot
     // (at full resolution, at most a few anti-aliased pixels differ) keeps its screenshots.
-    incremental: { enabled: true, visualMatch: true, globalPaths: ["package.json", "*.config.*", "**/globals.css", "**/global.css", "public/**", "tailwind.config.*"], translationPaths: ["messages/**", "locales/**", "i18n/**", "**/translations/**"] },
+    incremental: { enabled: true, visualMatch: true, globalPaths: ["package.json", "*.config.*", "**/globals.css", "**/global.css", "public/**", "tailwind.config.*"], translationPaths: ["messages/**", "locales/**", "i18n/**", "**/translations/**"], ignorePaths: ["eslint.config.*", ".eslintrc*", "prettier.config.*", ".prettierrc*", "stylelint.config.*", ".stylelintrc*", "vitest.config.*", "jest.config.*", "playwright.config.*", "cypress.config.*", "commitlint.config.*", "lint-staged.config.*", ".editorconfig"] },
     // labels never clicked while looking for dialogs and sections (regex, case-insensitive)
     // Destructive controls, and controls that do something rather than show something.
     unsafe:

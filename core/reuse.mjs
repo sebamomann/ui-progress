@@ -118,7 +118,8 @@ export function keepDesign(copy, rendered) {
  */
 export function unchangedRoutes(p, config, { deps, from, to, read }) {
   if (!config.capture.incremental.enabled) return { reason: "capture.incremental is off" };
-  const changed = git(p.repo, "diff", "--name-only", from, to).split("\n").filter(Boolean);
+  const ignored = (config.capture.incremental.ignorePaths ?? []).map(routes.globToRegex);
+  const changed = git(p.repo, "diff", "--name-only", from, to).split("\n").filter((f) => f && !ignored.some((re) => re.test(f)));
   const globals = config.capture.incremental.globalPaths.map(routes.globToRegex);
   const globalHit = changed.find((f) => globals.some((re) => re.test(f)));
   if (globalHit) return { reason: "global file changed", file: globalHit, changed: changed.length };

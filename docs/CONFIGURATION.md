@@ -60,6 +60,7 @@ your app; a button that matches is never clicked, so its dialog is not captured 
 | --- | --- | --- |
 | `enabled` | `true` | Reuse the previous snapshot's screenshots for pages whose source did not change in between. Needs `routeOfFile` in the adapter; the import graph is followed from each page file (relative and tsconfig-alias imports), plus layout/template/loading/error files above it |
 | `globalPaths` | package.json, `*.config.*`, global CSS, `public/**`, tailwind config | A change here recaptures everything |
+| `ignorePaths` | linter, formatter and test-runner configs (`eslint.config.*`, `.prettierrc*`, `vitest.config.*`, `playwright.config.*`, ...) | Never counts as a change, even where `globalPaths` matches: tooling that cannot change what a page shows |
 | `visualMatch` | `true` | A page rendered again (its source changed) that looks exactly as in a neighbouring snapshot keeps that snapshot's screenshots, marked `sameAs`: same size, and at full resolution at most a few anti-aliased pixels differ. Catches source changes nobody can see (comments, refactors, server code) |
 | `translationPaths` | `messages/**`, `locales/**`, `i18n/**` | JSON message files; only pages that use a changed top-level key (namespace) are affected. When every changed key is named literally in the pages' source, a page must also name one of the changed keys, so a nav that only shows another key of that name is not affected; a key that no source names may be built at runtime, and then the namespace alone counts |
 
