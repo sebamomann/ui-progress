@@ -93,6 +93,24 @@ export function takeOver(p, from, entry, field = "copiedFrom") {
 }
 
 /**
+ * Give a taken-over entry the style fingerprints (`design`, see capture.mjs) of the entry it
+ * replaces where it has none: the pages look the same, so both fingerprints hold, and one
+ * captured before fingerprints existed must not drop the newer one.
+ */
+export function keepDesign(copy, rendered) {
+  for (const [name, variant] of Object.entries(copy.variants ?? {})) {
+    const other = rendered.variants?.[name];
+    if (!other) continue;
+    if (!variant.design && other.design) variant.design = other.design;
+    for (const state of variant.states ?? []) {
+      const match = other.states?.find((s) => s.kind === state.kind && (s.key ?? s.label) === (state.key ?? state.label));
+      if (!state.design && match?.design) state.design = match.design;
+    }
+  }
+  return copy;
+}
+
+/**
  * The routes whose source did not change between two commits, from the later commit's
  * dependency map ({ route: [file, ...] }). `read(file)` returns a file of the later commit.
  * Returns { routes, changed, namespaces }, or { reason, ... } when every page counts as changed.
@@ -312,7 +330,7 @@ async function relink(p, config, earlier, later, remove, identical) {
     const own = !entry.copiedFrom && !entry.sameAs;
     if (own ? !(identical && (await looksTheSame(p, later.short, entry, earlier.short, before, identical))) : !sourceUnchanged(entry.route)) continue;
     for (const f of entryFiles(entry)) if (!isStored(f)) remove.push(shotPath(p, later.short, f));
-    later.manifest.routes[i] = { ...takeOver(p, earlier.short, before, own ? "sameAs" : "copiedFrom"), url: entry.url };
+    later.manifest.routes[i] = { ...keepDesign(takeOver(p, earlier.short, before, own ? "sameAs" : "copiedFrom"), entry), url: entry.url };
     later.dirty = true;
     changed.push(entry.route);
   }

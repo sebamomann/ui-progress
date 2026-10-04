@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { capture } from "./capture.mjs";
-import { entryFiles, ingest, looksTheSame, neighbours, shotPath, takeOver, unchangedRoutes } from "./reuse.mjs";
+import { entryFiles, ingest, keepDesign, looksTheSame, neighbours, shotPath, takeOver, unchangedRoutes } from "./reuse.mjs";
 import { imageComparer } from "./imagediff.mjs";
 import { addFinding } from "./findings.mjs";
 import { unbuildableEntry } from "./unbuildable.mjs";
@@ -239,7 +239,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
           const before = other.manifest.routes.find((r) => r.route === entry.route);
           if (!before || before.skipped || !(await looksTheSame(p, short, entry, other.short, before, identical))) continue;
           for (const f of entryFiles(entry)) fs.rmSync(shotPath(p, short, f), { force: true });
-          manifest.routes[i] = { ...takeOver(p, other.short, before, "sameAs"), url: entry.url };
+          manifest.routes[i] = { ...keepDesign(takeOver(p, other.short, before, "sameAs"), entry), url: entry.url };
           matched++;
           break;
         }
