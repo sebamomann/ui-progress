@@ -625,6 +625,13 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   const staticRoutes = routes.filter((r) => !isDynamic(r) && !results[r]);
   const dynamicRoutes = routes.filter((r) => isDynamic(r) && !results[r]);
 
+  // Site chrome (a header menu, a sidebar toggle) is captured on the first page whose
+  // click-through gets to it. Tabs race, so that page would change from one snapshot to the
+  // next and the state would seem to move: the first route's click-through goes before any other.
+  const firstRoute = staticRoutes[0];
+  let firstStatesDone = () => {};
+  const firstStates = firstRoute ? new Promise((resolve) => (firstStatesDone = resolve)) : Promise.resolve();
+
   async function captureRoute(worker, route, url) {
     const entry = { route, url, variants: {} };
     let publicText = null;
@@ -669,6 +676,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       entry.skipped = notFound || probe.status === 404 || probe.status === 410 ? "not found" : probe.redirect ? "redirected" : "needs sign-in";
       entry.finalPath = probe.redirect ?? null;
     }
+    if (route !== firstRoute) await firstStates;
     const statesOver = statesSpent >= (c.states.totalBudgetMs ?? Infinity);
     if (statesOver && c.states.enabled && !statesBudgetLogged) { statesBudgetLogged = true; log(`states: the snapshot's budget (${Math.round(c.states.totalBudgetMs / 1000)}s) is used up; remaining pages are shot without their states`); }
     if (c.states.enabled && !statesOver) {
@@ -713,6 +721,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
           await captureRoute(worker, route, url);
         } catch (err) {
           results[route] = { route, url, variants: {}, skipped: "failed", failure: String(err.message).split("\n")[0] };
+        } finally {
+          if (route === firstRoute) firstStatesDone();
         }
       }
     }));
