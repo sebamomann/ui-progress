@@ -54,6 +54,16 @@
 remove, log out, save, send, confirm, accept, pay, …). Extend it for your language and
 your app; a button that matches is never clicked, so its dialog is not captured either.
 
+Labels cannot catch everything (an app speaks its own language), so the click-through also
+holds back what a click sends: requests that could change data (anything but GET, HEAD and
+OPTIONS, through `fetch`, `XMLHttpRequest`, a form or a beacon) wait while ui-progress looks
+at what the click did. When it opened a dialog or menu, or switched a tab, they go out (the
+dialog is loading what it shows); otherwise they are refused, and the click records no
+state. Watering a plant, liking a post, confirming in a dialog, switching the language or
+acting as another user therefore never changes what the pages captured later in the same
+snapshot show. Each snapshot lists the refused clicks under `writesRefused` in its manifest,
+and run.log names them.
+
 ## `capture.incremental`: taking unchanged pages over
 
 | Key | Default | Meaning |

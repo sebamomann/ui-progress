@@ -23,6 +23,45 @@ import { isDynamic, patternOfPath, routeRegex, sectionOf, slug } from "./routes.
 const CLICKABLE = 'button, [role="button"], [role="tab"], [role="radio"], summary, [role="menuitem"]';
 const OVERLAY = '[role="dialog"], [role="menu"], [role="listbox"], dialog[open], [aria-modal="true"]';
 
+/**
+ * Runs in every page before the app does. While the click-through decides what a click did,
+ * requests that could change data (any method but GET, HEAD and OPTIONS, through fetch,
+ * XMLHttpRequest, a form or a beacon) are held back ("hold"), then sent ("open") or refused
+ * as a network error ("deny"). A page load is always "open".
+ */
+const WRITE_GATE = `(() => {
+  if (window.__uipGate) return;
+  const READ = /^(GET|HEAD|OPTIONS)$/i;
+  let mode = "open", held = [], refused = 0;
+  const decided = () => (mode === "hold" ? new Promise((resolve) => held.push(resolve)) : Promise.resolve());
+  const nativeFetch = window.fetch;
+  window.fetch = async function (input, init) {
+    const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+    if (READ.test(method)) return nativeFetch.apply(this, arguments);
+    await decided();
+    if (mode === "deny") { refused++; throw new TypeError("Failed to fetch"); }
+    return nativeFetch.apply(this, arguments);
+  };
+  const open = XMLHttpRequest.prototype.open, send = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (method) { this.__uipMethod = method; return open.apply(this, arguments); };
+  XMLHttpRequest.prototype.send = function () {
+    if (READ.test(this.__uipMethod ?? "GET")) return send.apply(this, arguments);
+    const args = arguments;
+    decided().then(() => { if (mode === "deny") { refused++; this.abort(); } else send.apply(this, args); });
+  };
+  addEventListener("submit", (event) => {
+    if (mode !== "open" && !READ.test(event.target?.method ?? "GET")) { refused++; event.preventDefault(); event.stopImmediatePropagation(); }
+  }, true);
+  if (navigator.sendBeacon) {
+    const beacon = navigator.sendBeacon.bind(navigator);
+    navigator.sendBeacon = (...args) => (mode === "open" ? beacon(...args) : (refused++, false));
+  }
+  window.__uipGate = {
+    set(next) { mode = next; if (next !== "hold") { const waiting = held; held = []; waiting.forEach((resolve) => resolve()); } },
+    take() { const n = refused; refused = 0; return n; },
+  };
+})();`;
+
 export async function capture({ baseUrl, outDir, config, adapter, ctx, screens = [], reuse = null, log = () => {} }) {
   const { chromium } = requireDep("playwright");
   const c = config.capture;
@@ -437,6 +476,26 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   }
 
   /**
+   * A click in the click-through is there to show what is one click away, not to do it. While
+   * the click is judged, requests that could change data wait (see WRITE_GATE). They go out
+   * when the click opened a dialog or menu, or switched a tab (it is loading what it shows),
+   * and are refused otherwise: watering, liking, confirming, acting as another user or
+   * switching the language would change what every page captured later in the snapshot shows.
+   */
+  const writesRefused = [];
+  const gate = (page, mode) => page.evaluate((m) => window.__uipGate?.set(m), mode).catch(() => {});
+  async function judgeClick(page, candidate, overlaysBefore) {
+    await page.waitForTimeout(250);
+    const opened = (await overlaysOf(page)).some((sig) => !overlaysBefore.has(sig));
+    await gate(page, candidate.switcher || opened ? "open" : "deny");
+  }
+  async function noteRefused(page, route, auth, label) {
+    const n = await page.evaluate(() => window.__uipGate?.take() ?? 0).catch(() => 0);
+    if (n) writesRefused.push({ route, variant: auth, control: label, requests: n });
+    return n;
+  }
+
+  /**
    * Click through a page's controls and record each one that opens an overlay or switches
    * the page to a different section; inside an overlay, one more level is tried. Controls
    * in the site chrome are captured once for the whole site; a control already captured on
@@ -477,13 +536,17 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
 
     for (const candidate of queue) {
       if (states.length >= limits.maxPerPage || Date.now() > deadline) break;
+      const overlaysBefore = new Set(await overlaysOf(page));
+      await gate(page, "hold");
       try {
-        if (!(await clickCandidate(page, candidate, null, 2_000))) continue;
+        if (!(await clickCandidate(page, candidate, null, 2_000))) { await gate(page, "open"); continue; }
       } catch {
+        await gate(page, "open");
         continue;
       }
-      await page.waitForTimeout(250);
+      await judgeClick(page, candidate, overlaysBefore);
       await settle(page, 5);
+      const refused = await noteRefused(page, route, auth, candidate.label);
 
       const here = new URL(page.url());
       if (here.pathname !== url) { await reload(); continue; }
@@ -498,13 +561,17 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
           const inner = (await candidatesOf(page, OVERLAY)).filter((k) => k.usable && k.label && !unsafe.test(k.label) && !(k.switcher && k.selected) && !/close|schließen|cancel|abbrechen|back|zurück/i.test(k.label)).sort((a, b) => Number(b.switcher) - Number(a.switcher)).slice(0, limits.depthClicks);
           for (const sub of inner) {
             if (states.length >= limits.maxPerPage || Date.now() > deadline) break;
+            const overlaysBeforeSub = new Set(await overlaysOf(page));
+            await gate(page, "hold");
             try {
-              if (!(await clickCandidate(page, sub, OVERLAY, 1_500))) continue;
+              if (!(await clickCandidate(page, sub, OVERLAY, 1_500))) { await gate(page, "open"); continue; }
             } catch {
+              await gate(page, "open");
               continue;
             }
-            await page.waitForTimeout(200);
+            await judgeClick(page, sub, overlaysBeforeSub);
             await settle(page, 4);
+            await noteRefused(page, route, auth, `${candidate.label} › ${sub.label}`);
             if (new URL(page.url()).pathname !== url) { await reload(); break; }
             const stillOpen = (await overlaysOf(page)).length > 0;
             const changed = stillOpen && textChange(overlayText, await textOf(page, OVERLAY)) >= 0.15;
@@ -515,6 +582,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         if (!(await closeOverlays(page, baseText)) || (await storageOf(page)) !== cleanStorage) await reload();
         continue;
       }
+      // An action whose request was refused shows at most its error: not a state of the page.
+      if (refused) { await reload(); continue; }
       const change = textChange(baseText, await textOf(page));
       if (change >= limits.sectionChange || here.search !== baseSearch || (candidate.switcher && change > 0)) {
         await record(candidate, "section", name, { change: Number(change.toFixed(3)) });
@@ -591,7 +660,11 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   const crawling = !routes;
 
   const browser = await chromium.launch();
-  const contextFor = (scheme, storageState) => browser.newContext({ viewport: { width: viewports[primaryName].width, height: viewports[primaryName].height }, locale: c.locale, colorScheme: scheme, reducedMotion: c.reducedMotion ? "reduce" : "no-preference", storageState });
+  const contextFor = async (scheme, storageState) => {
+    const context = await browser.newContext({ viewport: { width: viewports[primaryName].width, height: viewports[primaryName].height }, locale: c.locale, colorScheme: scheme, reducedMotion: c.reducedMotion ? "reduce" : "no-preference", storageState });
+    await context.addInitScript(WRITE_GATE);
+    return context;
+  };
   const anonCtx = {}, userCtx = {};
   for (const scheme of schemes) { anonCtx[scheme] = await contextFor(scheme); userCtx[scheme] = await contextFor(scheme); }
 
@@ -814,12 +887,15 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     suspects: list.flatMap((r) => Object.entries(r.variants).filter(([, v]) => v.suspects?.length).map(([variant, v]) => ({ route: r.route, variant, issues: v.suspects }))),
     skipped: list.filter((r) => r.skipped).map((r) => ({ route: r.route, why: r.skipped, finalPath: r.finalPath, failure: r.failure })),
     routes: list,
+    // Clicks whose requests to change data were refused (see judgeClick).
+    writesRefused,
     // What each style key in a shot's `design` looks like (see fingerprintOf).
     styles: styleNames,
     // Pages that changed after looking still for `ms` (see settle), and the quiet window then.
     lateContent: { settleQuietMs: c.settleQuietMs, pages: Object.fromEntries([...lateContent].sort()) },
   };
   fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2));
+  if (writesRefused.length) log(`refused requests that would have changed data, from ${writesRefused.length} click(s): ${writesRefused.map((w) => `${w.route} "${w.control}"`).join(", ")}`);
   if (lateContent.size) log(`late content on ${lateContent.size} page(s), up to ${Math.max(...lateContent.values())} ms after they looked still (settleQuietMs ${c.settleQuietMs}): ${[...lateContent.keys()].sort().join(", ")}`);
   log(`captured ${manifest.captured}/${manifest.routesTotal} pages (${reused.length} copied forward), ${states} states in ${manifest.seconds}s`);
   return manifest;
