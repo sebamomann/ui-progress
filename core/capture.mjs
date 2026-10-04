@@ -62,6 +62,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
    * Wait until the viewport has rendered identically for `quietMs` with no request open.
    * Finite animations are finished in every round, not only once: content that fades in after
    * hydration, after a fetch, or after a delay starts its animation later than the first look.
+   * Returns how long the page had looked still before it changed again, when it did: content
+   * that came late, which only the quiet window caught.
    */
   async function settle(page, rounds = c.settleRounds, quietMs = 0) {
     trackRequests(page);
@@ -79,18 +81,30 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         .catch(() => {});
     let previous = null;
     let stillSince = null;
+    let late = null;
     for (let i = 0; i < rounds; i++) {
       await finishAnimations();
       const frame = await page.screenshot({ ...shotOptions, type: "jpeg", quality: 25 }).catch(() => null);
       const busy = (inFlight.get(page)?.size ?? 0) > 0;
       if (frame && previous && frame.equals(previous) && !busy) {
         stillSince ??= Date.now() - 220;
-        if (Date.now() - stillSince >= quietMs) return;
-      } else stillSince = null;
+        if (Date.now() - stillSince >= quietMs) return late;
+      } else {
+        if (stillSince !== null) late = Math.max(late ?? 0, Date.now() - stillSince);
+        stillSince = null;
+      }
       previous = frame;
       await page.waitForTimeout(220);
     }
+    return late;
   }
+
+  /**
+   * Pages whose content changed after they had looked still, with the longest such wait:
+   * what the quiet window (settleQuietMs) is there for. Written to the manifest, so the app
+   * can show that content at once, and settleQuietMs can be set from what was measured.
+   */
+  const lateContent = new Map();
 
   /** The selectors `capture.waitFor` names for this path: shown before the page counts as loaded. */
   const waitForOf = (url) =>
@@ -166,7 +180,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
       await page.addStyleTag({ content: hideCss }).catch(() => {});
       for (const selector of waitForOf(url)) await page.waitForSelector(selector, { state: "visible", timeout: c.waitForTimeoutMs }).catch(() => log(`${url}: "${selector}" did not show within ${c.waitForTimeoutMs} ms`));
-      await settle(page, c.settleRounds, quietMs);
+      const late = await settle(page, c.settleRounds, quietMs);
+      if (late !== null && quietMs) lateContent.set(url, Math.max(lateContent.get(url) ?? 0, late));
     } catch (err) {
       failure = String(err.message ?? err).split("\n")[0];
     }
@@ -801,8 +816,11 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     routes: list,
     // What each style key in a shot's `design` looks like (see fingerprintOf).
     styles: styleNames,
+    // Pages that changed after looking still for `ms` (see settle), and the quiet window then.
+    lateContent: { settleQuietMs: c.settleQuietMs, pages: Object.fromEntries([...lateContent].sort()) },
   };
   fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2));
+  if (lateContent.size) log(`late content on ${lateContent.size} page(s), up to ${Math.max(...lateContent.values())} ms after they looked still (settleQuietMs ${c.settleQuietMs}): ${[...lateContent.keys()].sort().join(", ")}`);
   log(`captured ${manifest.captured}/${manifest.routesTotal} pages (${reused.length} copied forward), ${states} states in ${manifest.seconds}s`);
   return manifest;
 }
