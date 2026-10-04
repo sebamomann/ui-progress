@@ -235,39 +235,54 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .head .meta { color: var(--faint); font-size: 11.5px; margin-top: 1px; white-space: nowrap; }
 .corner { position: sticky; left: 0; top: 0; z-index: 8; background: var(--surface); border-bottom: 1px solid var(--line-strong); padding: 8px 12px; color: var(--faint); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: flex-end; }
 .section { grid-column: 1 / -1; position: sticky; left: 0; background: var(--raised); border-bottom: 1px solid var(--line); height: 30px; display: flex; align-items: center; padding: 0 12px; font-size: 12.5px; font-weight: 650; text-transform: capitalize; color: var(--text); }
-.label { position: sticky; left: 0; z-index: 4; min-height: 84px; background: var(--surface); border-bottom: 1px solid var(--line); padding: 0 8px 0 12px; display: flex; align-items: center; gap: 4px; min-width: 0; }
-.label .route { flex: 1; min-width: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+.label { position: sticky; left: 0; z-index: 4; min-height: 84px; background: var(--surface); border-bottom: 1px solid var(--line); padding: 0 8px 0 16px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.label .route { flex: 1; min-width: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
 .label .route > span { direction: ltr; unicode-bidi: isolate; }
 .label .route:hover { text-decoration: none; color: var(--accent); }
 .label .focus-btn { margin-left: auto; }
 .label:hover .focus-btn { opacity: 1; }
 .grid .links { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; overflow: visible; }
 .grid .links .edge { pointer-events: stroke; }
-.screensbar { display: flex; align-items: center; gap: 8px 24px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; position: sticky; left: 0; }
-.label .kind { color: var(--faint); font-size: 11px; white-space: nowrap; }
-.expander { height: 22px; border: 1px solid var(--line-strong); background: var(--raised); border-radius: 6px; padding: 0 7px; color: var(--muted); font-size: 11px; white-space: nowrap; }
-.expander:hover { border-color: var(--accent); color: var(--accent); }
-.subrow .label { background: var(--raised); padding-left: 24px; }
-.subrow .label .route { font-family: inherit; font-weight: 500; direction: ltr; }
+.screensbar { display: flex; align-items: center; gap: 8px 24px; padding: 10px 24px; border-bottom: 1px solid var(--line); background: var(--bg); flex-wrap: wrap; position: sticky; left: 0; }
+.label .kind { color: var(--faint); font-size: 12px; white-space: nowrap; }
+.expander { min-width: 24px; height: 22px; border: 1px solid var(--line-strong); background: none; border-radius: 999px; padding: 0 7px; color: var(--faint); font-size: 11.5px; white-space: nowrap; }
+.expander:hover, .expander[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+.label.sub { background: var(--raised); padding-left: 32px; }
+.label.sub .route { font-family: inherit; direction: ltr; color: var(--muted); }
 .subrow .cell { background: var(--raised); }
-.cell { position: relative; min-height: 84px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); display: flex; align-items: center; justify-content: center; background: var(--surface); }
+.cell { position: relative; min-height: 84px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: center; background: var(--surface); }
 .cell.outside { background: var(--bg); }
-.cell.alive::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--lane); }
+.cell.quiet { background-image: repeating-linear-gradient(180deg, var(--line) 0 2px, transparent 2px 8px); }
+.cell.alive::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--line-strong); }
 .cell.first::before { left: 50%; }
 .cell.last::before { right: 50%; }
 .cell.first.last::before { display: none; }
-.thumb { position: relative; z-index: 1; display: block; border-radius: 5px; overflow: hidden; border: 1px solid var(--line-strong); background: var(--raised); cursor: zoom-in; padding: 0; line-height: 0; box-shadow: var(--shadow); }
+.head.slim { padding: 0; }
+.head.quiet { background-image: repeating-linear-gradient(180deg, var(--line) 0 2px, transparent 2px 8px); }
+.thumb { position: relative; z-index: 1; display: block; border-radius: 5px; overflow: hidden; border: 0; background: var(--raised); cursor: zoom-in; padding: 0; line-height: 0; box-shadow: 0 0 0 1px var(--line-strong); }
 .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .thumb:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
-.thumb.same { opacity: .5; box-shadow: none; }
+.thumb.new, .thumb.base { box-shadow: 0 -2px 0 var(--new), 0 0 0 1px var(--line-strong); }
+.thumb.major { box-shadow: 0 -2px 0 var(--major), 0 0 0 1px var(--line-strong); }
+.thumb.minor { box-shadow: 0 -2px 0 var(--minor), 0 0 0 1px var(--line-strong); }
+.thumb.same { opacity: .55; }
 .thumb.same:hover { opacity: 1; }
-.thumb .pill { position: absolute; top: 4px; left: 4px; z-index: 2; height: 16px; font-size: 9.5px; padding: 0 5px; }
-.cell .dot { position: relative; z-index: 1; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--lane); padding: 0; }
-/* The dot stays small; its hit area does not. */
-.cell .samedot { width: 28px; height: 28px; border: 0; background: none; display: inline-flex; align-items: center; justify-content: center; }
-.cell .samedot::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--lane); box-sizing: border-box; }
-.cell .samedot:hover::after { border-color: var(--accent); }
-.cell .pill.gone, .cell .pill.link { position: relative; z-index: 1; }
+.cell .dot { position: relative; z-index: 1; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.redir { position: relative; z-index: 1; font-size: 11.5px; color: var(--muted); background: var(--surface); padding: 2px 6px; border-radius: 6px; white-space: nowrap; max-width: calc(100% - 8px); overflow: hidden; text-overflow: ellipsis; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.gonemark { position: relative; z-index: 1; font-size: 11.5px; color: var(--gone); background: var(--gone-soft); padding: 2px 8px; border-radius: 6px; }
+.grid.heat .label, .grid.heat .cell { min-height: 28px; }
+.grid.heat .head { height: 44px; overflow: visible; }
+.grid.heat .head:has(.mlabel) { z-index: 7; }
+.grid.heat .head .mlabel { background: var(--surface); padding-right: 4px; }
+.mlabel { position: absolute; left: 3px; bottom: 6px; font-size: 11.5px; color: var(--muted); white-space: nowrap; border-left: 1px solid var(--line-strong); padding-left: 4px; }
+.hm { position: relative; z-index: 1; display: block; width: 14px; height: 14px; border-radius: 3px; border: 0; padding: 0; background: var(--line-strong); cursor: zoom-in; }
+.hm.new, .hm.base { background: var(--new); }
+.hm.major { background: var(--major); }
+.hm.minor { background: var(--minor); opacity: .8; }
+.hm.same { background: var(--line-strong); }
+.hm.gone { background: var(--gone); cursor: default; }
+.hm.link { background: var(--accent); cursor: pointer; }
+.hm:hover { outline: 2px solid var(--text); outline-offset: 1px; }
 
 /* ---------- Page ---------- */
 .pagepad { display: flex; flex-direction: column; gap: 16px; padding: 18px 24px 40px; }
@@ -576,7 +591,7 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
   const snapIndex = Object.fromEntries(snaps.map((s, i) => [s.id, i]));
   const pageById = Object.fromEntries(H.pages.map((p) => [p.id, p]));
   const viewportNames = H.viewports ?? ["desktop", "mobile"];
-  const state = { viewport: viewportNames[0], search: "", onlyChanged: false, showSame: false, tint: false, compare: false, cmpMode: "side", cmpFull: false, pageAt: {}, cmpA: {}, expanded: new Set(), zoom: 1, graphLeft: 0, focus: new Set(), help: false,
+  const state = { viewport: viewportNames[0], screenMode: "thumbs", search: "", onlyChanged: false, showSame: false, tint: false, compare: false, cmpMode: "side", cmpFull: false, pageAt: {}, cmpA: {}, expanded: new Set(), zoom: 1, graphLeft: 0, focus: new Set(), help: false,
     // Which kinds of relation the graph draws and focus follows; toggled from the legend.
     links: { split: true, merge: true, move: true, clone: true, branch: true } };
   const LINK_GROUP = { split: "split", merged: "merge", replaced: "merge", rename: "move", redirect: "move", clone: "clone", branch: "branch" };
@@ -681,16 +696,9 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
     document.getElementById("focuslabel").textContent = `${plural(state.focusSet?.size ?? 0, "connected page")} ·`;
   }
 
-  const pillFor = (st) =>
-    st.kind === "new" ? '<span class="pill new">new</span>'
-    : st.kind === "major" ? '<span class="pill major">redesign</span>'
-    : st.kind === "minor" ? '<span class="pill minor">tweak</span>'
-    : st.kind === "same" ? '<span class="pill same">same</span>' : "";
-
   function thumb(image, series, index, st) {
     const size = narrow() ? "width:40px;height:70px" : "width:112px;height:70px";
-    const b = el(`<button class="thumb ${st?.kind === "same" ? "same" : ""}" style="${size}"><img loading="lazy" src="${esc(image.card)}" alt=""></button>`);
-    if (st && st.kind !== "same" && st.kind !== "base") b.prepend(el(pillFor(st)));
+    const b = el(`<button class="thumb ${st?.kind ?? ""}" style="${size}" title="${esc(STATUS_TEXT[st?.kind] ?? "")}"><img loading="lazy" src="${esc(image.card)}" alt=""></button>`);
     b.addEventListener("click", () => openLightbox(series, index));
     return b;
   }
@@ -979,62 +987,79 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
   // ---------- Screens over time ----------
   function renderTimeline() {
     const pages = H.pages.filter((p) => p.seen && matches(p));
-    header("Screens", `${pages.length} pages · ${plural(snaps.length, "snapshot")}`, [],
-      "<p>One row per page, one column per snapshot. A thumbnail appears where the page first existed or changed; a small dot on the line means it looked the same as before, and the line shows how long the page existed. Click a thumbnail to enlarge it, then use the arrow keys to move through the changes. The \"views\" button opens the page's sections, dialogs and menus as extra rows.</p>");
+    const heat = state.screenMode === "heat";
+    header("Screens", `${plural(pages.length, "page")} · ${plural(snaps.length, "snapshot")}`, [],
+      "<p>One row per page, one column per snapshot. A picture appears where the page was added or changed; the line shows how long it existed. Snapshots where none of the pages shown changed shrink to a striped sliver. Heatmap swaps the pictures for small squares, to see the whole history at once. Click a picture to enlarge it and step through the changes with the arrow keys. The number next to a page opens its sections, dialogs and menus as extra rows.</p>");
     if (!pages.length) { content.replaceChildren(emptyState()); return; }
-    const bar = el('<div class="screensbar"></div>');
+    const bar = el(`<div class="screensbar"><div class="seg" role="group" aria-label="Show as"><button data-mode="thumbs" aria-pressed="${!heat}">Pictures</button><button data-mode="heat" aria-pressed="${heat}">Heatmap</button></div></div>`);
+    bar.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => { state.screenMode = b.dataset.mode; render(); }));
     bar.append(relationToggles());
-    const grid = el(`<div class="grid" style="grid-template-columns: var(--label-w) repeat(${snaps.length}, var(--col-w))"></div>`);
+
+    // Each visible row, with its status per snapshot, so the columns can be sized by what is in them.
+    const rows = [];
+    for (const page of pages) {
+      const { first, last } = lifespan(page);
+      rows.push({ page, first, last, series: seriesFor(page.id, mainView(page)), st: snaps.map((_, i) => (i === last + 1 && last < snaps.length - 1 ? { kind: "gone" } : status(page, i))) });
+      if (state.expanded.has(page.id)) for (const view of extraViews(page)) {
+        const on = snaps.map((_, i) => i).filter((i) => view.shots[snaps[i].id]);
+        rows.push({ page, view, first: on[0], last: on[on.length - 1], series: seriesFor(`${page.id} · ${view.label}`, view), st: snaps.map((_, i) => viewStatus(view, i)) });
+      }
+    }
+    const LOUD = ["new", "base", "major", "minor", "redirect", "gone", "missing"];
+    const busy = snaps.map((_, i) => state.showSame || rows.some((r) => LOUD.includes(r.st[i].kind)));
+    const colW = (i) => (heat ? 22 : !busy[i] ? 24 : narrow() ? 72 : 132);
+    const grid = el(`<div class="grid ${heat ? "heat" : ""}" style="grid-template-columns: var(--label-w) ${snaps.map((_, i) => colW(i) + "px").join(" ")}"></div>`);
     grid.append(el('<div class="corner">Page</div>'));
     // "24 May", with the year only where it changes; the commit is in the tooltip.
     snaps.forEach((s, i) => {
       const d = new Date(s.date + "T00:00:00Z");
       const day = d.toLocaleString("en", { day: "numeric", month: "short", timeZone: "UTC" });
       const year = i === 0 || snaps[i - 1].date.slice(0, 4) !== s.date.slice(0, 4) ? `<small>${d.getUTCFullYear()}</small>` : "";
-      grid.append(el(`<a class="head" href="#/snapshot/${s.id}" title="${esc(s.date)} · ${esc(s.id)}\n${esc(s.subject)}"><div class="date">${esc(day)}${year}</div><div class="meta">${plural(s.pages, "page")}</div></a>`));
+      const tip = `${esc(s.date)} · ${esc(s.id)}\n${esc(s.subject)}${busy[i] ? "" : "\nNone of these pages changed"}`;
+      // In the heatmap the columns are too narrow for dates: each month is named where it starts.
+      const month = i === 0 || snaps[i - 1].date.slice(0, 7) !== s.date.slice(0, 7) ? d.toLocaleString("en", { month: "short", timeZone: "UTC" }) + (year ? " " + d.getUTCFullYear() : "") : "";
+      grid.append(el(heat || !busy[i] ? `<a class="head slim ${busy[i] ? "" : "quiet"}" href="#/snapshot/${s.id}" title="${tip}">${heat && month ? `<span class="mlabel">${esc(month)}</span>` : ""}</a>`
+        : `<a class="head" href="#/snapshot/${s.id}" title="${tip}"><div class="date">${esc(day)}${year}</div><div class="meta">${plural(s.pages, "page")}</div></a>`));
     });
 
     let section = null;
-    const cellFor = (st, i, first, last, series, inRange) => {
-      const cell = el(`<div class="cell ${inRange ? "alive" : "outside"} ${i === first ? "first" : ""} ${i === last ? "last" : ""}"></div>`);
-      if (st.shot && img(st.shot)) {
-        if (st.kind === "same" && !state.showSame) {
-          const same = el(`<button class="dot samedot" title="Unchanged on ${esc(snaps[i].date)}. Click to look anyway."></button>`);
-          same.addEventListener("click", () => openLightbox(series, i));
-          cell.append(same);
-        } else cell.append(thumb(img(st.shot), series, i, st));
+    const cellFor = (r, i) => {
+      const st = r.st[i], inRange = r.first != null && i >= r.first && i <= r.last;
+      const cell = el(`<div class="cell ${inRange ? "alive" : "outside"} ${i === r.first ? "first" : ""} ${i === r.last ? "last" : ""} ${busy[i] ? "" : "quiet"}"></div>`);
+      const shot = st.shot && img(st.shot);
+      const loud = ["new", "base", "major", "minor"].includes(st.kind) || (st.kind === "same" && state.showSame);
+      if (shot && loud) {
+        if (heat) {
+          const b = el(`<button class="hm ${st.kind}" title="${esc(snaps[i].date)} · ${esc(STATUS_TEXT[st.kind] ?? st.kind)}" aria-label="${esc(snaps[i].date)}"></button>`);
+          b.addEventListener("click", () => openLightbox(r.series, i));
+          cell.append(b);
+        } else cell.append(thumb(shot, r.series, i, st));
       } else if (st.kind === "redirect") {
-        cell.append(el(`<a class="pill link" href="${pageHref(st.to)}" title="Redirects to ${esc(st.to)}">→ ${esc(st.to.length > 14 ? "…" + st.to.slice(-13) : st.to)}</a>`));
+        cell.append(heat ? el(`<a class="hm link" href="${pageHref(st.to)}" title="Redirects to ${esc(st.to)}"></a>`) : el(`<a class="redir" href="${pageHref(st.to)}" title="Redirects to ${esc(st.to)}">→ ${routeHtml(st.to)}</a>`));
       } else if (st.kind === "missing") cell.append(el('<span class="dot" title="Exists, but could not be captured"></span>'));
-      else if (st.kind === "gone") cell.append(el('<span class="pill gone">removed</span>'));
+      else if (st.kind === "gone") cell.append(el(heat ? '<span class="hm gone" title="Removed"></span>' : '<span class="gonemark" title="Removed">removed</span>'));
       return cell;
     };
-    for (const page of pages) {
-      if (page.section !== section) { section = page.section; grid.append(el(`<div class="section">${esc(section)}</div>`)); }
-      const { first, last } = lifespan(page);
-      const extras = extraViews(page);
-      const label = el(`<div class="label" data-page="${esc(page.id)}"><a class="route" href="${pageHref(page.id)}" title="${esc(page.id)}">${routeHtml(page.id)}</a></div>`);
-      if (extras.length) {
-        const open = state.expanded.has(page.id);
-        const ex = el(`<button class="expander" title="${open ? "Hide" : "Show"} this page's sections, dialogs and menus">${open ? "▾" : "▸"} ${plural(extras.length, "view")}</button>`);
-        ex.addEventListener("click", () => { open ? state.expanded.delete(page.id) : state.expanded.add(page.id); render(); });
-        label.append(ex);
+    for (const r of rows) {
+      const { page, view } = r;
+      if (!view && page.section !== section) { section = page.section; grid.append(el(`<div class="section">${esc(section)}</div>`)); }
+      let label;
+      if (view) label = el(`<div class="label sub"><a class="route" href="${pageHref(page.id, view.id)}" title="${esc(view.label)}">${esc(view.label)}</a><span class="kind">${esc((KIND_LABEL[view.kind] ?? view.kind).replace(/s$/, ""))}</span></div>`);
+      else {
+        label = el(`<div class="label" data-page="${esc(page.id)}"><a class="route" href="${pageHref(page.id)}" title="${esc(page.id)}">${routeHtml(page.id)}</a></div>`);
+        const extras = extraViews(page);
+        if (extras.length) {
+          const open = state.expanded.has(page.id);
+          const ex = el(`<button class="expander" aria-expanded="${open}" title="${open ? "Hide" : "Show"} this page's sections, dialogs and menus">${extras.length}</button>`);
+          ex.addEventListener("click", () => { open ? state.expanded.delete(page.id) : state.expanded.add(page.id); render(); });
+          label.append(ex);
+        }
+        label.append(focusButton(page.id));
       }
-      label.append(focusButton(page.id));
-      grid.append(label);
-      const series = seriesFor(page.id, mainView(page));
-      snaps.forEach((s, i) => {
-        const st = i === last + 1 && last < snaps.length - 1 ? { kind: "gone" } : status(page, i);
-        grid.append(cellFor(st, i, first, last, series, i >= first && i <= last));
-      });
-      if (state.expanded.has(page.id)) for (const view of extras) {
-        const row = el('<div class="subrow" style="display:contents"></div>');
-        row.append(el(`<div class="label"><a class="route" href="${pageHref(page.id, view.id)}" title="${esc(view.label)}">${esc(view.label)}</a><span class="kind">${esc((KIND_LABEL[view.kind] ?? view.kind).replace(/s$/, ""))}</span></div>`));
-        const vSeries = seriesFor(`${page.id} · ${view.label}`, view);
-        const on = snaps.map((_, i) => i).filter((i) => view.shots[snaps[i].id]);
-        snaps.forEach((s, i) => row.append(cellFor(viewStatus(view, i), i, on[0], on[on.length - 1], vSeries, i >= on[0] && i <= on[on.length - 1])));
-        grid.append(row);
-      }
+      const row = el(`<div class="${view ? "subrow" : "prow"}" style="display:contents"></div>`);
+      row.append(label);
+      snaps.forEach((_, i) => row.append(cellFor(r, i)));
+      grid.append(row);
     }
     content.replaceChildren(bar, grid);
     drawScreenLinks(grid);
@@ -1047,16 +1072,15 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
   function drawScreenLinks(grid) {
     const rowY = {};
     for (const label of grid.querySelectorAll(".label[data-page]")) rowY[label.dataset.page] = label.offsetTop + label.offsetHeight / 2;
-    const labelW = grid.querySelector(".corner").offsetWidth;
-    const colW = grid.querySelector(".head")?.offsetWidth ?? 132;
+    const heads = [...grid.querySelectorAll(".head")];
     const svg = svgEl("svg", { class: "links", width: grid.scrollWidth, height: grid.scrollHeight });
     svg.append(arrowDefs());
     for (const e of H.edges) {
       if (!e.date || !linkOn(e) || rowY[e.from] == null || rowY[e.to] == null) continue;
       let k = snaps.findIndex((s) => s.date >= e.date);
       if (k < 0) k = snaps.length - 1;
-      // At the left edge of that snapshot's column, clear of its thumbnail.
-      svg.append(edgePath(e, labelW + k * colW + 18, rowY[e.from], rowY[e.to]));
+      // At the left edge of that snapshot's column, clear of its picture.
+      svg.append(edgePath(e, heads[k].offsetLeft + Math.min(18, heads[k].offsetWidth / 2), rowY[e.from], rowY[e.to]));
     }
     grid.append(svg);
   }
@@ -1729,7 +1753,6 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
     b.addEventListener("click", () => {
       state.viewport = name;
       seg.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-      document.documentElement.style.setProperty("--col-w", narrow() ? "72px" : "");
       render();
     });
     seg.append(b);
