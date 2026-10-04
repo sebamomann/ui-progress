@@ -204,7 +204,7 @@ the whole history, when the user wants more disk space back.
 That needs `routeOfFile` in the adapter and an import graph the resolver can follow (JS/TS
 with relative or tsconfig-alias imports). A change in `globalPaths` (package.json, config
 files, global CSS, public assets) recaptures everything; translation JSON files only affect
-the pages that use a changed namespace. Mention the measured time per snapshot from the
+the pages that use a changed namespace and name one of its changed keys. Mention the measured time per snapshot from the
 three test commits when you quote a duration.
 
 ### Recording what the agent work cost

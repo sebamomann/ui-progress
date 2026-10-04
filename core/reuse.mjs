@@ -123,28 +123,50 @@ export function unchangedRoutes(p, config, { deps, from, to, read }) {
   const globalHit = changed.find((f) => globals.some((re) => re.test(f)));
   if (globalHit) return { reason: "global file changed", file: globalHit, changed: changed.length };
   // Translation files change in nearly every commit; only the pages that use a changed
-  // namespace (a top-level key) are affected by them.
+  // namespace (a top-level key) are affected by them. When every changed key is named
+  // literally somewhere in the pages' source, a page must also name one of them: a nav that
+  // shows `t("items")` from another namespace is not affected by a new key under "items".
+  // A key no source names may be built at runtime (from a template string): then the
+  // namespace alone counts.
   const translations = (config.capture.incremental.translationPaths ?? []).map(routes.globToRegex);
-  const changedNamespaces = new Set();
+  const changedKeys = new Map(); // namespace -> last segments of its changed keys
   const changedSet = new Set();
+  const leavesOf = (a, b, out, name) => {
+    if (JSON.stringify(a) === JSON.stringify(b)) return out;
+    const objects = [a, b].filter((v) => v && typeof v === "object" && !Array.isArray(v));
+    if (objects.length === 0) return out.add(name);
+    for (const key of new Set(objects.flatMap(Object.keys))) leavesOf(a?.[key], b?.[key], out, key);
+    return out;
+  };
   for (const f of changed) {
     if (translations.some((re) => re.test(f)) && f.endsWith(".json")) {
       const parse = (ref) => { try { return JSON.parse(git(p.repo, "show", `${ref}:${f}`)); } catch { return null; } };
       const before = parse(from), after = parse(to);
       if (!before || !after) { changedSet.add(f); continue; }
-      for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) changedNamespaces.add(key);
+      for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+        if (JSON.stringify(before[key]) === JSON.stringify(after[key])) continue;
+        const keys = changedKeys.get(key) ?? new Set();
+        for (const leaf of leavesOf(before[key], after[key], new Set(), key)) keys.add(leaf);
+        changedKeys.set(key, keys);
+      }
     } else changedSet.add(f);
   }
+  const changedNamespaces = new Set(changedKeys.keys());
   const sources = new Map();
-  const usesNamespace = (file) => {
-    if (!changedNamespaces.size) return false;
+  const source = (file) => {
     if (!sources.has(file)) { try { sources.set(file, read(file)); } catch { sources.set(file, ""); } }
-    const text = sources.get(file);
-    return [...changedNamespaces].some((ns) => text.includes(`"${ns}"`) || text.includes(`'${ns}'`) || text.includes(`\`${ns}\``));
+    return sources.get(file);
+  };
+  const named = (text, word) => text.includes(`"${word}"`) || text.includes(`'${word}'`) || text.includes(`\`${word}\``) || new RegExp(`["'\`.]${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'\`]`).test(text);
+  const allFiles = [...new Set(Object.values(deps).flat().filter(Boolean))];
+  const literal = changedNamespaces.size > 0 && [...changedKeys.values()].every((keys) => [...keys].every((key) => allFiles.some((f) => named(source(f), key))));
+  const affected = (list) => {
+    const files = list.filter(Boolean);
+    return [...changedKeys].some(([ns, keys]) => files.some((f) => named(source(f), ns)) && (!literal || files.some((f) => [...keys].some((key) => named(source(f), key)))));
   };
   const unchanged = new Set();
   for (const [route, list] of Object.entries(deps)) {
-    if (list.some(Boolean) && !list.some((f) => changedSet.has(f) || usesNamespace(f))) unchanged.add(route);
+    if (list.some(Boolean) && !list.some((f) => changedSet.has(f)) && !affected(list)) unchanged.add(route);
   }
   return { routes: unchanged, changed: changed.length, namespaces: [...changedNamespaces] };
 }
