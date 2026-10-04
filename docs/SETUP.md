@@ -37,9 +37,9 @@ Pick a mode; only the commits that are not captured yet are run.
 
 | You say | Mode | What is captured |
 | --- | --- | --- |
-| "one per month" | `monthly` | the last commit of each month |
-| "one per week" | `weekly` | the last commit of each week |
-| "one per day" | `daily` | the last commit of each day with commits |
+| "one per month" | `monthly` | the last commit of each month that touched `uiPaths` |
+| "one per week" | `weekly` | the last commit of each week that touched `uiPaths` |
+| "one per day" | `daily` | the last commit of each day that touched `uiPaths` |
 | "every 25 commits" | `every-n` | set `sampling.everyN` |
 | "you decide" | `auto` | commits that added or removed a page, or where a lot of UI code changed since the last pick; Claude can then adjust the list by hand |
 | "everything" | `all` | every commit (small repositories only) |

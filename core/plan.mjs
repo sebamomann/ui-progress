@@ -22,7 +22,7 @@ export function commits(repo, config, adapter) {
     .filter(Boolean)
     .map((line) => {
       const [sha, short, date, ...subject] = line.split("|");
-      return { sha, short, date, subject: subject.join("|"), churn: 0, pagesAdded: [], pagesRemoved: [] };
+      return { sha, short, date, subject: subject.join("|"), churn: 0, ui: false, pagesAdded: [], pagesRemoved: [] };
     });
   const bySha = new Map(list.map((c) => [c.sha, c]));
 
@@ -32,6 +32,7 @@ export function commits(repo, config, adapter) {
     else if (current && line.trim()) {
       const [added, deleted] = line.split("\t");
       current.churn += (Number(added) || 0) + (Number(deleted) || 0);
+      current.ui = true; // binary files count too, though they add no lines
     }
   }
   if (adapter.routeOfFile) {
@@ -63,9 +64,18 @@ function isoWeek(date) {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
+/** Whether a commit touched the UI paths (sampling.uiPaths) or added or removed a page. */
+const touchesUi = (c) => c.ui || c.pagesAdded.length > 0 || c.pagesRemoved.length > 0;
+
+/**
+ * Per period, the last commit that touched the UI: later commits of the period (a chore, a
+ * docs change, a regenerated file) show the same UI, so a snapshot of them shows nothing
+ * new and is labelled by a subject that says nothing about it. A period without any UI
+ * commit gets no snapshot. The first commit always counts.
+ */
 function lastPerBucket(list, key, label) {
   const picks = new Map();
-  for (const c of list) picks.set(key(c), c);
+  list.forEach((c, i) => { if (i === 0 || touchesUi(c)) picks.set(key(c), c); });
   return [...picks.entries()].map(([bucket, c]) => ({ ...c, reason: `${label} ${bucket}` }));
 }
 
@@ -100,8 +110,7 @@ function auto(list, config) {
     let reason = null;
     if (i === 0) reason = "first commit";
     else if (pagesMoved && !burstContinues) reason = [c.pagesAdded.length ? `+${c.pagesAdded.length} page(s): ${c.pagesAdded.slice(0, 3).join(", ")}` : null, c.pagesRemoved.length ? `-${c.pagesRemoved.length} page(s): ${c.pagesRemoved.slice(0, 3).join(", ")}` : null].filter(Boolean).join("; ");
-    else if (pending >= threshold && gapOk(c.date) && !burstContinues) reason = `${pending} lines of UI changed since the last pick`;
-    if (i === list.length - 1 && !reason) reason = "latest commit";
+    else if (pending >= threshold && touchesUi(c) && gapOk(c.date) && !burstContinues) reason = `${pending} lines of UI changed since the last pick`;
     if (!reason) return;
     picks.push({ ...c, reason, score: pending + pagesMoved * threshold });
     pending = 0;
@@ -134,7 +143,9 @@ export function buildPlan(repo, config, adapter, mode = config.sampling.mode, { 
   if (!MODES.includes(mode)) throw new Error(`Unknown sampling mode "${mode}". Use one of: ${MODES.join(", ")}`);
   const list = commits(repo, config, adapter);
   if (!list.length) throw new Error("No commits in range.");
-  const head = { ...list[list.length - 1], reason: "latest commit" };
+  // The newest state of the UI: the last commit that touched it, not a chore after it.
+  const newest = [...list].reverse().find(touchesUi) ?? list[list.length - 1];
+  const head = { ...newest, reason: newest === list[list.length - 1] ? "latest commit" : "latest UI change" };
   let picks;
   let max = config.sampling.max;
   let score = null;
@@ -150,7 +161,8 @@ export function buildPlan(repo, config, adapter, mode = config.sampling.mode, { 
     picks = auto(list, config);
     score = (c) => c.score;
   } else return null;
-  if (picks[picks.length - 1].sha !== head.sha) picks.push(head);
+  const at = new Map(list.map((c, i) => [c.sha, i]));
+  if (!picks.length || at.get(head.sha) > at.get(picks[picks.length - 1].sha)) picks.push(head);
   picks = thin(avoidUnbuildable(picks, list, unbuildable), max, score);
   return {
     mode,

@@ -133,8 +133,8 @@ selectors before the long run. Add to it whenever a later session adds a filter 
 
    | Mode | Picks | Use for |
    | --- | --- | --- |
-   | `pilot` | last commit of each month, at most 8 | a first look in minutes |
-   | `monthly`, `weekly`, `daily` | last commit of each period | a regular cadence |
+   | `pilot` | last UI commit of each month, at most 8 | a first look in minutes |
+   | `monthly`, `weekly`, `daily` | last UI commit of each period; periods without one are skipped | a regular cadence |
    | `every-n` | every Nth commit (`sampling.everyN`) | fixed density |
    | `auto` | commits that added or removed a page, or where enough UI code changed | the meaningful history |
    | `all` | every commit | small repositories only |

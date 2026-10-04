@@ -10,7 +10,7 @@
 | `max` | `null` | Upper limit on snapshots. Pilot is always capped at 8 |
 | `from`, `to` | `null` | Only commits in this date range (`YYYY-MM-DD`) |
 | `branch` | `null` | Branch to follow; default is the checked-out one. Only its mainline (first-parent) commits are considered |
-| `uiPaths` | `["."]` | Git pathspecs that count as UI code when measuring how much a commit changed. Narrow this (`["app", "src/components"]`) so backend work does not trigger snapshots |
+| `uiPaths` | `["."]` | Git pathspecs that count as UI code. Interval modes take the last commit of each period that touched them, and skip a period without one, so a chore or docs commit at the end of a week neither labels a snapshot nor costs one; `auto` measures churn in them. Narrow this (`["app", "src/components"]`) so backend work does not trigger snapshots |
 | `everyN` | `25` | For `every-n` |
 | `auto.churn` | `600` | In `auto`, take a snapshot once this many UI lines changed since the last one |
 | `auto.minGapDays` | `1` | In `auto`, minimum days between two churn-triggered snapshots. Page additions and removals always trigger |
