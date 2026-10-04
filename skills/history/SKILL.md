@@ -333,11 +333,10 @@ What to change, each in a small commit of its own that follows the project's con
    `listbox`, `aria-haspopup` / `aria-expanded` on openers, `role="tab"` with
    `aria-selected`: recognised directly and tried first, with fewer wasted clicks.
 6. **Escape closes every dialog and menu.** Otherwise the page is loaded again after each one.
-7. **Actions are recognisable.** The click-through never clicks a control whose label
-   matches `capture.unsafe`. Add the app's own words for actions that change data (in every
-   language it ships) to `capture.unsafe` in `.ui-progress/config.json`, so that watering,
-   liking, switching the language or acting as another user does not change what pages
-   captured later in the same snapshot show.
+7. **Actions are recognisable.** A click that opens nothing cannot change data: its
+   requests are refused (`writesRefused` in the manifest lists them). Each one still costs a
+   click, a wait and a reload, so add the app's own words for actions (in every language it
+   ships) to `capture.unsafe` in `.ui-progress/config.json`, and they are not tried at all.
 
 Do not change what users see beyond this, add code paths only for ui-progress, or turn
 animations off for everyone. Record what the user decided (which changes they want, which
