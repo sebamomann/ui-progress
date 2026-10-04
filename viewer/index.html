@@ -388,12 +388,29 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
 @media (max-width: 900px) { .cmpstage.sbs { grid-template-columns: minmax(0, 1fr); } .versions { max-width: none; position: static; max-height: 360px; } }
 
 /* ---------- Snapshots ---------- */
-.story { display: flex; flex-direction: column; gap: 12px; max-width: 86ch; }
-.chapter { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-.chapter .when { color: var(--faint); font-size: 12px; letter-spacing: .04em; }
-.chapter h2 { font-size: 16px; margin: 2px 0 6px; letter-spacing: -.01em; }
-.chapter p { margin: 0 0 10px; line-height: 1.55; }
-.chapter .refs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.storywrap { display: flex; flex-wrap: wrap; gap: 40px; padding: 28px 32px 48px; align-items: flex-start; }
+.chapters { flex: 1 1 260px; max-width: 300px; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 0; }
+.chyear { font-size: 12px; color: var(--faint); padding: 14px 12px 4px; }
+.chyear:first-child { padding-top: 0; }
+.chapters a { display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border-radius: 8px; color: var(--muted); font-size: 14px; line-height: 1.35; }
+.chapters a:hover { background: var(--surface); color: var(--text); text-decoration: none; }
+.chapters a[aria-current="true"] { background: var(--raised); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
+.chapterview { flex: 999 1 560px; min-width: 0; max-width: 960px; display: flex; flex-direction: column; gap: 20px; }
+.chapterview > .faint { font-size: 13px; }
+.chapterview h2 { margin: -12px 0 0; font-size: 30px; line-height: 1.2; font-weight: 600; letter-spacing: -.02em; }
+.chstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.chstats div { display: flex; flex-direction: column; padding: 12px 16px; border-radius: 10px; background: var(--surface); }
+.chstats b { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chstats span { font-size: 12px; color: var(--faint); }
+.chtext { margin: 0; font-size: 16px; line-height: 1.7; color: var(--text); max-width: 70ch; }
+.chfigs { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 24px; }
+.chfig { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.chfig .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.chfig .pair.single { grid-template-columns: minmax(0, 1fr); max-width: 50%; }
+.chfig figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.chfig .route { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chfoot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13.5px; flex-wrap: wrap; }
+@media (max-width: 900px) { .chapters { position: static; max-width: none; } .chfigs { grid-template-columns: minmax(0, 1fr); } }
 .faint { color: var(--faint); }
 .h2big { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
 .small { font-size: 12px; }
@@ -1394,22 +1411,57 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
   }
 
   // ---------- Story ----------
-  function renderStory() {
+  /** The last snapshot at or before index i in which the page was captured. */
+  const shotAtOrBefore = (page, i) => { for (let j = i; j >= 0; j--) if (img(mainView(page)?.shots[snaps[j].id])) return j; return null; };
+  function renderStory(n) {
     const entries = H.changelog ?? [];
-    header("Story", `${plural(entries.length, "chapter")} · written from the snapshots and the commits`, [], "<p>A written account of how the UI evolved, one chapter per period. Each chapter links the pages and snapshots it talks about. The agent writes it from the lineage and the captured changes; edit <code>.ui-progress/changelog.json</code> to change it.</p>");
-    const pad = el('<div class="pad"></div>');
-    if (!entries.length) { pad.append(el('<div class="empty">No story yet. Ask the agent to write the changelog (<code>ui-progress changelog candidates</code> gives it the material).</div>')); content.replaceChildren(pad); return; }
-    const list = el('<div class="story"></div>');
-    for (const e of entries) {
-      const snap = e.snapshot && snapIndex[e.snapshot] != null ? snaps[snapIndex[e.snapshot]] : null;
-      const card = el(`<article class="chapter"><div class="when">${esc(e.from ?? e.date ?? "")}${e.to && e.to !== e.from ? ` → ${esc(e.to)}` : ""}</div><h2>${esc(e.title)}</h2><p>${esc(e.text)}</p><div class="refs"></div></article>`);
-      const refs = card.querySelector(".refs");
-      for (const id of e.pages ?? []) if (pageById[id]) refs.append(el(`<a class="chip" href="${pageHref(id)}">${esc(id)}</a>`));
-      if (snap) refs.append(el(`<a class="btn" href="#/snapshot/${snap.id}">See the site on ${esc(snap.date)}</a>`));
-      list.append(card);
+    header("Story", `${plural(entries.length, "chapter")} · written from the snapshots and the commits`, [], "<p>A written account of how the UI evolved, one chapter per period. Pick a chapter on the left. Each one shows the pages it talks about before and after the period, and links the snapshots. The agent writes it from the lineage and the captured changes; edit <code>.ui-progress/changelog.json</code> to change it.</p>");
+    if (!entries.length) { content.replaceChildren(el('<div class="empty">No story yet. Ask the agent to write the changelog (<code>ui-progress changelog candidates</code> gives it the material).</div>')); return; }
+    const at = Number.isInteger(n) && entries[n] ? n : entries.length - 1;
+    const e = entries[at];
+    const from = e.from ?? e.date ?? "", to = e.to ?? from;
+    const wrap = el('<div class="storywrap"><nav class="chapters" aria-label="Chapters"></nav><article class="chapterview"></article></div>');
+    const nav = wrap.querySelector(".chapters");
+    let year = null;
+    const span = (x) => { const a = x.from ?? x.date ?? "", b = x.to ?? a; return a.slice(0, 7) === b.slice(0, 7) ? dayMonth(a).replace(/^\d+ /, "") : `${dayMonth(a)} – ${dayMonth(b)}`; };
+    for (let k = entries.length - 1; k >= 0; k--) {
+      const y = (entries[k].from ?? entries[k].date ?? "").slice(0, 4);
+      if (y !== year) { year = y; nav.append(el(`<div class="chyear">${esc(y)}</div>`)); }
+      nav.append(el(`<a href="#/story/${k}" ${k === at ? 'aria-current="true"' : ""}><span>${esc(entries[k].title)}</span><span class="faint small">${esc(span(entries[k]))}</span></a>`));
     }
-    pad.append(list);
-    content.replaceChildren(pad);
+
+    // What the period holds: its snapshots, and what they changed.
+    const inside = snaps.map((s, i) => i).filter((i) => snaps[i].date >= from && snaps[i].date <= to);
+    const first = inside[0], last = inside[inside.length - 1];
+    const beforeI = first != null && first > 0 ? first - 1 : null;
+    const added = new Set(), redesigned = new Set();
+    for (const i of inside) { const d = delta(i); d.added.forEach((p) => added.add(p.id)); d.redesigned.forEach((p) => redesigned.add(p.id)); }
+    const splits = H.edges.filter((x) => x.type === "split" && x.date && x.date >= from && x.date <= to).length;
+    const view = wrap.querySelector(".chapterview");
+    view.append(el(`<div class="faint">${esc(from === to ? from : `${from} – ${to}`)} · ${plural(inside.length, "snapshot")}</div>`));
+    view.append(el(`<h2>${esc(e.title)}</h2>`));
+    const stats = [[added.size, "pages added"], [redesigned.size, "pages redesigned"], [splits, splits === 1 ? "split" : "splits"]].filter(([v]) => v);
+    if (stats.length) view.append(el(`<div class="chstats">${stats.map(([v, k]) => `<div><b>${v}</b><span>${k}</span></div>`).join("")}</div>`));
+    view.append(el(`<p class="chtext">${esc(e.text)}</p>`));
+
+    // The pages the chapter names, as they looked before the period and at its end.
+    const pages = (e.pages ?? []).map((id) => pageById[id]).filter((p) => p && last != null && shotAtOrBefore(p, last) != null);
+    if (pages.length) {
+      const figs = el('<div class="chfigs"></div>');
+      for (const p of pages.slice(0, 6)) {
+        const a = beforeI != null ? shotAtOrBefore(p, beforeI) : null, b = shotAtOrBefore(p, last);
+        const fig = el(`<figure class="chfig"><div class="pair ${a == null ? "single" : ""}"></div><figcaption><a class="route" href="${pageHref(p.id)}">${routeHtml(p.id)}</a><span class="faint small">${a == null ? "new in this period" : `${esc(dayMonth(snaps[a].date))} → ${esc(dayMonth(snaps[b].date))}`}</span></figcaption></figure>`);
+        if (a != null && a !== b) fig.querySelector(".pair").append(shotButton(p, a, null));
+        fig.querySelector(".pair").append(shotButton(p, b, a == null ? "new" : null));
+        figs.append(fig);
+      }
+      view.append(figs);
+      if (pages.length > 6) view.append(el(`<div class="faint small">and ${plural(pages.length - 6, "more page")}: ${pages.slice(6).map((p) => `<a class="mono" href="${pageHref(p.id)}">${esc(p.id)}</a>`).join(", ")}</div>`));
+    }
+    const snap = e.snapshot && snapIndex[e.snapshot] != null ? snaps[snapIndex[e.snapshot]] : last != null ? snaps[last] : null;
+    const foot = el(`<div class="chfoot">${at > 0 ? `<a href="#/story/${at - 1}">← ${esc(entries[at - 1].title)}</a>` : "<span></span>"}${snap ? `<a class="btn" href="#/snapshot/${snap.id}">The site on ${esc(snap.date)}</a>` : ""}${at < entries.length - 1 ? `<a href="#/story/${at + 1}">${esc(entries[at + 1].title)} →</a>` : "<span></span>"}</div>`);
+    view.append(foot);
+    content.replaceChildren(wrap);
   }
 
   // ---------- Runs ----------
@@ -1766,7 +1818,7 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
       current = id; active = null; renderPage(id, view);
     } else if (hash.startsWith("#/snapshot/")) { active = "snapshots"; renderSnapshot(hash.slice(11)); }
     else if (hash === "#/snapshots") { active = "snapshots"; renderSnapshots(); }
-    else if (hash === "#/story") { active = "story"; renderStory(); }
+    else if (hash === "#/story" || hash.startsWith("#/story/")) { active = "story"; renderStory(hash.startsWith("#/story/") ? Number(hash.slice(8)) : null); }
     else if (hash === "#/runs") { active = "runs"; renderRuns(); }
     else if (hash === "#/timeline") { active = "timeline"; renderTimeline(); }
     else renderGraph();
