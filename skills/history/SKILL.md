@@ -30,6 +30,33 @@ example in `${CLAUDE_PLUGIN_ROOT}/examples/nextjs-prisma-postgres/`.
 | Captures to run faster or show the same thing every time | [Make the app quick to capture](#make-the-app-quick-to-capture) |
 | Something in the tool is broken or missing | [Findings](#findings) |
 
+## Project notes
+
+`.ui-progress/NOTES.md` holds what every agent working on this project's history must know
+and respect: what the user asked for, and what was found out the hard way. It is committed
+with the project, so the next session, and the next agent, starts from it.
+
+- **Read it first, every time.** Before any job here, read the section for that job
+  (Adapter and data, Capture, Lineage and story) and "Everywhere", and follow it. The
+  session-start message, `ui-progress status` and `snapshot` say when notes exist;
+  `ui-progress notes` prints them (and creates the file from the template when a project
+  set up earlier has none).
+- **Write a note when you learn one,** in the same session, not at the end:
+  - the user states a preference or a caveat about this project ("never click X", "the
+    admin pages do not matter", "keep the old seed for commits before May");
+  - you found something a later agent would otherwise rediscover the hard way: an era of
+    the codebase the adapter must handle, a control that changes data, a page that needs a
+    wait, why a setting has its value, a fix that did not work.
+- **One bullet per note,** under the heading of its job: what to do or avoid, why, and
+  where it came from (the user and the date, or the snapshot or file that showed it). Keep
+  it to what is true of this project; how ui-progress works belongs in its docs, and a
+  problem in ui-progress itself is a [finding](#findings).
+- **Enforce what can be enforced.** When a setting can carry the note (`capture.unsafe`,
+  `capture.exclude`, `capture.waitFor`, `screens.json`, the adapter), change it too and say
+  so in the note; the note then explains the setting.
+- **Keep it true.** Remove or correct a note that no longer applies, and tell the user when
+  a note keeps you from doing what they ask.
+
 ## Set up
 
 1. `ui-progress doctor`. If anything is missing, run `ui-progress doctor --install`
@@ -139,6 +166,8 @@ selectors before the long run. Add to it whenever a later session adds a filter 
 
 ## Backfill
 
+Read the project notes first (Adapter and data, Capture).
+
 1. Choose the commits: `ui-progress plan --mode <mode>`, then show the user the table.
 
    | Mode | Picks | Use for |
@@ -241,7 +270,8 @@ stop.
 steps, a refactor across many files). Do not capture after each of them: when the last
 commit of the task is made, one snapshot of HEAD covers the whole batch.
 
-1. `ui-progress pending` says whether HEAD is captured, which commits since the last
+1. Read the project notes (Capture, Lineage and story). `ui-progress pending` says
+   whether HEAD is captured, which commits since the last
    snapshot a capture of HEAD would cover, and whether UI changes are still uncommitted.
 2. If UI work is still uncommitted and committing is part of the task, commit it first, in
    small, focused commits (one change each), so the history shows what changed when. If
@@ -310,11 +340,13 @@ What to change, each in a small commit of its own that follows the project's con
    captured later in the same snapshot show.
 
 Do not change what users see beyond this, add code paths only for ui-progress, or turn
-animations off for everyone.
+animations off for everyone. Record what the user decided (which changes they want, which
+not) in the project notes, so the next agent does not offer the same list again.
 
 ## Lineage
 
-Git cannot tell that a page was split in two. You can.
+Git cannot tell that a page was split in two. You can. Read the project notes (Lineage and
+story) first.
 
 1. `ui-progress lineage candidates` lists every commit that changed the set of pages,
    with the evidence: files moved or copied between page folders, and other pages that
@@ -362,7 +394,8 @@ Be conservative: a copied boilerplate file is not lineage. Record `confidence` h
 
 ## Story
 
-After lineage, write the history as a short narrative the viewer shows as "Story":
+After lineage, write the history as a short narrative the viewer shows as "Story" (follow
+the project notes under Lineage and story):
 
 1. `ui-progress build`, then `ui-progress changelog candidates`: per snapshot, what was
    added, removed, redesigned or merged, and the commit messages in between.

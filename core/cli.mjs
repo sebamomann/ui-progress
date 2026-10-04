@@ -19,6 +19,7 @@ import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSn
 import { AGENT_TASKS, appendRun, duration, estimate, noteAgent, parseDuration, readRuns, renderStats, summarize } from "./stats.mjs";
 import { clearUnbuildable, markUnbuildable, readUnbuildable, unbuildableEntry } from "./unbuildable.mjs";
 import { applyCombine, combinedEntry, coveringGroup, planCombine, uncombine } from "./combine.mjs";
+import { ensureNotes, notesLine, readNotes } from "./notes.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -56,6 +57,10 @@ Capturing
                                 the folded commits are kept in combined.json and not captured
                                 again; a snapshot that is the only one showing a page stays
   uncombine <sha|period>        plan and capture folded commits again (their pictures are gone)
+
+Project notes
+  notes                         print .ui-progress/NOTES.md: what agents must know and respect
+                                in this project (created from the template when missing)
 
 Keeping it current
   pending [--json]              is HEAD captured? which commits would one snapshot of HEAD cover?
@@ -174,6 +179,7 @@ function init(flags) {
   place(path.join(p.root, ".gitignore"), fs.readFileSync(path.join(ROOT, "templates", "gitignore"), "utf8"));
   place(path.join(p.root, "README.md"), fs.readFileSync(path.join(ROOT, "templates", "project-readme.md"), "utf8"));
   place(p.lineage, JSON.stringify({ edges: [], reviewed: {} }, null, 2) + "\n");
+  place(p.notes, fs.readFileSync(path.join(ROOT, "templates", "notes.md"), "utf8"));
   console.log(created.length ? `Created:\n${created.map((f) => "  " + f).join("\n")}` : "Everything already exists (use --force to overwrite).");
   const excludes = hostToolExcludes(p.repo);
   if (excludes.length) console.log(`\nThis project's own tools will also scan .ui-progress/. Exclude it there:\n${excludes.join("\n")}`);
@@ -293,6 +299,8 @@ async function snapshot(flags, positional) {
   let standIns = 0;
   const captured = [];
   console.log(`Capturing ${shas.length} snapshot(s), ${concurrency} at a time ...`);
+  const notes = notesLine(p);
+  if (notes) console.log(notes);
   const runChild = async (sha, slot) => {
     const line = await new Promise((resolve) => {
       let output = "";
@@ -447,6 +455,8 @@ function status(flags) {
   if (broken) console.log(`\n${broken} commit(s) recorded as unbuildable: ui-progress unbuildable`);
   const open = listFindings(p).filter((f) => f.status === "open").length;
   if (open) console.log(`\n${open} open finding(s): ui-progress finding list`);
+  const notes = notesLine(p);
+  if (notes) console.log(`\n${notes}`);
 }
 
 function unbuildable(flags, [sub = "list", sha]) {
@@ -534,6 +544,11 @@ export async function main(argv) {
     else if (command === "plan") await plan(flags);
     else if (command === "snapshot") await snapshot(flags, positional);
     else if (command === "status") status(flags);
+    else if (command === "notes") {
+      const { p } = context();
+      if (ensureNotes(p)) console.log(`Created ${path.relative(p.repo, p.notes)} from the template. Add a note under the heading of the job it is about.\n`);
+      console.log(readNotes(p).text);
+    }
     else if (command === "unbuildable") unbuildable(flags, positional);
     else if (command === "combine") combine(flags);
     else if (command === "uncombine") {

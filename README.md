@@ -89,6 +89,7 @@ they are listed so you know what exists.
 .ui-progress/
   config.json      sampling mode, viewports, limits            commit
   adapter.mjs      how to run this project at any commit       commit
+  NOTES.md         caveats and the user's wishes, for agents   commit
   plan.json        the commits chosen                          commit
   lineage.json     splits, merges, renames, with evidence      commit
   screens.json     hand-picked views (filters, searches)       commit

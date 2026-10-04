@@ -99,7 +99,13 @@ You can also just ask: "capture the current UI".
 
 ## Hand-picked screens and the story
 
-Two more files in `.ui-progress/` that Claude writes for you:
+Three more files in `.ui-progress/` that Claude writes for you:
+
+- `NOTES.md`: what every agent working on this history must know and respect, in one
+  bullet each: what you asked for ("never click the impersonation button", "the admin pages
+  do not matter") and what was found out the hard way (an era the adapter has to handle, a
+  page that needs a wait). Claude reads it before every job and adds to it as it learns;
+  tell Claude a caveat once and it stays. `ui-progress notes` prints it.
 
 - `screens.json`: views the automatic click-through cannot reach on its own, such as a
   filter that lives in the URL (`/?status=inactive`) or a search result. Claude reads the

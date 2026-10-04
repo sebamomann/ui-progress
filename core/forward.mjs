@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { findRepo, loadConfig, paths } from "./config.mjs";
 import { unbuildableEntry } from "./unbuildable.mjs";
+import { notesLine } from "./notes.mjs";
 import { VERSION, git, readJson, writeJson } from "./util.mjs";
 
 const MARK_START = "<!-- ui-progress:start -->";
@@ -63,7 +64,8 @@ export function sessionStart() {
   const stale = builtWith && builtWith !== VERSION ? ` The viewer in .ui-progress/viewer was built with ui-progress ${builtWith}; this is ${VERSION}, so run \`ui-progress build\` once to update it.` : "";
   console.log(
     `This repository records its UI history with ui-progress (${done} snapshots in .ui-progress/). ` +
-      `Snapshots are of commits only. When this session changes how a page looks, or adds, removes, splits, merges or renames a page: commit in small, focused steps, and when the work is done capture HEAD once for the whole batch (\`ui-progress pending\` shows what is due; see the ui-progress:history skill, "Capture the current state"). Do not capture after every intermediate commit.` + stale,
+      `Snapshots are of commits only. When this session changes how a page looks, or adds, removes, splits, merges or renames a page: commit in small, focused steps, and when the work is done capture HEAD once for the whole batch (\`ui-progress pending\` shows what is due; see the ui-progress:history skill, "Capture the current state"). Do not capture after every intermediate commit.` + stale +
+      (notesLine(p) ? ` ${notesLine(p)} before any ui-progress work here.` : ""),
   );
 }
 

@@ -7,6 +7,7 @@ It records how this project's UI changed over time.
 | --- | --- | --- |
 | `config.json` | Sampling mode, viewports, capture limits | yes |
 | `adapter.mjs` | How to install, seed, start and sign in to this app at any commit | yes |
+| `NOTES.md` | What every agent working on this history must know and respect: the user's wishes and caveats found so far | yes |
 | `plan.json` | The commits chosen for a snapshot | yes |
 | `lineage.json` | Page splits, merges and renames, with the evidence for each | yes |
 | `runs.jsonl` | Every snapshot attempt and batch: timings, outcome, adapter changes, agent cost | yes |

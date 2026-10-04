@@ -126,6 +126,7 @@ export function paths(repo) {
     lineage: path.join(root, "lineage.json"),
     changelog: path.join(root, "changelog.json"),
     screens: path.join(root, "screens.json"),
+    notes: path.join(root, "NOTES.md"),
     snapshots: path.join(root, "snapshots"),
     findings: path.join(root, "findings"),
     // Checkouts of old commits live OUTSIDE the repository. Inside it, build tools walk up
