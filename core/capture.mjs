@@ -345,7 +345,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   /**
    * Clickable controls, each with a label for people and a key for matching the same
    * control across snapshots: a test id, id or aria link where present, else its place in
-   * the document.
+   * the document. Each element is marked with a tag, so a click reaches that element and no
+   * other (see clickCandidate); `occurrence` tells controls with the same key apart.
    */
   const candidatesOf = (page, scope = null) =>
     page
@@ -353,7 +354,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         ([selector, scopeSel]) => {
           const root = scopeSel ? [...document.querySelectorAll(scopeSel)].pop() : document;
           if (!root) return [];
-          const all = [...document.querySelectorAll(selector)];
+          const seen = {};
           return [...root.querySelectorAll(selector)].map((el) => {
             const rect = el.getBoundingClientRect();
             const style = getComputedStyle(el);
@@ -371,8 +372,11 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
               }
               key = parts.join(">") + (icon ? `#${icon}` : "");
             }
+            const tag = String((window.__uipTag = (window.__uipTag ?? 0) + 1));
+            el.setAttribute("data-uip-candidate", tag);
             return {
-              index: all.indexOf(el),
+              tag,
+              occurrence: (seen[key] = (seen[key] ?? -1) + 1),
               label,
               key,
               usable: rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && !el.disabled && el.getAttribute("aria-disabled") !== "true" && el.type !== "submit",
@@ -386,6 +390,25 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         [CLICKABLE, scope],
       )
       .catch(() => []);
+
+  /**
+   * Click the control `candidate` was collected from. A page loaded again, or a part of it
+   * rendered again, has lost the tags: then the same control is found by its key, and when
+   * none matches nothing is clicked. A position among all buttons is no substitute, since
+   * a button more or less earlier in the page (a toast, a section that loaded late) would
+   * send the click to a neighbour and record its state under this one's label.
+   */
+  async function clickCandidate(page, candidate, scope, timeout) {
+    let target = page.locator(`[data-uip-candidate="${candidate.tag}"]`);
+    if ((await target.count()) !== 1) {
+      const same = (await candidatesOf(page, scope)).filter((k) => k.key === candidate.key);
+      const match = same.find((k) => k.occurrence === candidate.occurrence);
+      if (!match) return false;
+      target = page.locator(`[data-uip-candidate="${match.tag}"]`);
+    }
+    await target.click({ timeout, noWaitAfter: true });
+    return true;
+  }
 
   /** Press Escape until no overlay is left; say whether the page is back to its base state. */
   async function closeOverlays(page, baseText) {
@@ -440,7 +463,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     for (const candidate of queue) {
       if (states.length >= limits.maxPerPage || Date.now() > deadline) break;
       try {
-        await page.locator(CLICKABLE).nth(candidate.index).click({ timeout: 2_000, noWaitAfter: true });
+        if (!(await clickCandidate(page, candidate, null, 2_000))) continue;
       } catch {
         continue;
       }
@@ -461,7 +484,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
           for (const sub of inner) {
             if (states.length >= limits.maxPerPage || Date.now() > deadline) break;
             try {
-              await page.locator(CLICKABLE).nth(sub.index).click({ timeout: 1_500, noWaitAfter: true });
+              if (!(await clickCandidate(page, sub, OVERLAY, 1_500))) continue;
             } catch {
               continue;
             }
