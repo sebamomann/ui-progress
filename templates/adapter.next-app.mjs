@@ -11,6 +11,7 @@ export default {
 
   async seed(ctx) {
     // Create a throwaway database for ctx.short, migrate it, and seed every feature.
+    // Same data on every run, only ever added to (docs/ADAPTERS.md, "The same data in every snapshot").
   },
 
   async start(ctx) {

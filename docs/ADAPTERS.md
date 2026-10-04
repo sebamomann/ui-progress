@@ -76,6 +76,7 @@ and fill it.
   every era. See `examples/nextjs-prisma-postgres/adapter/enrich.mjs`.
 - Generate placeholder images for every record the app shows a picture of, themed to the
   subject, different per record. See `placeholders.mjs` in the same example.
+- Make the data **reproducible and additive**; see "The same data in every snapshot" below.
 - Create a second (and third) user where the app has anything social or shared.
 - Write the concrete URLs of dynamic routes to `ctx.out` for `resolve`.
 
@@ -187,6 +188,38 @@ Routes declared in one file have no "page file" per route, so `routeOfFile` is l
 here and lifetimes come from the snapshots. If pages live in `frontend/src/pages/<Name>.tsx`
 and map predictably to routes, implement it.
 
+### The same data in every snapshot
+
+A change between two snapshots should mean the UI changed. Every difference in the data
+shows up as a change too: a page shows another record, a list gets longer, a date moves. So
+the seed is not a source of variety but a fixture:
+
+- **Reproducible.** The same commit gets the same data on every run: no random values (no
+  `Math.random`, random tokens or unseeded fake-data generators), and no inserts that race
+  for ids (records created in parallel, e.g. `Promise.all` over inserts, get different ids
+  each run, so `/items/2` shows another record). Create records one after another, in a
+  fixed order. Where the project's own seed races, run it with a single database
+  connection, or fix it in the project. Derive anything that needs variety from a stable
+  key: a picture or colour chosen by a hash of the record's name, a token that is the hash
+  of a fixed string.
+- **Additive across commits.** When the seed grows (a new feature needs data), existing
+  records stay exactly as they were. Add new records after the existing ones, so their ids
+  stay; give a new column of existing records a value derived from the record, and change
+  nothing else about them; fill a new table with new rows. Never repurpose a record other
+  pages show (rewriting "the first item" to demonstrate a new state changes every page that
+  shows it): add a record of its own for the new case. Never reorder, rename or delete
+  existing seed entries.
+- **Independent of the capture date where possible.** Dates relative to now ("watered 3 days
+  ago") keep relative displays and due states stable. A record that exists only on some
+  days (a seasonal case seeded only in autumn) changes lists depending on when a snapshot
+  is captured: seed it always, with fixed values, and let the app decide what it shows.
+- **Stable URLs.** `resolve` picks the same record in every snapshot: by a stable key (a
+  name, a fixed date), not "the newest".
+
+The test: capture the same commit twice; the build should find nothing changed. Capture two
+neighbouring commits whose seed differs only by an addition; only the pages that show the
+new data should change.
+
 **No database, static or content site**: `install`, `start`, nothing else; use the `crawl` preset.
 
 ## Checklist before a long run
@@ -195,5 +228,6 @@ and map predictably to routes, implement it.
 - [ ] The real database was never contacted (`grep -i "database\|datasource" run.log`)
 - [ ] `snapshot.json` has an empty `skipped`, or every entry is explained
 - [ ] No table that a page displays is empty after `seed`
+- [ ] The seed is reproducible: two captures of one commit show no changed page
 - [ ] Pictures are placeholders that fit the subject, different per record
 - [ ] Signed-out and signed-in versions of the home page differ, if the app has a landing page

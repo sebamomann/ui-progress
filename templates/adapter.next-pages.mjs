@@ -8,6 +8,8 @@ export default {
   async install(ctx) {
     await ctx.exec("npm ci --no-audit --no-fund --prefer-offline");
   },
+  // Throwaway database, every feature seeded; same data on every run, only ever added to
+  // (docs/ADAPTERS.md, "The same data in every snapshot").
   async seed(ctx) {},
   async start(ctx) {
     return { command: `npx next dev -p ${ctx.port}`, env: { NEXT_TELEMETRY_DISABLED: "1" }, readyPath: "/" };

@@ -115,6 +115,15 @@ selectors before the long run. Add to it whenever a later session adds a filter 
   that tolerate schema drift (insert only the columns that exist). After seeding, list the
   tables that are still empty and deal with each one that a page shows. "The project has
   no seed for this" is never a reason to skip a feature: write the seed.
+- **Same data every time, and only added to.** The seed is a fixture, not a source of
+  variety: every difference in the data shows as a UI change. The same commit must get the
+  same data on every run: no random values or tokens, no inserts racing for ids in parallel
+  (create records one after another; run a racing project seed with one database
+  connection). When the seed grows for a new feature, existing records stay exactly as they
+  were: new records come after them, new columns get values derived from the record, new
+  tables get new rows. Never rewrite an existing record to show a new case; add one of its
+  own. Seed date-dependent cases always, with fixed values, not only on some days. See
+  "The same data in every snapshot" in docs/ADAPTERS.md.
 - **Placeholder images.** Where the app shows photos, generate themed placeholder pictures
   for every record: different pictures for different records, and fitting the subject
   (products for a shop, rooms for a booking site, dishes for a recipe app, faces for

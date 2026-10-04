@@ -26,6 +26,11 @@ export default {
    * no page should be captured in its empty state. Include placeholder images where the
    * app shows photos. Use the project's own seed where one exists at this commit, and add
    * whatever it leaves empty.
+   *
+   * The data must be the same on every run and only ever added to: no random values, no
+   * inserts racing for ids, and when the seed grows, existing records stay as they were
+   * (new records after them, a record of its own for each new case). A change in the data
+   * shows as a change in the UI. See "The same data in every snapshot" in docs/ADAPTERS.md.
    */
   async seed(ctx) {},
 
