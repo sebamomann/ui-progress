@@ -74,7 +74,7 @@ A snapshot captured between two others looks both ways: a page unchanged since t
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `concurrency` | `3` | Snapshots built at the same time. Each one runs your app's dev server and a browser, roughly 2.5–3.5 GB together. The number is capped to what fits in memory (about one per 3.5 GB after reserving 6 GB; two on a 16 GB machine) unless you pass `--ignore-memory` |
+| `concurrency` | `3` | Snapshots built at the same time. Each one runs your app and a browser. The number is capped to what fits in memory after reserving 6 GB: 3.5 GB apiece (two on a 16 GB machine). Every snapshot records its peak memory (`memoryMb` in runs.jsonl, shown by `ui-progress stats`); when the last ten stayed below that, with 15% margin, the cap budgets their peak instead, so light apps run more at once. The measurement adds up every process's resident memory and errs high, so it never lowers the cap. Pass `--ignore-memory` to lift it |
 | `basePort` | `4100` | First port; worker *n* uses `basePort + n` |
 | `readyPath` | `"/"` | Path polled to know the app is up (the adapter's `start` can override it) |
 | `readyTimeoutMs` | `180000` | How long to wait for it |

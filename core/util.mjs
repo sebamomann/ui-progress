@@ -51,6 +51,36 @@ export function background(command, { cwd, env, log }) {
   };
 }
 
+/**
+ * The peak memory of this process and everything it started (the app, the browser), sampled
+ * every few seconds from `ps`. Shared pages count once per process, so it errs high, which is
+ * the safe side for deciding how many snapshots fit at once. Null where `ps` is missing (Windows).
+ */
+export function watchMemory(everyMs = 3000) {
+  let peak = 0;
+  const sample = () => {
+    if (process.platform === "win32") return;
+    try {
+      const rows = execFileSync("ps", ["-A", "-o", "pid=,ppid=,rss="], { encoding: "utf8" }).trim().split("\n").map((l) => l.trim().split(/\s+/).map(Number));
+      const children = new Map();
+      for (const [pid, ppid] of rows) children.set(ppid, [...(children.get(ppid) ?? []), pid]);
+      const rss = new Map(rows.map(([pid, , kb]) => [pid, kb]));
+      let total = 0;
+      for (const queue = [process.pid]; queue.length; ) {
+        const pid = queue.pop();
+        total += rss.get(pid) ?? 0;
+        queue.push(...(children.get(pid) ?? []));
+      }
+      peak = Math.max(peak, total);
+    } catch {
+      // no ps here
+    }
+  };
+  sample();
+  const timer = setInterval(sample, everyMs).unref();
+  return { stop: () => { clearInterval(timer); sample(); return peak ? Math.round(peak / 1024) : null; } };
+}
+
 /** Whether nothing listens on `port`, on IPv4 or IPv6. */
 async function portFree(port) {
   for (const host of ["127.0.0.1", "::"]) {

@@ -15,7 +15,7 @@ import { assertIsolated, neutraliseCheckout, protectedDatabases, rewriteDatabase
 import { hasDep, requireDep } from "./deps.mjs";
 import { appendRun, machine, setupDifference, setupFingerprint, setupOf, shotCount } from "./stats.mjs";
 import * as routes from "./routes.mjs";
-import { background, freePort, git, readJson, sh, tail, waitForHttp, writeJson } from "./util.mjs";
+import { background, freePort, git, readJson, sh, tail, waitForHttp, watchMemory, writeJson } from "./util.mjs";
 
 /** A private clone owns the worktrees, so the project's own git metadata is never touched. */
 export function ensureClone(p, { refresh = true } = {}) {
@@ -164,6 +164,8 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
   };
 
   const timings = {};
+  // Peak memory of the attempt (app, browser and this process): how many fit at once.
+  const memory = watchMemory();
   const recapture = {};
   const startedAt = new Date().toISOString();
   const setup = setupFingerprint(p, config);
@@ -174,7 +176,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
         kind: "snapshot", started: startedAt, sha: short, date, subject,
         seconds: Object.values(timings).reduce((a, b) => a + b, 0), timings,
         concurrency: Number(process.env.UI_PROGRESS_CONCURRENCY) || 1, tabs: config.capture.parallel,
-        setup, machine: machine(), ...fields,
+        setup, machine: machine(), memoryMb: memory.stop(), ...fields,
       });
     } catch (err) {
       log(`could not write runs.jsonl: ${err.message}`);

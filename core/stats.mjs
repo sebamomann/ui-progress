@@ -234,7 +234,7 @@ const median = (xs) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 const SETUP_PARTS = ["adapter", "config", "screens"];
-const FINAL_FIELDS = ["seconds", "timings", "pages", "captured", "reused", "states", "shots", "skipped", "skippedWhy", "suspects", "recapture", "concurrency"];
+const FINAL_FIELDS = ["seconds", "timings", "pages", "captured", "reused", "states", "shots", "skipped", "skippedWhy", "suspects", "recapture", "concurrency", "memoryMb"];
 
 /** 45s, 6m 11s, 1h 03m. */
 export function duration(seconds) {
@@ -358,6 +358,8 @@ function conclusions({ totals: t, agent, phases, rates, failedByPhase, fullRecap
   }
   if (phases.length && phases[0].share > 0) out.push(`${cap(phases[0].phase)} is ${Math.round(phases[0].share * 100)}% of a snapshot's time${phases.slice(1, 3).filter((x) => x.share >= 0.05).map((x, i, a) => `${i === 0 ? "; " : ", "}${x.phase} ${Math.round(x.share * 100)}%`).join("")}.`);
   if (rates.secondsPerPage != null) out.push(`Rendering one page with its states takes about ${rates.secondsPerPage.toFixed(1)}s; getting a commit running (checkout, install, seed, start) about ${duration(rates.overheadSeconds)}.`);
+  const memory = commits.map((c) => c.final?.memoryMb).filter(Boolean);
+  if (memory.length) out.push(`A snapshot peaks at about ${(median(memory) / 1024).toFixed(1)} GB of memory (app, browser and ui-progress; ${(Math.max(...memory) / 1024).toFixed(1)} GB at most; summed per process, so it errs high).`);
   if (t.reused) out.push(`Copying unchanged pages forward saved ${count(t.reused, "page")} from being rendered again${rates.savedSeconds ? `, about ${duration(rates.savedSeconds)} of capture` : ""}.`);
   const global = fullRecaptures.filter((r) => r.reason === "global file changed");
   if (global.length) {

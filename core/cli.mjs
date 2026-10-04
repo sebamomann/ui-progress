@@ -16,7 +16,7 @@ import { MODES, buildPlan } from "./plan.mjs";
 import { STORE, dedupe, gc, migrateStore, relinkAfter } from "./reuse.mjs";
 import { acquireLock } from "./lock.mjs";
 import { FALLBACK_PHASES, depsReady, ensureClone, fixUpCandidates, isDone, runSnapshot, snapshotDir, snapshotId } from "./snapshot.mjs";
-import { AGENT_TASKS, appendRun, duration, estimate, noteAgent, parseDuration, renderStats, summarize } from "./stats.mjs";
+import { AGENT_TASKS, appendRun, duration, estimate, noteAgent, parseDuration, readRuns, renderStats, summarize } from "./stats.mjs";
 import { clearUnbuildable, markUnbuildable, readUnbuildable, unbuildableEntry } from "./unbuildable.mjs";
 import { applyCombine, combinedEntry, coveringGroup, planCombine, uncombine } from "./combine.mjs";
 import { VERSION, git, parseArgs, readJson, sh, table, writeJson } from "./util.mjs";
@@ -181,18 +181,25 @@ function init(flags) {
 }
 
 /**
- * How many snapshots run at once. Each runs the app's dev server and a browser: budget about
- * 3.5 GB apiece and leave 6 GB for everything else on the machine. Asking for more than fits
- * is how a long run gets killed for memory halfway through.
+ * How many snapshots run at once. Each runs the app and a browser: budget 3.5 GB apiece and
+ * leave 6 GB for everything else on the machine. Asking for more than fits is how a long run
+ * gets killed for memory halfway through. When the last snapshots of this project measured
+ * less at their peak (the largest of the last ten, with a margin), more run at once. The
+ * measurement adds up every process's resident memory, which counts what Chromium's processes
+ * share several times, so it only ever raises the cap.
  */
-function concurrencyFor(wanted, ignoreMemory = false) {
-  const fits = Math.max(1, Math.floor((os.totalmem() / 2 ** 30 - 6) / 3.5));
+function memoryPerSnapshotGb(p) {
+  const measured = readRuns(p).filter((r) => r.kind === "snapshot" && r.memoryMb).slice(-10).map((r) => r.memoryMb);
+  return Math.min(3.5, measured.length ? Math.max(1, (Math.max(...measured) * 1.15) / 1024) : 3.5);
+}
+function concurrencyFor(p, wanted, ignoreMemory = false) {
+  const fits = Math.max(1, Math.floor((os.totalmem() / 2 ** 30 - 6) / memoryPerSnapshotGb(p)));
   return ignoreMemory ? wanted : Math.min(wanted, fits);
 }
 
 /** "About 25m for 12 snapshots, ..." from the measured runs, or null without any. */
 function estimateLine(p, config, todo) {
-  const concurrency = concurrencyFor(Math.max(1, Number(config.run.concurrency) || 1));
+  const concurrency = concurrencyFor(p, Math.max(1, Number(config.run.concurrency) || 1));
   const e = estimate(summarize(p), todo, concurrency);
   if (!e) return null;
   return `Estimate: about ${duration(e.seconds)} for ${todo} snapshot(s), ${concurrency} at a time, ${duration(e.perSnapshot)} each (median of the last ${e.basedOn} measured in runs.jsonl). Setup fixes and failures come on top.`;
@@ -277,8 +284,8 @@ async function snapshot(flags, positional) {
   ensureClone(p); // once, here: the parallel workers must not race to create or fetch it
   migrated(p);
   const wanted = Math.max(1, Number(flags.concurrency ?? config.run.concurrency));
-  const concurrency = concurrencyFor(wanted, flags["ignore-memory"]);
-  if (concurrency < wanted) console.log(`This machine has ${Math.round(os.totalmem() / 2 ** 30)} GB of memory: running ${concurrency} at a time instead of ${wanted} (override with --ignore-memory).`);
+  const concurrency = concurrencyFor(p, wanted, flags["ignore-memory"]);
+  if (concurrency < wanted) console.log(`This machine has ${Math.round(os.totalmem() / 2 ** 30)} GB of memory (${memoryPerSnapshotGb(p).toFixed(1)} GB budgeted per snapshot): running ${concurrency} at a time instead of ${wanted} (override with --ignore-memory).`);
   const queue = [...shas];
   const started = Date.now();
   let done = 0;
