@@ -141,7 +141,6 @@ body.no-side .side { display: none; }
 .content { flex: 1; min-height: 0; overflow: auto; }
 .pad { padding: 16px; }
 .empty { padding: 48px 16px; color: var(--muted); text-align: center; }
-.h2 { font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
 .pill { display: inline-flex; align-items: center; height: 18px; font-size: 10.5px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; padding: 0 6px; border-radius: 999px; white-space: nowrap; line-height: 1; }
 .pill.new { background: var(--new-soft); color: var(--new); }
 .pill.major { background: var(--major-soft); color: var(--major); }
@@ -484,22 +483,38 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
 .summary ul { margin: 6px 0 0; padding-left: 16px; line-height: 1.7; }
 
 /* ---------- Runs ---------- */
-.runs { display: flex; flex-direction: column; gap: 20px; }
-.runs .tiles { max-width: 1240px; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
-.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
-.tile .v { font-size: 20px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-.tile .k { color: var(--muted); font-size: 12px; }
-.tile .d { color: var(--faint); font-size: 11.5px; margin-top: 2px; }
+.runspad { max-width: 1240px; margin: 0 auto; padding: 24px 24px 48px; }
+.runs { display: flex; flex-direction: column; gap: 28px; }
+.runshead h2 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+.runshead p { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
+.issues { display: flex; flex-direction: column; gap: 10px; margin-top: -8px; }
+.issue { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.issue.bad { border-color: color-mix(in srgb, var(--gone) 40%, var(--line)); background: color-mix(in srgb, var(--gone-soft) 45%, var(--surface)); }
+.issue.warn { border-color: color-mix(in srgb, var(--major) 35%, var(--line)); background: color-mix(in srgb, var(--major-soft) 40%, var(--surface)); }
+.issue .ico { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.issue.bad .ico { background: var(--gone); color: var(--surface); }
+.issue.warn .ico { background: var(--major); color: var(--surface); }
+.issue b { font-weight: 600; }
+.issue p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 24px; padding: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.kpis div { display: flex; flex-direction: column; }
+.kpis b { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kpis span { color: var(--faint); font-size: 12.5px; }
+.runs h3 { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
+.runs h3 .faint { font-weight: 400; font-size: 13px; margin-left: 6px; }
+.sechead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.rsubj { max-width: 48ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rsubj a { color: var(--text); }
+.rbad { color: var(--gone); }
+.rwarn { color: var(--major); }
 .findings { margin: 0; padding-left: 18px; line-height: 1.6; max-width: 90ch; }
 .findings li + li { margin-top: 4px; }
 .scrollx { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
 .rtable { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
-.rtable th { text-align: left; font-weight: 600; color: var(--muted); font-size: 11.5px; padding: 8px 10px; border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
-.rtable td { padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
+.rtable th { text-align: left; font-weight: 500; color: var(--faint); font-size: 12px; padding: 10px 12px; border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
+.rtable td { padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
 .rtable tr:last-child td { border-bottom: 0; }
 .rtable td.num, .rtable th.num { text-align: right; }
-.rtable .subj { color: var(--muted); max-width: 26ch; overflow: hidden; text-overflow: ellipsis; display: block; }
 .tries { display: flex; gap: 2px; align-items: center; min-width: 180px; }
 .try { height: 12px; border-radius: 0 4px 4px 0; background: var(--accent); min-width: 3px; }
 .try.fail { background: var(--gone-soft); box-shadow: inset 0 0 0 1px var(--gone); }
@@ -1478,52 +1493,70 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
     const runs = S?.commits ?? [];
     header("Runs", runs.length ? `${plural(S.totals.attempts, "attempt")} on ${plural(runs.length, "commit")} · from <span class="mono">runs.jsonl</span>` : "", [],
       "<p>How the snapshots were made. Every <code>ui-progress snapshot</code> attempt is recorded in <code>.ui-progress/runs.jsonl</code>: how long each phase took, what was captured, why pages were recaptured instead of copied forward, and whether the adapter, config or screens changed since the attempt before (a setup fix). Tokens, tool calls and agent time are what the agent reported with <code>ui-progress stats note</code>; ui-progress cannot check them. The same data is in <code>ui-progress stats</code>.</p>");
-    const pad = el('<div class="pad"></div>');
-    if (!runs.length) { pad.append(el('<div class="empty">No runs recorded yet. Every <code>ui-progress snapshot</code> adds a line to <code>.ui-progress/runs.jsonl</code>; rebuild the viewer afterwards.</div>')); content.replaceChildren(pad); return; }
+    if (!runs.length) { content.replaceChildren(el('<div class="empty">No runs recorded yet. Every <code>ui-progress snapshot</code> adds a line to <code>.ui-progress/runs.jsonl</code>; rebuild the viewer afterwards.</div>')); return; }
     const t = S.totals;
     const box = el('<div class="runs"></div>');
-    const tile = (v, k, d = "") => `<div class="tile"><div class="v">${v}</div><div class="k">${esc(k)}</div>${d ? `<div class="d">${d}</div>` : ""}</div>`;
-    box.append(el(`<div class="tiles">
-      ${tile(`${t.captured}<span class="muted" style="font-size:14px;font-weight:500"> / ${t.commits}</span>`, "commits captured", t.failed ? `${t.failed} without a snapshot` : t.standIns ? `${plural(t.standIns, "stand-in")}` : "")}
-      ${tile(dur(t.finalSeconds), "capture time", "final runs")}
-      ${tile(dur(t.attemptSeconds), "all attempts", `${plural(t.attempts, "attempt")}${t.failedAttempts ? `, ${t.failedAttempts} failed` : ""}`)}
-      ${tile(num(t.pagesCaptured), "pages shot", t.reused ? `${num(t.reused)} copied forward` : "")}
-      ${tile(num(t.shots), "screenshots", `${num(t.states)} states`)}
-      ${tile(String(t.fixes), t.fixes === 1 ? "setup fix" : "setup fixes", `${t.firstTry} of ${t.commits - (t.imported ?? 0)} clean first try${t.imported ? ` · ${t.imported} imported` : ""}`)}
-      ${tile(String(t.suspects), "suspect pages", t.skipped ? `${t.skipped} skipped` : "")}
-      ${S.agent ? tile(S.agent.tokens != null ? num(S.agent.tokens) : dur(S.agent.seconds), S.agent.tokens != null ? "agent tokens" : "agent time", `reported by the agent${S.agent.toolCalls != null ? ` · ${num(S.agent.toolCalls)} tool calls` : ""}`) : ""}
-    </div>`));
-    if (S.conclusions?.length) box.append(el(`<section><div class="h2">What the numbers say</div><ul class="findings">${S.conclusions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></section>`));
+
+    // First what needs a look, then the numbers.
+    const failed = runs.filter((c) => !c.ok);
+    const suspect = runs.filter((c) => c.ok && c.final?.suspects);
+    const full = (S.fullRecaptures ?? []).filter((r) => r.reason !== "no earlier snapshot");
+    const issues = failed.length + (suspect.length ? 1 : 0) + (full.length ? 1 : 0);
+    box.append(el(`<div class="runshead"><h2>${t.captured} of ${plural(t.commits, "commit")} captured${issues ? `, ${issues === 1 ? "1 thing needs" : `${issues} things need`} a look` : ""}</h2>
+      <p>${dur(t.finalSeconds)} of capture time over ${plural(t.attempts, "attempt")}${t.failedAttempts ? `, ${t.failedAttempts} failed` : ""}. ${t.firstTry} of ${t.commits - (t.imported ?? 0)} worked on the first try${t.imported ? ` (${t.imported} imported from before run records existed)` : ""}.</p></div>`));
+    const issueBox = el('<section class="issues" aria-label="Needs a look"></section>');
+    for (const c of failed) {
+      const lastTry = c.attempts[c.attempts.length - 1];
+      issueBox.append(el(`<div class="issue bad"><span class="ico">!</span><div><b>No snapshot for <span class="mono">${esc(c.sha)}</span> · ${esc(c.subject)}</b><p>Failed ${plural(c.attempts.length, "time")} in ${esc(lastTry.phase ?? "?")}${lastTry.error ? `: ${esc(lastTry.error)}` : ""}.${c.standsInFor?.length ? "" : ""}</p></div></div>`));
+    }
+    if (suspect.length) {
+      const n = suspect.reduce((k, c) => k + c.final.suspects, 0);
+      issueBox.append(el(`<div class="issue warn"><span class="ico">?</span><div><b>${plural(n, "suspect page")} in ${plural(suspect.length, "snapshot")}</b><p>Captured, but they look like an error page, a login wall or a blank screen. Most in ${suspect.sort((a, b) => b.final.suspects - a.final.suspects).slice(0, 3).map((c) => `<a href="#/snapshot/${esc(c.sha)}">${esc(c.date)}</a> (${c.final.suspects})`).join(", ")}.</p></div></div>`));
+    }
+    if (full.length) issueBox.append(el(`<div class="issue warn"><span class="ico">↻</span><div><b>Everything recaptured ${plural(full.length, "time")}</b><p>${full.slice(0, 4).map((r) => `<span class="mono">${esc(r.sha)}</span> ${esc(r.reason)}${r.file ? ` <span class="mono faint">${esc(r.file)}</span>` : ""}`).join("<br>")}</p></div></div>`));
+    if (issueBox.children.length) box.append(issueBox);
+
+    const kpi = (v, k) => `<div><b>${v}</b><span>${k}</span></div>`;
+    box.append(el(`<section class="kpis">
+      ${kpi(dur(t.finalSeconds), "capture time")}
+      ${kpi(num(t.pagesCaptured), t.reused ? `pages shot · ${num(t.reused)} copied forward` : "pages shot")}
+      ${kpi(num(t.shots), `screenshots · ${num(t.states)} states`)}
+      ${kpi(String(t.fixes), t.fixes === 1 ? "setup fix" : "setup fixes")}
+      ${S.agent ? kpi(S.agent.tokens != null ? num(S.agent.tokens) : dur(S.agent.seconds), S.agent.tokens != null ? "agent tokens · reported" : "agent time · reported") : ""}
+    </section>`));
+    if (S.conclusions?.length) box.append(el(`<section><h3>What the numbers say</h3><ul class="findings">${S.conclusions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></section>`));
 
     // One row per commit; each attempt is a bar as long as it took, failed ones outlined.
-    const withAgent = runs.some((c) => c.agent);
+    const all = state.runsAll;
+    const withAgent = all && runs.some((c) => c.agent);
     const agentCell = (a) => (a ? [a.tokens != null && `${Math.round(a.tokens / 1000)}k tok`, a.seconds != null && dur(a.seconds)].filter(Boolean).join(" · ") : "");
     const longest = Math.max(1, ...runs.flatMap((c) => c.attempts.map((a) => a.seconds ?? 0)));
     const tip = document.getElementById("tip");
-    const rows = runs.map((c, ci) => {
+    const rows = [...runs].reverse().map((c) => {
+      const ci = runs.indexOf(c);
       const f = c.final;
       const known = snapIndex[c.sha] != null;
       const bars = c.attempts.map((a, ai) => `<span class="try ${a.ok ? "" : "fail"}" data-c="${ci}" data-a="${ai}" style="width:${Math.max(3, Math.round(((a.seconds ?? 0) / longest) * 120))}px"></span>`).join("");
       const last = c.attempts[c.attempts.length - 1];
-      const result = c.ok ? (c.firstTry ? "ok, first try" : c.imported ? '<span title="Read back from the snapshot folder: made before run records existed">ok · imported</span>' : "ok") + (c.standsInFor.length ? ` · for ${esc(c.standsInFor.join(", "))}` : "") : `<span class="x">✗</span> failed in ${esc(last.phase ?? "?")}`;
+      const result = c.ok
+        ? f?.suspects ? `<span class="rwarn">${plural(f.suspects, "suspect")}</span>` : c.firstTry ? "OK" : c.imported ? '<span class="faint" title="Read back from the snapshot folder: made before run records existed">imported</span>' : "OK after a fix"
+        : `<span class="rbad">Failed in ${esc(last.phase ?? "?")}</span>`;
       return `<tr>
-        <td>${esc(c.date)}</td>
-        <td>${known ? `<a class="mono" href="#/snapshot/${esc(c.sha)}">${esc(c.sha)}</a>` : `<span class="mono">${esc(c.sha)}</span>`}<span class="subj" title="${esc(c.subject)}">${esc(c.subject)}</span></td>
-        <td><div class="tries">${bars}<span class="s">${dur(last.seconds)}${c.attempts.length > 1 ? ` · ${plural(c.attempts.length, "try", "tries")}` : ""}</span></div></td>
+        <td><div class="rsubj" title="${esc(c.subject)}">${known ? `<a href="#/snapshot/${esc(c.sha)}">${esc(c.subject)}</a>` : esc(c.subject)}</div><div class="faint small">${esc(c.date)} · <span class="mono">${esc(c.sha)}</span>${c.standsInFor.length ? ` · stands in for ${esc(c.standsInFor.join(", "))}` : ""}</div></td>
+        <td><div class="tries">${bars}</div></td>
+        <td class="num">${dur(last.seconds)}</td>
         <td class="num">${f ? `${f.captured}/${f.pages}` : ""}</td>
-        <td class="num">${f?.reused ? f.reused : ""}</td>
+        ${all ? `<td class="num">${f?.reused || ""}</td>` : ""}
         <td class="num">${f ? num(f.shots) : ""}</td>
-        <td class="num">${f ? num(f.states) : ""}</td>
-        <td class="num">${f?.skipped || ""}</td>
-        <td class="num">${f?.suspects || ""}</td>
-        <td class="num">${c.fixes || ""}</td>
+        ${all ? `<td class="num">${f ? num(f.states) : ""}</td><td class="num">${f?.skipped || ""}</td><td class="num">${f?.suspects || ""}</td><td class="num">${c.fixes || ""}</td>` : ""}
         ${withAgent ? `<td class="num" title="Reported by the agent">${agentCell(c.agent)}</td>` : ""}
         <td>${result}</td>
       </tr>`;
     }).join("");
-    const tableBox = el(`<section><div class="h2">Per commit</div><div class="scrollx"><table class="rtable">
-      <thead><tr><th>Date</th><th>Commit</th><th>Attempts</th><th class="num">Pages</th><th class="num">Copied</th><th class="num">Shots</th><th class="num">States</th><th class="num">Skipped</th><th class="num">Suspects</th><th class="num">Fixes</th>${withAgent ? '<th class="num" title="Reported by the agent">Agent</th>' : ""}<th>Result</th></tr></thead>
+    const tableBox = el(`<section><div class="sechead"><h3>Per commit <span class="faint">newest first</span></h3><button class="linkbtn">${all ? "Fewer columns" : "All columns"}</button></div><div class="scrollx"><table class="rtable">
+      <thead><tr><th>Commit</th><th>Attempts</th><th class="num">Time</th><th class="num">Pages</th>${all ? '<th class="num">Copied</th>' : ""}<th class="num">Shots</th>${all ? '<th class="num">States</th><th class="num">Skipped</th><th class="num">Suspects</th><th class="num">Fixes</th>' : ""}${withAgent ? '<th class="num" title="Reported by the agent">Agent</th>' : ""}<th>Result</th></tr></thead>
       <tbody>${rows}</tbody></table></div></section>`);
+    tableBox.querySelector(".linkbtn").addEventListener("click", () => { state.runsAll = !state.runsAll; render(); });
     tableBox.querySelectorAll(".try").forEach((bar) => {
       const c = runs[bar.dataset.c], a = c.attempts[bar.dataset.a];
       const f = a.ok && Number(bar.dataset.a) === c.attempts.length - 1 ? c.final : null;
@@ -1537,20 +1570,15 @@ body:not(.comparing) .vrow .vdate::after { content: none; }
 
     if (S.phases?.length) {
       const top = S.phases[0].seconds || 1;
-      box.append(el(`<section><div class="h2">Where the time goes · final runs</div><div class="phases">${S.phases.map((x) => `<span>${esc(x.phase)}</span><span class="bar"><i style="width:${(x.seconds / top) * 100}%"></i></span><span class="n">${dur(x.seconds)} · ${Math.round(x.share * 100)}%</span>`).join("")}</div></section>`));
+      box.append(el(`<section><h3>Where the time goes <span class="faint">final runs</span></h3><div class="phases">${S.phases.map((x) => `<span>${esc(x.phase)}</span><span class="bar"><i style="width:${(x.seconds / top) * 100}%"></i></span><span class="n">${dur(x.seconds)} · ${Math.round(x.share * 100)}%</span>`).join("")}</div></section>`));
     }
     if (S.agent?.tasks?.length) {
-      box.append(el(`<section><div class="h2">Other agent tasks · reported by the agent</div><div class="scrollx"><table class="rtable"><thead><tr><th>When</th><th>Task</th><th class="num">Tokens</th><th class="num">Tool calls</th><th class="num">Time</th><th>Model</th><th>Note</th></tr></thead><tbody>${S.agent.tasks.map((a) => `<tr><td>${esc(String(a.at ?? "").replace("T", " ").slice(0, 16))}</td><td>${esc(a.task)}${a.shas.length ? ` <span class="mono muted">${esc(a.shas.join(", "))}</span>` : ""}</td><td class="num">${a.tokens != null ? num(a.tokens) : ""}</td><td class="num">${a.toolCalls ?? ""}</td><td class="num">${a.seconds != null ? dur(a.seconds) : ""}</td><td>${esc(a.model ?? "")}</td><td class="muted">${esc(a.note ?? "")}</td></tr>`).join("")}</tbody></table></div></section>`));
+      box.append(el(`<section><h3>Other agent tasks <span class="faint">reported by the agent</span></h3><div class="scrollx"><table class="rtable"><thead><tr><th>When</th><th>Task</th><th class="num">Tokens</th><th class="num">Tool calls</th><th class="num">Time</th><th>Model</th><th>Note</th></tr></thead><tbody>${S.agent.tasks.map((a) => `<tr><td>${esc(String(a.at ?? "").replace("T", " ").slice(0, 16))}</td><td>${esc(a.task)}${a.shas.length ? ` <span class="mono faint">${esc(a.shas.join(", "))}</span>` : ""}</td><td class="num">${a.tokens != null ? num(a.tokens) : ""}</td><td class="num">${a.toolCalls ?? ""}</td><td class="num">${a.seconds != null ? dur(a.seconds) : ""}</td><td>${esc(a.model ?? "")}</td><td class="faint">${esc(a.note ?? "")}</td></tr>`).join("")}</tbody></table></div></section>`));
     }
     const fails = Object.entries(S.failedByPhase ?? {});
-    const full = (S.fullRecaptures ?? []).filter((r) => r.reason !== "no earlier snapshot");
-    if (fails.length || full.length) {
-      const parts = [];
-      if (fails.length) parts.push(`<div><span class="pill gone">Failed attempts · ${t.failedAttempts}</span><ul>${fails.sort((a, b) => b[1] - a[1]).map(([ph, n]) => `<li>${n} in ${esc(ph)}</li>`).join("")}</ul></div>`);
-      if (full.length) parts.push(`<div><span class="pill major">Recaptured everything · ${full.length}</span><ul>${full.map((r) => `<li><span class="mono">${esc(r.sha)}</span> ${esc(r.reason)}${r.file ? ` <span class="mono muted">${esc(r.file)}</span>` : ""}</li>`).join("")}</ul></div>`);
-      box.append(el(`<section><div class="h2">Failures and full recaptures</div><div class="summary">${parts.join("")}</div></section>`));
-    }
-    if (S.machines?.length) box.append(el(`<p class="muted" style="margin:0;font-size:12px">Measured on ${S.machines.map(esc).join("; ")}. Times from different machines or concurrency are not directly comparable.</p>`));
+    if (fails.length) box.append(el(`<section><h3>Failed attempts by phase</h3><ul class="findings">${fails.sort((a, b) => b[1] - a[1]).map(([ph, n]) => `<li>${n} in ${esc(ph)}</li>`).join("")}</ul></section>`));
+    if (S.machines?.length) box.append(el(`<p class="faint small" style="margin:0">Measured on ${S.machines.map(esc).join("; ")}. Times from different machines or concurrency are not directly comparable.</p>`));
+    const pad = el('<div class="pad runspad"></div>');
     pad.append(box);
     content.replaceChildren(pad);
   }
