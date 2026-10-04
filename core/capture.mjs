@@ -191,12 +191,75 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   }
 
   /**
+   * How the page is built, not what it says: every visible element by its tag, role and the
+   * computed styles that make up a design (type, colour, box, layout), with text, sizes,
+   * class names and image sources left out. Siblings of the same shape count once, so a
+   * list with one more entry, an edited paragraph or another record in the same template
+   * gives the same fingerprint; a new kind of element or a restyled one does not.
+   * `tree` hashes the structure, `styles` lists the distinct element looks (described in
+   * `styleNames`, written to the manifest), so the build can say what was added or removed.
+   */
+  const styleNames = {};
+  async function fingerprintOf(page) {
+    const found = await page
+      .evaluate(() => {
+        const PROPS = ["display", "position", "flex-direction", "flex-wrap", "justify-content", "align-items", "grid-template-columns", "gap", "font-family", "font-size", "font-weight", "font-style", "line-height", "letter-spacing", "text-transform", "text-align", "text-decoration-line", "color", "background-color", "background-image", "border-top-width", "border-right-width", "border-bottom-width", "border-left-width", "border-top-style", "border-top-color", "border-radius", "box-shadow", "padding-top", "padding-right", "padding-bottom", "padding-left", "margin-top", "margin-bottom", "opacity", "max-width", "overflow", "list-style-type", "object-fit", "filter", "backdrop-filter"];
+        const SKIP = new Set(["SCRIPT", "STYLE", "LINK", "META", "TEMPLATE", "NOSCRIPT", "HEAD"]);
+        const LEAF = new Set(["SVG", "IMG", "PICTURE", "VIDEO", "CANVAS", "IFRAME", "svg"]);
+        const hash = (text) => { let h = 0x811c9dc5; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
+        const styles = new Map();
+        let budget = 8000;
+        /** Collapse repeats: runs of one shape, then repeated blocks of two to four shapes. */
+        const fold = (list) => {
+          let out = list.filter((s, i) => s !== list[i - 1]);
+          for (let k = 2; k <= 4; k++) {
+            const res = [];
+            for (let i = 0; i < out.length;) {
+              const key = out.slice(i, i + k).join("|");
+              let j = i + k;
+              while (j + k <= out.length && out.slice(j, j + k).join("|") === key) j += k;
+              if (j > i + k) { res.push(...out.slice(i, i + k)); i = j; } else res.push(out[i++]);
+            }
+            out = res;
+          }
+          return out;
+        };
+        const walk = (el) => {
+          if (SKIP.has(el.tagName) || --budget < 0) return null;
+          const cs = getComputedStyle(el);
+          if (cs.display === "none" || cs.visibility === "hidden") return null;
+          const rect = el.getBoundingClientRect();
+          const children = LEAF.has(el.tagName) ? [] : fold([...el.children].map(walk).filter(Boolean));
+          if ((rect.width === 0 || rect.height === 0) && !children.length) return null;
+          const tag = el.tagName.toLowerCase();
+          const role = el.getAttribute("role") ?? (tag === "input" ? el.type : "");
+          const look = PROPS.map((prop) => cs.getPropertyValue(prop).replace(/url\([^)]*\)/g, "url()")).join(";");
+          const key = hash(`${tag}|${role}|${look}`);
+          if (!styles.has(key)) {
+            const family = cs.fontFamily.split(",")[0].replace(/["']/g, "").trim();
+            const bg = cs.backgroundColor === "rgba(0, 0, 0, 0)" ? "" : ` on ${cs.backgroundColor}`;
+            const radius = cs.borderRadius !== "0px" ? ` · radius ${cs.borderRadius}` : "";
+            const shadow = cs.boxShadow !== "none" ? " · shadow" : "";
+            styles.set(key, `${tag}${role ? `[${role}]` : ""} · ${cs.fontSize}/${cs.fontWeight} ${family} · ${cs.color}${bg}${radius}${shadow} · ${cs.display}`);
+          }
+          return hash(`${key}(${children.join(",")})`);
+        };
+        const tree = walk(document.body) ?? "";
+        return { tree, styles: [...styles] };
+      })
+      .catch(() => null);
+    if (!found) return null;
+    for (const [key, name] of found.styles) styleNames[key] ??= name;
+    return { tree: found.tree, styles: found.styles.map(([key]) => key).sort() };
+  }
+
+  /**
    * Whole-page shot at every viewport. `pages` maps colour scheme to a page already showing
    * the right content. The viewport is grown to the document height first, so fixed bars
    * and floating buttons sit at the real bottom instead of mid-page.
    */
   async function shootPage(pages, name) {
-    const files = {};
+    const files = {}, design = {};
     for (const viewportName of viewportNames) {
       const viewport = viewports[viewportName];
       const page = pages[schemeOf(viewportName)];
@@ -211,14 +274,16 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       const file = `${name}.${viewportName}.png`;
       await page.screenshot({ ...shotOptions, path: path.join(outDir, file), fullPage: true });
       files[viewportName] = file;
+      const fingerprint = await fingerprintOf(page);
+      if (fingerprint) design[viewportName] = fingerprint;
     }
     for (const page of Object.values(pages)) await page.setViewportSize({ width: viewports[primaryName].width, height: viewports[primaryName].height });
-    return files;
+    return { files, design };
   }
 
   /** Viewport-sized shot at every viewport of the primary scheme: for overlays, which are positioned to the screen. */
   async function shootOverlay(page, name) {
-    const files = {};
+    const files = {}, design = {};
     for (const viewportName of viewportNames) {
       if (schemeOf(viewportName) !== primaryScheme) continue;
       const viewport = viewports[viewportName];
@@ -227,9 +292,11 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       const file = `${name}.${viewportName}.png`;
       await page.screenshot({ ...shotOptions, path: path.join(outDir, file) });
       files[viewportName] = file;
+      const fingerprint = await fingerprintOf(page);
+      if (fingerprint) design[viewportName] = fingerprint;
     }
     await page.setViewportSize({ width: viewports[primaryName].width, height: viewports[primaryName].height });
-    return files;
+    return { files, design };
   }
 
   async function collectLinks(page) {
@@ -364,8 +431,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       .slice(0, limits.maxClicks);
 
     const record = async (candidate, kind, name, extra = {}) => {
-      const files = kind === "section" ? await shootPage({ [primaryScheme]: page }, name) : await shootOverlay(page, name);
-      states.push({ label: candidate.label, key: candidate.key, kind, chrome: candidate.chrome, files, ...extra });
+      const shot = kind === "section" ? await shootPage({ [primaryScheme]: page }, name) : await shootOverlay(page, name);
+      states.push({ label: candidate.label, key: candidate.key, kind, chrome: candidate.chrome, ...shot, ...extra });
       seenGlobal.add(candidate.scopeKey);
     };
 
@@ -440,8 +507,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         }
         const kind = screen.kind ?? "section";
         const name = `${slug(route)}.${auth}.x${states.length + 1}`;
-        const files = kind === "section" ? await shootPage({ [primaryScheme]: page }, name) : await shootOverlay(page, name);
-        states.push({ label: screen.label, key: `screen:${screen.id ?? screen.label}`, kind, chrome: false, files, screen: true });
+        const shot = kind === "section" ? await shootPage({ [primaryScheme]: page }, name) : await shootOverlay(page, name);
+        states.push({ label: screen.label, key: `screen:${screen.id ?? screen.label}`, kind, chrome: false, ...shot, screen: true });
       } catch (err) {
         log(`screen "${screen.label}" on ${route} failed: ${String(err.message).split("\n")[0]}`);
       }
@@ -571,7 +638,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         Object.assign(entry, res);
         publicText = await textOf(worker.anon[primaryScheme]);
         for (const scheme of schemes) if (scheme !== primaryScheme) await visit(worker.anon[scheme], url);
-        entry.variants.public = { files: await shootPage(worker.anon, `${slug(route)}.public`) };
+        entry.variants.public = await shootPage(worker.anon, `${slug(route)}.public`);
         const suspects = suspectsOf(issues, route, res);
         if (suspects.length) entry.variants.public.suspects = suspects;
         (await collectLinks(worker.anon[primaryScheme])).forEach((l) => links.add(l));
@@ -591,7 +658,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
         if (!(publicText && textChange(publicText, text) === 0)) {
           if (!entry.variants.public) Object.assign(entry, res);
           for (const scheme of schemes) if (scheme !== primaryScheme) await visit(worker.user[scheme], url);
-          entry.variants.user = { files: await shootPage(worker.user, `${slug(route)}.user`) };
+          entry.variants.user = await shootPage(worker.user, `${slug(route)}.user`);
           const suspects = suspectsOf(issues, route, res);
           if (suspects.length) entry.variants.user.suspects = suspects;
           (await collectLinks(page)).forEach((l) => links.add(l));
@@ -686,6 +753,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
     suspects: list.flatMap((r) => Object.entries(r.variants).filter(([, v]) => v.suspects?.length).map(([variant, v]) => ({ route: r.route, variant, issues: v.suspects }))),
     skipped: list.filter((r) => r.skipped).map((r) => ({ route: r.route, why: r.skipped, finalPath: r.finalPath, failure: r.failure })),
     routes: list,
+    // What each style key in a shot's `design` looks like (see fingerprintOf).
+    styles: styleNames,
   };
   fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2));
   log(`captured ${manifest.captured}/${manifest.routesTotal} pages (${reused.length} copied forward), ${states} states in ${manifest.seconds}s`);
