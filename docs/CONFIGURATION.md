@@ -43,7 +43,10 @@
 | `locale` | `"en-US"` | Browser locale |
 | `colorScheme` | `"light"` | `light` or `dark`: what the browser reports as the preferred scheme |
 | `maxPageHeight` | `9000` | Tallest full-page screenshot, in pixels |
-| `settleRounds` | `20` | How long to wait for a page to stop animating, in 300 ms steps |
+| `settleRounds` | `20` | How long to wait for a page to stop animating, in 220 ms steps. Finite animations are fast-forwarded in every step, so ones that start late are finished too |
+| `settleQuietMs` | `800` | How long a freshly loaded page must look unchanged, with no request open, before it is shot. Content that appears after a delay or an entrance animation lands in the picture; raise it for slower reveals |
+| `waitFor` | `{}` | Content no generic wait catches: `{ "^/login": "input[type=email]", "^/items": [".item-list", "footer"] }`. Keys are regexes on the URL path; each selector must be visible before the page is shot (up to `waitForTimeoutMs`, `10000`; a miss is logged and the page is shot anyway) |
+| `reducedMotion` | `true` | The browser asks the app for reduced motion. Set `false` if content in your app only becomes visible through an animation that reduced motion turns off |
 | `navTimeoutMs` | `45000` | Page load timeout |
 | `crawlLimit` | `80` | Pages visited when the adapter has no route list |
 

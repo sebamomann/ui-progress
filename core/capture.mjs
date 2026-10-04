@@ -44,27 +44,59 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
 
   // ---------- Page helpers ----------
 
-  /** Wait until the viewport renders identically twice in a row; finite animations are finished first. */
-  async function settle(page, rounds = c.settleRounds) {
-    await page
-      .evaluate(() => {
-        for (const animation of document.getAnimations()) {
-          try {
-            if (animation.effect?.getComputedTiming().iterations !== Infinity) animation.finish();
-          } catch {
-            // left to run
+  // Requests each page is still waiting for. A page whose data has not arrived looks still
+  // (a blank form, a skeleton) while it is about to change; streams never finish, so they do not count.
+  const inFlight = new WeakMap();
+  function trackRequests(page) {
+    if (inFlight.has(page)) return;
+    const open = new Set();
+    inFlight.set(page, open);
+    const done = (req) => open.delete(req);
+    page.on("request", (req) => { if (!["eventsource", "websocket"].includes(req.resourceType())) open.add(req); });
+    page.on("requestfinished", done);
+    page.on("requestfailed", done);
+    page.on("framenavigated", (frame) => { if (frame === page.mainFrame()) open.clear(); });
+  }
+
+  /**
+   * Wait until the viewport has rendered identically for `quietMs` with no request open.
+   * Finite animations are finished in every round, not only once: content that fades in after
+   * hydration, after a fetch, or after a delay starts its animation later than the first look.
+   */
+  async function settle(page, rounds = c.settleRounds, quietMs = 0) {
+    trackRequests(page);
+    const finishAnimations = () =>
+      page
+        .evaluate(() => {
+          for (const animation of document.getAnimations()) {
+            try {
+              if (animation.effect?.getComputedTiming().iterations !== Infinity) animation.finish();
+            } catch {
+              // left to run
+            }
           }
-        }
-      })
-      .catch(() => {});
+        })
+        .catch(() => {});
     let previous = null;
+    let stillSince = null;
     for (let i = 0; i < rounds; i++) {
+      await finishAnimations();
       const frame = await page.screenshot({ ...shotOptions, type: "jpeg", quality: 25 }).catch(() => null);
-      if (frame && previous && frame.equals(previous)) return;
+      const busy = (inFlight.get(page)?.size ?? 0) > 0;
+      if (frame && previous && frame.equals(previous) && !busy) {
+        stillSince ??= Date.now() - 220;
+        if (Date.now() - stillSince >= quietMs) return;
+      } else stillSince = null;
       previous = frame;
       await page.waitForTimeout(220);
     }
   }
+
+  /** The selectors `capture.waitFor` names for this path: shown before the page counts as loaded. */
+  const waitForOf = (url) =>
+    Object.entries(c.waitFor ?? {})
+      .filter(([pattern]) => new RegExp(pattern).test(url))
+      .flatMap(([, selectors]) => [selectors].flat());
 
   // ---------- Browser state ----------
 
@@ -132,7 +164,8 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
       status = response?.status() ?? null;
       await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
       await page.addStyleTag({ content: hideCss }).catch(() => {});
-      await settle(page);
+      for (const selector of waitForOf(url)) await page.waitForSelector(selector, { state: "visible", timeout: c.waitForTimeoutMs }).catch(() => log(`${url}: "${selector}" did not show within ${c.waitForTimeoutMs} ms`));
+      await settle(page, c.settleRounds, c.settleQuietMs);
     } catch (err) {
       failure = String(err.message ?? err).split("\n")[0];
     }
@@ -452,7 +485,7 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
   const crawling = !routes;
 
   const browser = await chromium.launch();
-  const contextFor = (scheme, storageState) => browser.newContext({ viewport: { width: viewports[primaryName].width, height: viewports[primaryName].height }, locale: c.locale, colorScheme: scheme, reducedMotion: "reduce", storageState });
+  const contextFor = (scheme, storageState) => browser.newContext({ viewport: { width: viewports[primaryName].width, height: viewports[primaryName].height }, locale: c.locale, colorScheme: scheme, reducedMotion: c.reducedMotion ? "reduce" : "no-preference", storageState });
   const anonCtx = {}, userCtx = {};
   for (const scheme of schemes) { anonCtx[scheme] = await contextFor(scheme); userCtx[scheme] = await contextFor(scheme); }
 

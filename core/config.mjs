@@ -58,7 +58,16 @@ export const DEFAULTS = {
     locale: "en-US",
     colorScheme: "light",
     maxPageHeight: 9000,
+    // settleRounds: how many 220 ms looks a page gets to stop moving. settleQuietMs: how long
+    // a freshly loaded page must stay unchanged (with no request open) before it is shot, so
+    // content that appears after a delay or an entrance animation is in the picture.
+    // waitFor: { "<path regex>": "<selector>" | ["<selector>", ...] } shown before a page is
+    // shot, for content no generic wait catches. reducedMotion: ask the app for reduced motion.
     settleRounds: 20,
+    settleQuietMs: 800,
+    waitFor: {},
+    waitForTimeoutMs: 10000,
+    reducedMotion: true,
     navTimeoutMs: 45000,
     crawlLimit: 80,
     include: [],
