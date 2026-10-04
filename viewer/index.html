@@ -331,32 +331,77 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
 .chapter h2 { font-size: 16px; margin: 2px 0 6px; letter-spacing: -.01em; }
 .chapter p { margin: 0 0 10px; line-height: 1.55; }
 .chapter .refs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.snaps { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
-.snap { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; color: var(--text); display: flex; flex-direction: column; gap: 5px; }
-.snap:hover { border-color: var(--accent); text-decoration: none; }
-.snap b { font-size: 15px; }
-.snap .subj { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.snap .counts { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 2px; }
+.faint { color: var(--faint); }
+.h2big { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+.small { font-size: 12px; }
+.shotbtn { position: relative; display: block; width: 100%; aspect-ratio: 16 / 10; padding: 0; border: 0; border-radius: 6px; overflow: hidden; background: var(--raised); cursor: zoom-in; box-shadow: 0 0 0 1px var(--line-strong); line-height: 0; }
+.shotbtn.tall { aspect-ratio: 9 / 16; }
+.shotbtn img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.shotbtn:hover { box-shadow: 0 0 0 2px var(--accent); }
+.shotbtn.new { box-shadow: 0 -2px 0 var(--new), 0 0 0 1px var(--line-strong); }
+.shotbtn.major { box-shadow: 0 -2px 0 var(--major), 0 0 0 1px var(--line-strong); }
+.shotbtn.minor { box-shadow: 0 -2px 0 var(--minor), 0 0 0 1px var(--line-strong); }
+.shotbtn.gone { box-shadow: 0 -2px 0 var(--gone), 0 0 0 1px var(--line-strong); opacity: .7; }
+.shotbtn.none { cursor: default; border: 1px dashed var(--line-strong); box-shadow: none; background: none; }
+/* Snapshot list: a commit log, newest first. */
+.log { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; }
+.logyear { font-size: 13px; font-weight: 500; color: var(--faint); margin: 20px 0 4px 12px; }
+.logrow, .quiet summary { display: grid; grid-template-columns: 96px 24px minmax(0, 1fr) minmax(0, 380px); gap: 16px; align-items: start; padding: 14px 12px; border-radius: 12px; color: var(--text); }
+.logrow:hover { background: var(--surface); text-decoration: none; }
+.logrow .when { display: flex; flex-direction: column; line-height: 1.3; }
+.logrow .when b { font-size: 17px; font-weight: 600; }
+.logrow .when .mono { color: var(--faint); font-size: 11.5px; }
+.rail { position: relative; align-self: stretch; display: flex; justify-content: center; }
+.rail::before { content: ""; position: absolute; top: -14px; bottom: -14px; width: 2px; background: var(--line); }
+.rail .knot { position: relative; margin-top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent); }
+.logrow .what { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.logrow .subj { font-size: 15px; font-weight: 500; }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
+.fact { display: inline-flex; align-items: center; gap: 6px; }
+.logrow .thumbs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.quiet summary { padding-top: 4px; padding-bottom: 4px; cursor: pointer; list-style: none; font-size: 13px; color: var(--faint); align-items: center; }
+.quiet summary::-webkit-details-marker { display: none; }
+.quiet summary:hover { color: var(--text); }
+.quiet .rail i { position: relative; width: 6px; height: 6px; border-radius: 50%; background: var(--line-strong); margin-top: 0; align-self: center; }
+.quietlist { display: flex; flex-direction: column; gap: 2px; padding: 0 12px 8px 152px; font-size: 13px; }
+.quietlist a { color: var(--muted); }
+/* One snapshot: what changed, then everything else. */
+.report { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; padding: 20px 24px 48px; }
+.timestrip { display: flex; align-items: flex-end; gap: 2px; height: 36px; }
+.timestrip a { flex: 1; max-width: 22px; height: 100%; display: flex; align-items: flex-end; justify-content: center; border-radius: 4px; padding: 0 2px; }
+.timestrip a:hover, .timestrip a.on { background: var(--raised); }
+.timestrip a.on { box-shadow: inset 0 -2px 0 var(--accent); }
+.timestrip i { display: block; width: 100%; border-radius: 2px 2px 0 0; background: var(--line-strong); }
+.timestrip i.new, .timestrip i.base { background: var(--new); }
+.timestrip i.major { background: var(--major); }
+.timestrip i.minor { background: var(--minor); opacity: .75; }
+.timestrip i.gone { background: var(--gone); }
+.lede { margin: -16px 0 0; font-size: 16px; color: var(--muted); max-width: 80ch; }
+.lede b { color: var(--text); font-weight: 500; }
+.rgroup h2, .resthead h2 { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 600; margin: 0 0 14px; }
+.rgroup .cnt, .resthead .cnt, .restgroup .cnt { color: var(--faint); font-size: 13px; font-weight: 400; }
+.rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
+.rgrid.small { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; }
+.rgrid.narrow { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.rcard { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.rcard.wide { grid-column: span 2; }
+.rcard .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.rcard .route { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+.rcard .route > span { direction: ltr; unicode-bidi: isolate; }
+.rcard .small { margin-top: -6px; }
+.rest { display: flex; flex-direction: column; gap: 20px; }
+.resthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-radius: 12px; background: var(--surface); }
+.resthead h2 { margin: 0; font-size: 15px; }
+.restgroup h3 { font-size: 14px; font-weight: 600; margin: 0 0 12px; text-transform: capitalize; }
+@media (max-width: 900px) {
+  .logrow { grid-template-columns: 72px 16px minmax(0, 1fr); }
+  .logrow .thumbs { grid-column: 3; }
+  .quiet summary { grid-template-columns: 72px 16px minmax(0, 1fr); }
+  .quietlist { padding-left: 12px; }
+  .rcard.wide { grid-column: auto; }
+}
 .summary { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; }
 .summary ul { margin: 6px 0 0; padding-left: 16px; line-height: 1.7; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
-.cards.narrow { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-.card .thumb { width: 100%; aspect-ratio: 16 / 10; }
-.cards.narrow .card .thumb { aspect-ratio: 15 / 26; }
-.listhead { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; margin: 8px 0 4px; }
-.h2big { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
-.seg .cnt, .jump .cnt, .cardgroup .cnt { color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
-.seg button[aria-pressed="true"] .cnt { color: inherit; opacity: .75; }
-.listhead .seg button { text-transform: none; gap: 5px; }
-.jump { display: flex; flex-wrap: wrap; gap: 4px; flex-basis: 100%; }
-.jump a { font-size: 12px; color: var(--muted); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
-.jump a:hover { color: var(--accent); border-color: var(--accent); text-decoration: none; }
-.cardgroup { margin-top: 18px; scroll-margin-top: 12px; }
-.cardgroup h3 { font-size: 13px; font-weight: 650; margin: 0 0 8px; text-transform: capitalize; display: flex; align-items: baseline; gap: 6px; }
-.cardmeta { color: var(--faint); font-size: 11px; margin-top: -4px; }
-.card .route { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; color: var(--text); }
-.card .route > span { direction: ltr; unicode-bidi: isolate; }
 
 /* ---------- Runs ---------- */
 .runs { display: flex; flex-direction: column; gap: 20px; }
@@ -1286,71 +1331,117 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
       removed: i ? H.pages.filter((p) => exists(p, i - 1) && !exists(p, i)) : [],
       folded: i ? here.filter((p) => p.presence[snaps[i].id].redirect && !p.presence[snaps[i - 1].id]?.redirect) : [],
       redesigned: here.filter((p) => status(p, i).kind === "major"),
+      tweaked: here.filter((p) => status(p, i).kind === "minor"),
     };
   }
+  const changedIn = (d) => d.added.length + d.redesigned.length + d.tweaked.length + d.removed.length + d.folded.length;
+  /** "2 new · 1 redesigned", each with its change dot; empty when nothing visible changed. */
+  const factsHtml = (d) => [[d.added, "new", "new"], [d.redesigned, "major", "redesigned"], [d.tweaked, "minor", "tweaked"], [d.removed, "gone", "removed"], [d.folded, "", "folded into another page"]]
+    .filter(([list]) => list.length).map(([list, cls, word]) => `<span class="fact"><span class="cdot ${cls}"></span>${list.length} ${word}</span>`).join("");
+  const dayMonth = (date) => new Date(date + "T00:00:00Z").toLocaleString("en", { day: "numeric", month: "short", timeZone: "UTC" });
+  /** A screenshot that opens the lightbox; the top edge carries the change colour. */
+  function shotButton(page, i, kind, size = "card") {
+    const view = mainView(page), im = img(view?.shots[snaps[i].id]);
+    if (!im) return el('<span class="shotbtn none"></span>');
+    const b = el(`<button class="shotbtn ${kind ?? ""} ${narrow() ? "tall" : ""}" title="${esc(page.id)} on ${esc(snaps[i].date)}"><img loading="lazy" src="${esc(im[size] ?? im.card)}" alt=""></button>`);
+    b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); openLightbox(seriesFor(page.id, view), i); });
+    return b;
+  }
+  /** The last earlier snapshot in which this page was captured. */
+  const before = (page, i) => { for (let j = i - 1; j >= 0; j--) if (img(mainView(page)?.shots[snaps[j].id])) return j; return null; };
+
   function renderSnapshots() {
-    header("Snapshots", `${plural(snaps.length, "snapshot")} of ${H.project.commits} commits`, [], "<p>Each snapshot is one commit that was built, seeded and screenshotted. Open one to see the whole site as it was then, and what changed since the snapshot before.</p>");
-    const pad = el('<div class="pad"><div class="snaps"></div></div>');
-    snaps.forEach((s, i) => {
-      const d = delta(i);
-      pad.querySelector(".snaps").append(el(`<a class="snap" href="#/snapshot/${s.id}"><b>${esc(s.date)} <span class="mono muted" style="font-size:12px;font-weight:400">${esc(s.id)}</span></b><span class="subj" title="${esc(s.subject)}">${esc(s.subject)}</span>
-        <span class="counts"><span class="pill same">${s.pages} pages</span><span class="pill same">${plural(s.views, "view")}</span>${d.added.length ? `<span class="pill new">+${d.added.length} new</span>` : ""}${d.redesigned.length ? `<span class="pill major">${d.redesigned.length} redesigned</span>` : ""}${d.removed.length ? `<span class="pill gone">−${d.removed.length}</span>` : ""}${d.folded.length ? `<span class="pill link">${d.folded.length} folded</span>` : ""}</span></a>`));
-    });
+    header("Snapshots", `${plural(snaps.length, "snapshot")} of ${H.project.commits} commits · newest first`, [], "<p>Each snapshot is one commit that was built, seeded and screenshotted. The small pictures are the pages that changed in it. Open one to see what changed since the snapshot before, and the whole site as it was then.</p>");
+    const pad = el('<div class="pad"><div class="log"></div></div>');
+    const log = pad.querySelector(".log");
+    let year = null, quiet = [];
+    const flushQuiet = () => {
+      if (!quiet.length) return;
+      const [a, b] = [quiet[quiet.length - 1], quiet[0]];
+      const range = a === b ? dayMonth(snaps[a].date) : `${dayMonth(snaps[a].date)} – ${dayMonth(snaps[b].date)}`;
+      const row = el(`<details class="quiet"><summary><span></span><span class="rail"><i></i></span><span>${plural(quiet.length, "snapshot")} with no visible change · ${esc(range)}</span></summary><div class="quietlist"></div></details>`);
+      for (const k of quiet) row.querySelector(".quietlist").append(el(`<a href="#/snapshot/${snaps[k].id}"><span class="faint">${esc(dayMonth(snaps[k].date))}</span> ${esc(snaps[k].subject)}</a>`));
+      log.append(row);
+      quiet = [];
+    };
+    for (let i = snaps.length - 1; i >= 0; i--) {
+      const s = snaps[i], d = delta(i);
+      const y = s.date.slice(0, 4);
+      if (y !== year) { flushQuiet(); year = y; log.append(el(`<h2 class="logyear">${esc(y)}</h2>`)); }
+      if (i > 0 && !changedIn(d)) { quiet.push(i); continue; }
+      flushQuiet();
+      const row = el(`<a class="logrow" href="#/snapshot/${s.id}"><span class="when"><b>${esc(dayMonth(s.date))}</b><span class="mono">${esc(s.id)}</span></span><span class="rail"><i class="knot"></i></span>
+        <span class="what"><span class="subj">${esc(s.subject)}</span><span class="facts">${i === 0 ? '<span class="fact">The first snapshot</span>' : factsHtml(d)}<span class="fact faint">${plural(s.pages, "page")}</span></span></span><span class="thumbs"></span></a>`);
+      const changed = i === 0 ? d.here.slice(0, 4).map((p) => [p, null]) : [...d.added.map((p) => [p, "new"]), ...d.redesigned.map((p) => [p, "major"]), ...d.tweaked.map((p) => [p, "minor"])].slice(0, 4);
+      for (const [p, kind] of changed) row.querySelector(".thumbs").append(shotButton(p, i, kind));
+      log.append(row);
+    }
+    flushQuiet();
     content.replaceChildren(pad);
   }
+
+  /** Every snapshot as a small bar, as tall as what changed in it; the open one is marked. */
+  function timeStrip(current) {
+    const counts = snaps.map((_, i) => (i ? changedIn(delta(i)) : 0));
+    const top = Math.max(1, ...counts);
+    const strip = el('<nav class="timestrip" aria-label="All snapshots"></nav>');
+    snaps.forEach((s, i) => {
+      const d = i ? delta(i) : null;
+      const kind = !d ? "base" : d.redesigned.length ? "major" : d.added.length ? "new" : d.removed.length || d.folded.length ? "gone" : d.tweaked.length ? "minor" : "none";
+      strip.append(el(`<a href="#/snapshot/${s.id}" class="${i === current ? "on" : ""}" title="${esc(s.date)} · ${esc(s.subject)}${d ? ` · ${plural(counts[i], "change")}` : ""}" ${i === current ? 'aria-current="true"' : ""}><i class="${kind}" style="height:${Math.round(4 + (counts[i] / top) * 24)}px"></i></a>`));
+    });
+    return strip;
+  }
+
   function renderSnapshot(id) {
     const i = snapIndex[id];
     if (i == null) { header("Unknown snapshot"); content.innerHTML = '<div class="empty">Unknown snapshot.</div>'; return; }
     const s = snaps[i], d = delta(i);
-    const prev = i > 0 ? el(`<a class="btn" href="#/snapshot/${snaps[i - 1].id}" title="${esc(snaps[i - 1].date)}">← older</a>`) : null;
-    const next = i < snaps.length - 1 ? el(`<a class="btn" href="#/snapshot/${snaps[i + 1].id}" title="${esc(snaps[i + 1].date)}">newer →</a>`) : null;
-    header(`${s.date} · ${s.id}`, `<a href="#/snapshots">Snapshots</a> › ${esc(s.subject)} · ${s.pages} pages, ${s.captured} captured, ${plural(s.views, "view")}`, [prev, next].filter(Boolean),
-      "<p>Every page as it looked at this commit. The lists at the top say what changed since the previous snapshot.</p>");
-    const pad = el('<div class="pad"></div>');
+    const prev = i > 0 ? el(`<a class="btn" href="#/snapshot/${snaps[i - 1].id}" title="${esc(snaps[i - 1].subject)} (←)">← ${esc(dayMonth(snaps[i - 1].date))}</a>`) : null;
+    const next = i < snaps.length - 1 ? el(`<a class="btn" href="#/snapshot/${snaps[i + 1].id}" title="${esc(snaps[i + 1].subject)} (→)">${esc(dayMonth(snaps[i + 1].date))} →</a>`) : null;
+    header(s.subject, `<a href="#/snapshots">Snapshots</a> › ${esc(s.date)} · <span class="mono">${esc(s.id)}</span>`, [prev, next].filter(Boolean),
+      "<p>What changed in this commit since the snapshot before, then every other page as it looked at that point. The bars at the top are all snapshots; ← and → step through them.</p>");
+    const pad = el('<div class="pad report"></div>');
+    pad.append(timeStrip(i));
+    const same = d.here.filter((p) => ["same", "base"].includes(status(p, i).kind));
+    const parts = [[d.added, "added"], [d.redesigned, "redesigned"], [d.tweaked, "tweaked"], [d.removed, "removed"], [d.folded, "folded into another page"]].filter(([l]) => l.length).map(([l, w]) => `${plural(l.length, "page")} ${w}`);
+    pad.append(el(`<p class="lede">${i === 0 ? `The first snapshot: ${plural(d.here.length, "page")}.` : parts.length ? `Since ${esc(dayMonth(snaps[i - 1].date))}: <b>${esc(parts.join(", "))}.</b> ${plural(same.length, "page")} look the same.` : `Nothing visible changed since ${esc(dayMonth(snaps[i - 1].date))}.`}</p>`));
+
+    const group = (kind, title, pages, body) => {
+      if (!pages.length) return;
+      const sec = el(`<section class="rgroup"><h2><span class="cdot ${kind}"></span>${title}<span class="cnt">${pages.length}</span></h2><div class="rgrid ${narrow() ? "narrow" : ""}"></div></section>`);
+      for (const p of pages.sort((a, b) => a.id.localeCompare(b.id))) sec.querySelector(".rgrid").append(body(p));
+      pad.append(sec);
+    };
+    const caption = (p, extra = "") => `<a class="route" href="${pageHref(p.id)}" title="${esc(p.id)}">${routeHtml(p.id)}</a>${extra ? `<span class="faint small">${extra}</span>` : ""}`;
+    const origin = (p) => { const e = H.edges.find((x) => x.to === p.id && ["split", "clone", "branch"].includes(x.type) && x.date && x.date <= s.date); return e ? `${({ split: "Split off from", clone: "Built from a copy of", branch: "Added under" })[e.type]} ${esc(e.from)}` : ""; };
+    const one = (p, kind, extra) => { const c = el(`<div class="rcard">${caption(p, extra)}</div>`); c.prepend(shotButton(p, i, kind)); return c; };
     if (i > 0) {
-      const link = (p) => `<a class="mono" href="${pageHref(p.id)}">${esc(p.id)}</a>`;
-      const list = (title, cls, items, fmt = link) => items.length ? `<div><span class="pill ${cls}">${title} · ${items.length}</span><ul>${items.map((p) => `<li>${fmt(p)}</li>`).join("")}</ul></div>` : "";
-      const html = list("Added", "new", d.added) + list("Redesigned", "major", d.redesigned) + list("Removed", "gone", d.removed) + list("Folded", "link", d.folded, (p) => `${link(p)} → <span class="mono">${esc(p.presence[s.id].redirect)}</span>`);
-      pad.append(el(`<div class="h2">Since ${esc(snaps[i - 1].date)}</div>`));
-      pad.append(el(`<div class="summary">${html || '<span class="muted">No pages added, removed or redesigned.</span>'}</div>`));
+      group("new", "Added", d.added, (p) => one(p, "new", origin(p)));
+      group("major", "Redesigned", d.redesigned, (p) => {
+        const j = before(p, i), diff = status(p, i).diff;
+        const c = el(`<div class="rcard wide"><div class="pair"></div>${caption(p, `before ${j != null ? esc(dayMonth(snaps[j].date)) : ""} · after${diff != null ? ` · ${Math.round(diff * 100)} % changed` : ""}`)}</div>`);
+        c.querySelector(".pair").append(j != null ? shotButton(p, j, null) : el('<span class="shotbtn none"></span>'), shotButton(p, i, "major"));
+        return c;
+      });
+      group("minor", "Tweaked", d.tweaked, (p) => { const diff = status(p, i).diff; return one(p, "minor", diff != null ? `${Math.round(diff * 100)} % changed` : ""); });
+      group("gone", "Removed", d.removed, (p) => { const j = before(p, i); const c = el(`<div class="rcard">${caption(p, "last seen " + (j != null ? esc(dayMonth(snaps[j].date)) : ""))}</div>`); c.prepend(j != null ? shotButton(p, j, "gone") : el('<span class="shotbtn none"></span>')); return c; });
+      group("", "Folded into another page", d.folded, (p) => { const c = el(`<div class="rcard">${caption(p, `now redirects to ${esc(p.presence[s.id].redirect)}`)}</div>`); const j = before(p, i); c.prepend(j != null ? shotButton(p, j, null) : el('<span class="shotbtn none"></span>')); return c; });
     }
-    // All pages, by section and route, narrowed by what happened to them in this snapshot.
-    const shown = d.here.filter(matches).map((page) => ({ page, st: status(page, i) })).filter(({ st }) => st.shot && img(st.shot));
-    const FILTERS = [["all", "All", () => true], ["changed", "Changed", (k) => ["new", "major", "minor"].includes(k)], ["new", "New", (k) => k === "new"], ["major", "Redesigned", (k) => k === "major"], ["minor", "Tweaked", (k) => k === "minor"], ["same", "Unchanged", (k) => k === "same" || k === "base"]];
-    const active = FILTERS.find(([k]) => k === state.snapFilter) ?? FILTERS[0];
-    const allHead = el('<div class="listhead"><h2 class="h2big">All pages</h2><div class="seg" role="group" aria-label="Show"></div><div class="jump"></div></div>');
-    for (const [k, text, test] of FILTERS) {
-      const n = shown.filter(({ st }) => test(st.kind)).length;
-      if (!n && k !== "all") continue;
-      const b = el(`<button aria-pressed="${active[0] === k}">${text} <span class="cnt">${n}</span></button>`);
-      b.addEventListener("click", () => { state.snapFilter = k; render(); });
-      allHead.querySelector(".seg").append(b);
-    }
-    pad.append(allHead);
+
+    // Everything else, folded away by default: by section, narrowed by search and the page filter.
+    const rest = (i === 0 ? d.here : same).filter(matches).filter((p) => img(mainView(p)?.shots[s.id]));
     const bySection = new Map();
-    for (const item of shown.filter(({ st }) => active[2](st.kind))) (bySection.get(item.page.section) ?? bySection.set(item.page.section, []).get(item.page.section)).push(item);
-    if (!bySection.size) pad.append(el('<div class="empty">No page matches this filter.</div>'));
-    const jump = allHead.querySelector(".jump");
-    // A section of one or two pages is not worth a heading of its own: those share one group.
-    const groups = [...bySection].filter(([, items]) => items.length >= 3).sort((a, b) => a[0].localeCompare(b[0]));
-    const rest = [...bySection].filter(([, items]) => items.length < 3).flatMap(([, items]) => items);
-    if (rest.length) groups.push([groups.length ? "Other pages" : "Pages", rest]);
-    for (const [section, items] of groups) {
-      const anchor = "sec-" + section.replace(/[^a-z0-9]+/gi, "-");
-      const jl = el(`<a href="#">${esc(section)} <span class="cnt">${items.length}</span></a>`);
-      jl.addEventListener("click", (e) => { e.preventDefault(); document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth", block: "start" }); });
-      jump.append(jl);
-      const group = el(`<section class="cardgroup" id="${anchor}"><h3>${esc(section)} <span class="cnt">${items.length}</span></h3><div class="cards ${narrow() ? "narrow" : ""}"></div></section>`);
-      for (const { page, st } of items.sort((a, b) => a.page.id.localeCompare(b.page.id))) {
-        const card = el(`<div class="card"><a class="route" href="${pageHref(page.id)}" title="${esc(page.id)}">${routeHtml(page.id)}</a></div>`);
-        const views = extraViews(page).filter((v) => v.shots[s.id]).length;
-        if (views) card.append(el(`<span class="cardmeta">${plural(views, "view")}</span>`));
-        const t = thumb(img(st.shot), seriesFor(page.id, mainView(page)), i, st.kind === "base" ? null : st);
-        t.style.cssText = ""; t.classList.remove("same"); card.prepend(t);
-        group.querySelector(".cards").append(card);
-      }
-      pad.append(group);
+    for (const p of rest) (bySection.get(p.section) ?? bySection.set(p.section, []).get(p.section)).push(p);
+    const open = i === 0 || state.snapAll;
+    const box = el(`<section class="rest"><div class="resthead"><h2><span class="cdot"></span>${i === 0 ? "All pages" : "Unchanged"}<span class="cnt">${plural(rest.length, "page")} in ${plural(bySection.size, "section")}</span></h2>${i === 0 ? "" : `<button class="btn">${open ? "Hide" : "Show all"}</button>`}</div></section>`);
+    box.querySelector("button")?.addEventListener("click", () => { state.snapAll = !state.snapAll; render(); });
+    if (open) for (const [section, pages] of [...bySection].sort((a, b) => a[0].localeCompare(b[0]))) {
+      const g = el(`<div class="restgroup"><h3>${esc(section)} <span class="cnt">${pages.length}</span></h3><div class="rgrid small ${narrow() ? "narrow" : ""}"></div></div>`);
+      for (const p of pages.sort((a, b) => a.id.localeCompare(b.id))) g.querySelector(".rgrid").append(one(p, null));
+      box.append(g);
     }
+    pad.append(box);
     content.replaceChildren(pad);
   }
 
@@ -1555,6 +1646,11 @@ a.head:hover { background: var(--accent-soft); text-decoration: none; }
   content.addEventListener("click", () => document.body.classList.remove("side-open"));
   document.addEventListener("keydown", (e) => {
     if (e.key === "/" && !/input|select|textarea/i.test(document.activeElement?.tagName ?? "")) { e.preventDefault(); document.getElementById("search").focus(); }
+    // On a snapshot, the arrow keys step to the one before or after.
+    if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && !e.metaKey && !e.ctrlKey && !e.altKey && location.hash.startsWith("#/snapshot/") && !/input|select|textarea/i.test(document.activeElement?.tagName ?? "")) {
+      const at = snapIndex[location.hash.slice(11)], to = at == null ? null : snaps[at + (e.key === "ArrowLeft" ? -1 : 1)];
+      if (to) { e.preventDefault(); location.hash = "#/snapshot/" + to.id; }
+    }
   });
   window.addEventListener("hashchange", render);
   let resizeTimer; window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
