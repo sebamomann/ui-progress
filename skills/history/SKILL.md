@@ -27,6 +27,7 @@ example in `${CLAUDE_PLUGIN_ROOT}/examples/nextjs-prisma-postgres/`.
 | To record what they just changed | [Capture the current state](#capture-the-current-state) |
 | To know what split, merged or was renamed | [Lineage](#lineage) |
 | To look at it | `ui-progress view` |
+| Captures to run faster or show the same thing every time | [Make the app quick to capture](#make-the-app-quick-to-capture) |
 | Something in the tool is broken or missing | [Findings](#findings) |
 
 ## Set up
@@ -205,7 +206,8 @@ That needs `routeOfFile` in the adapter and an import graph the resolver can fol
 with relative or tsconfig-alias imports). A change in `globalPaths` (package.json, config
 files, global CSS, public assets) recaptures everything; translation JSON files only affect
 the pages that use a changed namespace and name one of its changed keys. Mention the measured time per snapshot from the
-three test commits when you quote a duration.
+three test commits when you quote a duration. Changes to the app itself can make every
+later capture quicker and steadier: see [Make the app quick to capture](#make-the-app-quick-to-capture).
 
 ### Recording what the agent work cost
 
@@ -254,6 +256,61 @@ commit of the task is made, one snapshot of HEAD covers the whole batch.
 5. If a filter, mode or other URL-driven state was added, add it to `screens.json`. If the
    change is worth a sentence in the Story, append a chapter to `changelog.json`.
 6. `ui-progress build`.
+
+## Make the app quick to capture
+
+Optional, and only with the user's agreement: the changes are to their app, not to
+ui-progress. Offer it once the first test commits ran (or when the user asks why captures
+are slow or why a page differs between snapshots), as a short list of findings with the
+pages each one affects. A change helps every commit captured after it; commits already in
+the history keep their code, so for them the adapter can patch the throwaway checkout
+instead, and only to make a page show what users see (as for content hidden under reduced
+motion).
+
+Where the time goes: for every page and every state, ui-progress waits until two
+screenshots 220 ms apart are identical with no request open, and a freshly loaded page must
+then stay unchanged for `settleQuietMs` (800 ms). It asks for reduced motion and finishes
+finite animations, so a page that is quiet costs only that minimum; a page that keeps
+changing, loads late or never stops requesting costs more, and a click that cannot find its
+control, or a dialog that Escape does not close, costs a reload. Look at the evidence
+first:
+
+- `lateContent` in `snapshots/<sha>/shots/manifest.json` (and the `late content on …`
+  line in run.log): pages whose content changed after they had looked still, and how long
+  after. These are the only pages the quiet window is there for. When none shows content
+  later than about half of `settleQuietMs` across several snapshots, the user may lower
+  `settleQuietMs`; never below the latest measured value plus 220 ms.
+- `suspects` in snapshot.json: blank pages, error overlays, broken images.
+- The viewer: states that move between pages from one snapshot to the next, or show the
+  wrong thing for their label.
+
+What to change, each in a small commit of its own that follows the project's conventions:
+
+1. **Reduced motion ends in the final state.** Under `prefers-reduced-motion: reduce`,
+   entrance animations show their end state instead of stopping at `opacity: 0` (a card
+   that never fades in is captured blank), and carousels, tickers and rotating hints stop.
+2. **Nothing appears on a timer.** Content shown some time after load (a hint after a
+   delay, a banner that slides in) is what `lateContent` lists. Show it at once, at least
+   under reduced motion.
+3. **Data arrives with the page.** Render data with the page or request it right away. A
+   page that polls, or keeps a request open (other than EventSource or WebSocket), never
+   counts as still until the settle rounds run out.
+4. **Stable hooks on controls.** Give buttons that open dialogs, menus and tabs a test id
+   (`data-testid`), an `id`, `aria-controls` or `name`. The same state is then matched
+   across snapshots, and after a reload the click finds the same control; a control known
+   only by its place in the page is skipped when the page around it changed.
+5. **Overlays say what they are.** `role="dialog"` or `aria-modal="true"`, `role="menu"` or
+   `listbox`, `aria-haspopup` / `aria-expanded` on openers, `role="tab"` with
+   `aria-selected`: recognised directly and tried first, with fewer wasted clicks.
+6. **Escape closes every dialog and menu.** Otherwise the page is loaded again after each one.
+7. **Actions are recognisable.** The click-through never clicks a control whose label
+   matches `capture.unsafe`. Add the app's own words for actions that change data (in every
+   language it ships) to `capture.unsafe` in `.ui-progress/config.json`, so that watering,
+   liking, switching the language or acting as another user does not change what pages
+   captured later in the same snapshot show.
+
+Do not change what users see beyond this, add code paths only for ui-progress, or turn
+animations off for everyone.
 
 ## Lineage
 
