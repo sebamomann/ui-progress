@@ -13,7 +13,7 @@ import { addFinding } from "./findings.mjs";
 import { unbuildableEntry } from "./unbuildable.mjs";
 import { assertIsolated, neutraliseCheckout, protectedDatabases, rewriteDatabaseUrls } from "./isolation.mjs";
 import { hasDep, requireDep } from "./deps.mjs";
-import { appendRun, machine, setupFingerprint, shotCount } from "./stats.mjs";
+import { appendRun, machine, setupDifference, setupFingerprint, setupOf, shotCount } from "./stats.mjs";
 import * as routes from "./routes.mjs";
 import { background, freePort, git, readJson, sh, tail, waitForHttp, writeJson } from "./util.mjs";
 
@@ -49,7 +49,7 @@ export const snapshotId = (p, sha) => git(p.repo, "rev-parse", "--short=8", sha)
  * evidence and for `relinkAfter`. `why` gets the reason when everything is recaptured, for
  * runs.jsonl.
  */
-export function planReuse(p, config, adapter, ctx, full, near, why = {}) {
+export function planReuse(p, config, adapter, ctx, full, near, why = {}, setup = null) {
   const none = (fields) => (Object.assign(why, fields), null);
   if (!adapter.routeOfFile) return none({ reason: "no routeOfFile in the adapter" });
   const files = routes.pageFiles(ctx.dir, adapter.routeOfFile, config.lineage.pagePaths);
@@ -66,7 +66,11 @@ export function planReuse(p, config, adapter, ctx, full, near, why = {}) {
   const from = [];
   let first = null, usable = false;
   for (const { other, word, check } of sides) {
-    const result = JSON.stringify(other.manifest.viewports) !== JSON.stringify(config.capture.viewports) ? { reason: "viewports changed" } : check();
+    // A neighbour made with another adapter, seed, screens or capture settings shows its
+    // pages as that setup rendered them, whatever the page's source says.
+    const differs = setupDifference(setupOf(p, other.short), setup);
+    const result = JSON.stringify(other.manifest.viewports) !== JSON.stringify(config.capture.viewports) ? { reason: "viewports changed" } : differs ? { reason: differs } : check();
+    if (differs) ctx.log(`incremental: ${other.short} was made differently (${differs}); no page is taken over from it`);
     first ??= { ...result, from: other.short };
     if (!result.routes) {
       if (result.file) ctx.log(`incremental: ${result.file} changed ${word} ${other.short}, no page is taken over from it`);
@@ -162,7 +166,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
   const timings = {};
   const recapture = {};
   const startedAt = new Date().toISOString();
-  const setup = setupFingerprint(p);
+  const setup = setupFingerprint(p, config);
   /** One line in runs.jsonl per attempt, failed or not. */
   const record = (fields) => {
     try {
@@ -216,7 +220,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       if (server?.exited()) throw new Error(`the app exited right after start, and something else answered on port ${port}; see server.log`);
     });
     const near = neighbours(p, full);
-    const reuse = planReuse(p, config, adapter, ctx, full, near, recapture);
+    const reuse = planReuse(p, config, adapter, ctx, full, near, recapture, setup);
     const screens = readJson(path.join(p.root, "screens.json"), []);
     const manifest = await timed("capture", () => capture({ baseUrl, outDir: path.join(out, "shots"), config, adapter, ctx, screens, reuse, log }));
     // A snapshot of error pages is not a snapshot.
@@ -262,6 +266,7 @@ export async function runSnapshot(p, config, adapter, sha, { port, force = false
       skipped: manifest.skipped,
       suspects: manifest.suspects,
       notes: ctx.state.notes ?? [],
+      setup,
     });
     fs.writeFileSync(path.join(out, "OK"), "");
     record({

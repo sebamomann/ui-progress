@@ -146,13 +146,42 @@ export function loadRuns(p) {
 
 const hashOf = (file) => (fs.existsSync(file) ? crypto.createHash("sha1").update(fs.readFileSync(file)).digest("hex").slice(0, 10) : null);
 
-/** The files that decide how a snapshot is made. A change between two attempts on one commit is a fix. */
-export function setupFingerprint(p) {
+/**
+ * The files that decide how a snapshot is made. A change between two attempts on one commit is
+ * a fix. With `config`, `render` hashes only the settings that change what a capture shows
+ * (capture settings other than reuse and tab count, and the sign-in), so reuse can refuse a
+ * neighbour made differently.
+ */
+export function setupFingerprint(p, config = null) {
   const adapterDir = path.join(p.root, "adapter");
   const parts = [p.adapter, ...(fs.existsSync(adapterDir) ? fs.readdirSync(adapterDir, { recursive: true }).map((f) => path.join(adapterDir, String(f))).filter((f) => fs.statSync(f).isFile()).sort() : [])];
   const adapter = crypto.createHash("sha1");
   for (const file of parts) if (fs.existsSync(file)) adapter.update(path.relative(p.root, file)).update(fs.readFileSync(file));
-  return { adapter: adapter.digest("hex").slice(0, 10), config: hashOf(p.config), screens: hashOf(p.screens) };
+  const out = { adapter: adapter.digest("hex").slice(0, 10), config: hashOf(p.config), screens: hashOf(p.screens) };
+  if (config) {
+    const { incremental, parallel, ...capture } = config.capture;
+    out.render = crypto.createHash("sha1").update(JSON.stringify({ capture, login: config.login })).digest("hex").slice(0, 10);
+  }
+  return out;
+}
+
+/** The setup snapshot `short` was made with: from its snapshot.json, else its last successful run. */
+export function setupOf(p, short) {
+  const info = readJson(path.join(p.snapshots, short, "snapshot.json"));
+  if (info?.setup) return info.setup;
+  return readRuns(p).filter((r) => r.kind === "snapshot" && r.ok && r.sha === short && r.setup).pop()?.setup ?? null;
+}
+
+/**
+ * Why two setups would capture a page differently, or null when they would not. A setup that
+ * was not recorded counts as different: a stale picture is worse than a slower run.
+ */
+export function setupDifference(a, b) {
+  if (!a || !b) return "its setup is not recorded";
+  if (a.adapter !== b.adapter) return "the adapter changed";
+  if (a.screens !== b.screens) return "screens.json changed";
+  if (a.render && b.render && a.render !== b.render) return "capture settings changed";
+  return null;
 }
 
 export function machine() {

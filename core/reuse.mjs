@@ -17,6 +17,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import * as routes from "./routes.mjs";
+import { setupDifference, setupOf } from "./stats.mjs";
 import { git, readJson, writeJson } from "./util.mjs";
 
 export const STORE = "_store";
@@ -313,7 +314,10 @@ const sameFiles = (a, b) => JSON.stringify(entryFiles(a)) === JSON.stringify(ent
 async function relink(p, config, earlier, later, remove, identical) {
   if (JSON.stringify(earlier.manifest.viewports) !== JSON.stringify(later.manifest.viewports)) return [];
   let unchanged;
+  // A reference follows only between snapshots made the same way (see setupDifference).
+  const sameSetup = !setupDifference(setupOf(p, earlier.short), setupOf(p, later.short));
   const sourceUnchanged = (route) => {
+    if (!sameSetup) return false;
     if (unchanged === undefined) {
       const deps = readJson(path.join(p.snapshots, later.short, "deps.json"));
       unchanged = deps ? unchangedRoutes(p, config, { deps, from: earlier.sha, to: later.sha, read: (file) => git(p.repo, "show", `${later.sha}:${file}`) }).routes ?? null : null;
