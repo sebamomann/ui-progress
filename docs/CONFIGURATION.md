@@ -145,7 +145,17 @@ The hooks come with the plugin and need no setup. For agents that do not load th
 | --- | --- | --- |
 | `redesign` | `0.3` | Share of the page (0–1) that must look different for a view to be labelled "redesign" |
 | `tweak` | `0.02` | Share from which it is labelled "tweak". Below this the view counts as unchanged and the viewer hides that snapshot for it |
+| `contentOnly` | `true` | A view whose pixels changed but whose style fingerprint did not counts as unchanged, marked "content changed" |
 
 The screenshot is cut into small blocks and the changed blocks are counted, so a different
 date or counter does not register while a moved layout does. Identical files are always
-unchanged. Different seed data between two snapshots still counts as change.
+unchanged.
+
+Pixels alone cannot tell a new changelog entry from a redesign: one more entry pushes
+everything below it down. So every shot also records a style fingerprint: the visible
+elements by tag, role and computed styles (type, colour, box, layout), with text, sizes,
+class names and image sources left out, and with siblings of the same shape counted once.
+When the fingerprint is the same, the change is content (new entries, other text, another
+record shown in the same template); when it differs, the viewer lists the element looks that
+were added or removed. Snapshots captured before 1.7.0 have no fingerprint and are judged by
+pixels alone until they are captured again.

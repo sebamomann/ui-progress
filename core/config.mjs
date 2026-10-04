@@ -89,7 +89,9 @@ export const DEFAULTS = {
   // (null = not asked yet).
   forward: { mode: "auto", instructionsFile: null },
   // Share of the page (in blocks) that must differ. Below "tweak" a view counts as unchanged.
-  thresholds: { redesign: 0.3, tweak: 0.02 },
+  // contentOnly: a view whose pixels changed but whose style fingerprint did not (new
+  // entries, other text, another record in the same template) counts as unchanged too.
+  thresholds: { redesign: 0.3, tweak: 0.02, contentOnly: true },
 };
 
 function merge(base, over) {

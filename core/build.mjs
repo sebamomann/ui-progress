@@ -157,6 +157,8 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
     await image.resize(resize).webp({ quality: 78 }).toFile(dest);
   }
   const { compare, difference } = imageComparer(sharp);
+  // What each style key of a fingerprint looks like, from every snapshot's manifest.
+  const styleNames = {};
 
   const snapshots = [];
   for (const short of fs.existsSync(p.snapshots) ? fs.readdirSync(p.snapshots) : []) {
@@ -214,8 +216,11 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
       }
       return out;
     };
-    const put = async (target, files, cardOnly) => {
-      target.shots[snap.id] = { images: await images(files, cardOnly), src: Object.fromEntries(Object.entries(files).map(([k, f]) => [k, shotPath(p, snap.id, f)])) };
+    // A shot's `design` (its style fingerprint per viewport, see capture.mjs) is kept until
+    // the comparison below, like `src`.
+    Object.assign(styleNames, snap.manifest.styles ?? {});
+    const put = async (target, { files, design }, cardOnly) => {
+      target.shots[snap.id] = { images: await images(files, cardOnly), src: Object.fromEntries(Object.entries(files).map(([k, f]) => [k, shotPath(p, snap.id, f)])), design: design ?? null };
     };
 
     const routesHere = snap.manifest.routes.map((r) => r.route);
@@ -230,11 +235,11 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
       const main = variants.user ?? variants.public;
       if (main) {
         record.presence[snap.id] = { auth: variants.user ? "user" : "public", url: entry.url };
-        await put(view(record, "page", "page", "Page"), main.files, false);
+        await put(view(record, "page", "page", "Page"), main, false);
         views++;
         if (variants.user && variants.public) {
           record.twoFaced = true;
-          await put(view(record, "signed-out", "signed-out", "Signed out"), variants.public.files, false);
+          await put(view(record, "signed-out", "signed-out", "Signed out"), variants.public, false);
           views++;
         }
         for (const variant of Object.values(variants)) {
@@ -252,7 +257,7 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
             }
             if (state.key && !byKey) record.views.set(`${state.kind}|k:${prefix}${state.key}`, v);
             v.label = label; // the latest wording wins
-            await put(v, state.files, state.kind !== "section");
+            await put(v, state, state.kind !== "section");
             views++;
           }
         }
@@ -314,6 +319,17 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
               const { diff, mask } = await compare(previous.src[viewport], shot.src[viewport]);
               shot.change[viewport] = Number(diff.toFixed(4));
               if (mask) shot.masks[viewport] = mask;
+              // Pixels moved but the page is built and styled as before: new entries, other
+              // text, another record in the same template. Counted as unchanged.
+              const [was, now] = [previous.design?.[viewport], shot.design?.[viewport]];
+              if (config.thresholds.contentOnly && was && now && diff >= config.thresholds.tweak) {
+                if (was.tree === now.tree) (shot.content ??= {})[viewport] = true;
+                else if (viewport === mainViewport && !shot.styles) {
+                  const before = new Set(was.styles), after = new Set(now.styles);
+                  const named = (keys) => [...new Set(keys.map((k) => styleNames[k]).filter(Boolean))].slice(0, 6);
+                  shot.styles = { added: named(now.styles.filter((k) => !before.has(k))), removed: named(was.styles.filter((k) => !after.has(k))) };
+                }
+              }
             }
           }
           if (v.id === "page") {
@@ -328,7 +344,7 @@ export async function build(p, config, adapter, { log = () => {} } = {}) {
         }
         previous = { ...shot, snap: snap.id };
       }
-      for (const shot of Object.values(v.shots)) delete shot.src;
+      for (const shot of Object.values(v.shots)) { delete shot.src; delete shot.design; }
     }
     if (record.twoFaced) record.views.get("page").label = "Signed in";
   }
