@@ -619,7 +619,17 @@ export async function capture({ baseUrl, outDir, config, adapter, ctx, screens =
 
   // ---------- Per-route work, spread over several tabs ----------
   const links = new Set();
+  // Controls already captured: those of pages taken over count too, so the site chrome
+  // they show is not clicked through again on a page rendered anew.
   const seenGlobal = new Set();
+  for (const route of reused) {
+    for (const variant of Object.values(results[route].variants ?? {})) {
+      for (const state of variant.states ?? []) {
+        if (state.depth > 1 || state.screen || !state.label) continue;
+        seenGlobal.add(state.chrome ? `chrome:${state.label.toLowerCase()}` : `${sectionOf(route)}:${state.label.toLowerCase()}`);
+      }
+    }
+  }
   let statesSpent = 0; // summed over tabs
   let statesBudgetLogged = false;
   const staticRoutes = routes.filter((r) => !isDynamic(r) && !results[r]);
